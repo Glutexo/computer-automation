@@ -103,7 +103,9 @@ ORDER BY id;
 ## Related module
 
 - GUI scripting and menu-level automation live in the separate `SafariUserInterface` module.
+- Direct AppleScript access lives in the separate `SafariAppleScript` module.
 - Its models are documented in `docs/safari-user-interface-models.md`.
+- AppleScript models are documented in `docs/safari-applescript-models.md`.
 - `SafariFileMenu` is the current specialized integration point used by the `SafariWindow` model.
 - `SafariMenu` is the general top-level menu abstraction in that module.
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.

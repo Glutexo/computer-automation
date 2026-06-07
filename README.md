@@ -5,7 +5,7 @@ Minimal Swift application for computer automation experiments.
 ## Overview
 
 - The repository is organized by top-level modules.
-- The current modules are `Safari` and `SafariUserInterface`.
+- The current modules are `Safari`, `SafariUserInterface`, and `SafariAppleScript`.
 - The current runnable slice covers Safari application lifecycle commands, profile listing, and browser window operations.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Module and command models expose metadata for CLI tab completion.
@@ -13,7 +13,7 @@ Minimal Swift application for computer automation experiments.
 ## Current app
 
 - Built with Swift Package Manager.
-- The executable currently depends on the `Safari` and `SafariUserInterface` modules.
+- The executable currently depends on the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.
 - The `Safari` module currently exposes application lifecycle commands.
 - Requires macOS with Safari installed.
 

@@ -10,9 +10,15 @@ flowchart TD
     ZshInstaller["zsh completion installer"]
     Safari["Safari module"]
     SafariUI["SafariUserInterface module"]
+    SafariScript["SafariAppleScript module"]
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    ScriptApplication["script application model"]
+    ScriptWindow["script window model"]
+    ScriptMenuBar["script menu bar model"]
+    ScriptMenu["script menu model"]
+    ScriptMenuItem["script menu item model"]
     SafariMenuBar["application-menu-bar model"]
     SafariMenu["menu model"]
     SafariFileMenu["file-menu model"]
@@ -34,12 +40,21 @@ flowchart TD
     ZshInstaller --> App
     App --> Safari
     App --> SafariUI
+    App --> SafariScript
     Safari --> Foundation
+    Safari --> SafariScript
     Safari --> SafariUI
     SafariUI --> Foundation
+    SafariUI --> SafariScript
+    SafariScript --> Foundation
     Safari --> SafariApplication
     Safari --> SafariProfile
     Safari --> SafariWindow
+    SafariScript --> ScriptApplication
+    SafariScript --> ScriptWindow
+    SafariScript --> ScriptMenuBar
+    SafariScript --> ScriptMenu
+    SafariScript --> ScriptMenuItem
     SafariUI --> SafariMenuBar
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
@@ -71,7 +86,8 @@ flowchart TD
 - Each command belongs to a model and owns its own implementation directory.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - UI automation must remain independent of the macOS and Safari language setting.
+- Direct AppleScript access should live in `SafariAppleScript`, not inside `Safari` or `SafariUserInterface`.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.
-- The current executable is a thin entry point over the `Safari` and `SafariUserInterface` modules.
+- The current executable is a thin entry point over the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.

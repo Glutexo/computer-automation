@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariAppleScript
 
 public enum SafariFileMenu: ModelModel {
     public static let descriptor = ModelDescriptor(
@@ -19,15 +20,7 @@ public enum SafariFileMenu: ModelModel {
             try clickNewWindowMenuItem(forProfileNamed: profileName, executor: executor)
             return
         }
-
-        let script = """
-        tell application "Safari"
-            activate
-            make new document
-        end tell
-        """
-
-        _ = try executor.execute(script: script)
+        try SafariAppleScriptWindow.openNewDocument(executor: executor)
     }
 
     public static func listItems(
@@ -48,19 +41,10 @@ public enum SafariFileMenu: ModelModel {
         guard let menuItem = menuItems.first(where: { $0.title.hasSuffix(profileName) }) else {
             throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
         }
-
-        let script = """
-        tell application "Safari" to activate
-        delay 0.1
-        tell application "System Events"
-            tell process "Safari"
-                tell menu 1 of menu bar item \(menuBarItemIndex) of menu bar 1
-                    click menu item \(menuItem.index)
-                end tell
-            end tell
-        end tell
-        """
-
-        _ = try executor.execute(script: script)
+        try SafariAppleScriptMenu.clickItem(
+            menuBarItemIndex: menuBarItemIndex,
+            menuItemIndex: menuItem.index,
+            executor: executor
+        )
     }
 }

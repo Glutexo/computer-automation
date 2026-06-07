@@ -3,6 +3,7 @@
 ## Overview
 
 - The `SafariUserInterface` module owns Safari GUI scripting and menu-level automation.
+- Direct AppleScript access is delegated to the separate `SafariAppleScript` module.
 - It currently exposes four models: `SafariApplicationMenuBar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
 - `SafariApplicationMenuBar` represents Safari's top-level application menu bar.
 - `SafariMenu` represents an arbitrary top-level Safari application menu addressed by structure.
@@ -52,6 +53,7 @@ flowchart TD
 ## Notes
 
 - `SafariUserInterface` is a separate module so GUI scripting does not mix with Safari domain models.
+- `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` through an explicit module boundary.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
@@ -68,6 +70,7 @@ flowchart TD
 - `file-menu-items` returns one line per File menu item in the form `index|title|commandCharacter|commandModifiers`.
 - `menu-item-children <menu-bar-item-index> <menu-item-index>` returns one line per child item in the form `index|title|commandCharacter|commandModifiers`.
 - `SafariMenu` owns the shared implementation for reading top-level menu items.
+- `SafariUserInterface` uses `SafariAppleScript` as its script transport and parsing layer.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.

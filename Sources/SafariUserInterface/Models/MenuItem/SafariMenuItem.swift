@@ -1,5 +1,6 @@
 import AppKit
 import AutomationFoundation
+import SafariAppleScript
 
 public struct SafariMenuItemRecord: Equatable {
     public let index: Int
@@ -18,6 +19,15 @@ public struct SafariMenuItemRecord: Equatable {
         self.commandCharacter = commandCharacter
         self.commandModifiers = commandModifiers
     }
+
+    init(_ record: SafariAppleScriptMenuItemRecord) {
+        self.init(
+            index: record.index,
+            title: record.title,
+            commandCharacter: record.commandCharacter,
+            commandModifiers: record.commandModifiers
+        )
+    }
 }
 
 public enum SafariMenuItem: ModelModel {
@@ -34,32 +44,12 @@ public enum SafariMenuItem: ModelModel {
         menuItemIndex: Int,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> [SafariMenuItemRecord] {
-        let script = """
-        tell application "Safari" to activate
-        delay 0.1
-        tell application "System Events"
-            tell process "Safari"
-                tell menu 1 of menu item \(menuItemIndex) of menu 1 of menu bar item \(menuBarItemIndex) of menu bar 1
-                    set outputItems to {}
-                    repeat with itemIndex from 1 to count of menu items
-                        set currentItem to menu item itemIndex
-                        set currentName to name of currentItem
-                        if currentName is missing value then set currentName to ""
-                        set currentChar to value of attribute "AXMenuItemCmdChar" of currentItem
-                        if currentChar is missing value then set currentChar to ""
-                        set currentModifiers to value of attribute "AXMenuItemCmdModifiers" of currentItem
-                        if currentModifiers is missing value then set currentModifiers to ""
-                        copy {(itemIndex as text), currentName, (currentChar as text), (currentModifiers as text)} to end of outputItems
-                    end repeat
-                    return outputItems
-                end tell
-            end tell
-        end tell
-        """
-
         do {
-            let result = try executor.execute(script: script)
-            return parseRecordsWithKeyboardShortcut(from: result)
+            return try SafariAppleScriptMenuItem.listChildItems(
+                menuBarItemIndex: menuBarItemIndex,
+                menuItemIndex: menuItemIndex,
+                executor: executor
+            ).map(SafariMenuItemRecord.init)
         } catch {
             throw SafariUserInterfaceError.menuItemChildrenUnavailable(
                 menuBarItemIndex: menuBarItemIndex,
@@ -71,13 +61,13 @@ public enum SafariMenuItem: ModelModel {
     static func parseRecordsWithIndexAndTitle(
         from descriptor: NSAppleEventDescriptor?
     ) -> [SafariMenuItemRecord] {
-        parseRecords(from: descriptor, expectedFieldCount: 2)
+        SafariAppleScriptMenuItem.parseRecordsWithIndexAndTitle(from: descriptor).map(SafariMenuItemRecord.init)
     }
 
     static func parseRecordsWithKeyboardShortcut(
         from descriptor: NSAppleEventDescriptor?
     ) -> [SafariMenuItemRecord] {
-        parseRecords(from: descriptor, expectedFieldCount: 4)
+        SafariAppleScriptMenuItem.parseRecordsWithKeyboardShortcut(from: descriptor).map(SafariMenuItemRecord.init)
     }
 
     static func format(_ item: SafariMenuItemRecord) -> String {
@@ -88,49 +78,5 @@ public enum SafariMenuItem: ModelModel {
 
     static func formatIndexAndTitle(_ item: SafariMenuItemRecord) -> String {
         "\(item.index)|\(item.title)"
-    }
-
-    private static func parseRecords(
-        from descriptor: NSAppleEventDescriptor?,
-        expectedFieldCount: Int
-    ) -> [SafariMenuItemRecord] {
-        guard let descriptor, descriptor.numberOfItems > 0 else {
-            return []
-        }
-
-        var records: [SafariMenuItemRecord] = []
-
-        for descriptorIndex in 1...descriptor.numberOfItems {
-            guard
-                let itemDescriptor = descriptor.atIndex(descriptorIndex),
-                itemDescriptor.numberOfItems >= expectedFieldCount,
-                let rawIndex = itemDescriptor.atIndex(1)?.stringValue,
-                let index = Int(rawIndex),
-                let title = itemDescriptor.atIndex(2)?.stringValue
-            else {
-                continue
-            }
-
-            let commandCharacter = normalized(itemDescriptor.atIndex(3)?.stringValue)
-            let commandModifiers = normalized(itemDescriptor.atIndex(4)?.stringValue)
-
-            records.append(
-                SafariMenuItemRecord(
-                    index: index,
-                    title: title,
-                    commandCharacter: commandCharacter,
-                    commandModifiers: commandModifiers
-                )
-            )
-        }
-
-        return records
-    }
-
-    private static func normalized(_ value: String?) -> String? {
-        guard let value, value != "missing value", !value.isEmpty else {
-            return nil
-        }
-        return value
     }
 }

@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariAppleScript
 
 public struct SafariFileMenuListCommand: CommandModel {
     public static let descriptor = CommandDescriptor(

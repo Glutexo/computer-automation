@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariWindowCloseCommand: CommandModel {
@@ -24,17 +25,6 @@ public struct SafariWindowCloseCommand: CommandModel {
         guard SafariApplication.isRunning() else {
             return "Safari is not running."
         }
-
-        let script = """
-        tell application "Safari"
-            if (count of windows) is 0 then
-                return "Safari has no open windows."
-            end if
-            close front window
-            return "Safari front window closed."
-        end tell
-        """
-
-        return try executor.execute(script: script)?.stringValue ?? "Safari front window closed."
+        return try SafariAppleScriptWindow.closeFrontWindow(executor: executor)
     }
 }

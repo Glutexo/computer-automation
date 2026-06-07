@@ -84,6 +84,13 @@
 - Recorded a standing architecture rule that new features should be built primarily on general models before adding specialized convenience models.
 - Recorded the matching exception: keep specialized models when the behavior truly belongs to a specific UI surface, such as `openWindow(profile:)` on Safari's File menu.
 
+### Safari AppleScript module
+
+- Split direct Safari AppleScript access into a dedicated `SafariAppleScript` module.
+- Added explicit AppleScript-side models for the application, windows, menu bar, menus, and menu items.
+- Kept `Safari` and `SafariUserInterface` dependent on that module through explicit model APIs.
+- Added dedicated internal model documentation for the AppleScript module.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

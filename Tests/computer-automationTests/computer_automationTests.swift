@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import SQLite3
 @testable import AutomationFoundation
+@testable import SafariAppleScript
 @testable import Safari
 @testable import SafariUserInterface
 
@@ -62,6 +63,13 @@ import SQLite3
     #expect(SafariMenuItem.descriptor.commands == [SafariMenuItemListChildItemsCommand.descriptor])
     #expect(SafariMenuItemListChildItemsCommand.descriptor.operation == .read)
     #expect(SafariMenuItemListChildItemsCommand.descriptor.arguments.count == 2)
+    #expect(SafariAppleScriptModule.descriptor.models == [
+        SafariAppleScriptApplication.descriptor,
+        SafariAppleScriptWindow.descriptor,
+        SafariAppleScriptApplicationMenuBar.descriptor,
+        SafariAppleScriptMenu.descriptor,
+        SafariAppleScriptMenuItem.descriptor
+    ])
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
@@ -146,6 +154,20 @@ import SQLite3
         [
             SafariMenuItemRecord(index: 1, title: "File"),
             SafariMenuItemRecord(index: 2, title: "Open…", commandCharacter: "O", commandModifiers: "0")
+        ]
+    )
+}
+
+@Test func safariAppleScriptWindowParsesWindowList() async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(NSAppleEventDescriptor(string: "1|Start Page"), at: 1)
+    listDescriptor.insert(NSAppleEventDescriptor(string: "2|OpenAI"), at: 2)
+
+    #expect(
+        SafariAppleScriptWindow.parseWindowList(listDescriptor) ==
+        [
+            SafariAppleScriptWindowRecord(identifier: 1, name: "Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 2, name: "OpenAI")
         ]
     )
 }

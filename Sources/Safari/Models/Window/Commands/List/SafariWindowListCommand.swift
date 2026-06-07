@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariWindowListCommand: CommandModel {

@@ -1,5 +1,6 @@
 import AppKit
 import AutomationFoundation
+import SafariAppleScript
 import SafariUserInterface
 import SQLite3
 
@@ -35,19 +36,7 @@ public enum SafariWindow: ModelModel {
         guard SafariApplication.isRunning() else {
             return []
         }
-
-        let script = """
-        tell application "Safari"
-            set output to {}
-            repeat with currentWindow in every window
-                set end of output to ((id of currentWindow as string) & "|" & (name of currentWindow as string))
-            end repeat
-            return output
-        end tell
-        """
-
-        let descriptor = try executor.execute(script: script)
-        let rawWindows = parseRawWindowList(descriptor)
+        let rawWindows = try SafariAppleScriptWindow.list(executor: executor)
         let profilesByWindowIdentifier = try loadProfilesByWindowIdentifier(databasePath: databasePath)
         let knownProfileNames = Set(try SafariProfile.listAvailableProfiles(databasePath: databasePath).map(\.name))
 
@@ -69,7 +58,7 @@ public enum SafariWindow: ModelModel {
         _ descriptor: NSAppleEventDescriptor?,
         profilesByWindowIdentifier: [Int: String] = [:]
     ) -> [SafariWindowRecord] {
-        let rawWindows = parseRawWindowList(descriptor)
+        let rawWindows = SafariAppleScriptWindow.parseWindowList(descriptor)
         return rawWindows.enumerated().map { offset, rawWindow in
             SafariWindowRecord(
                 identifier: rawWindow.identifier,
@@ -116,35 +105,8 @@ public enum SafariWindow: ModelModel {
     }
 
     private static func parseRawWindowList(_ descriptor: NSAppleEventDescriptor?) -> [RawSafariWindow] {
-        guard let descriptor else {
-            return []
-        }
-
-        if descriptor.descriptorType != typeAEList {
-            let rawValue = descriptor.stringValue ?? ""
-            return rawValue.isEmpty ? [] : parseWindowLines([rawValue])
-        }
-
-        guard descriptor.numberOfItems > 0 else {
-            return []
-        }
-
-        var lines: [String] = []
-        for index in 1...descriptor.numberOfItems {
-            if let item = descriptor.atIndex(index)?.stringValue {
-                lines.append(item)
-            }
-        }
-        return parseWindowLines(lines)
-    }
-
-    private static func parseWindowLines(_ lines: [String]) -> [RawSafariWindow] {
-        lines.compactMap { line in
-            let components = line.split(separator: "|", maxSplits: 1).map(String.init)
-            guard components.count == 2, let identifier = Int(components[0]) else {
-                return nil
-            }
-            return RawSafariWindow(identifier: identifier, name: components[1])
+        SafariAppleScriptWindow.parseWindowList(descriptor).map {
+            RawSafariWindow(identifier: $0.identifier, name: $0.name)
         }
     }
 
