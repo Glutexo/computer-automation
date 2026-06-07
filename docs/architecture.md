@@ -7,6 +7,7 @@ flowchart TD
     App["computer-automation executable"]
     Foundation["AutomationFoundation shared module"]
     Zsh["zsh completion script"]
+    ZshInstaller["zsh completion installer"]
     Safari["Safari module"]
     SafariApplication["SafariApplication model"]
     Launch["launch command"]
@@ -15,6 +16,7 @@ flowchart TD
 
     App --> Foundation
     Zsh --> App
+    ZshInstaller --> App
     App --> Safari
     Safari --> Foundation
     Safari --> SafariApplication
@@ -33,4 +35,5 @@ flowchart TD
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
+- Shell completion installers stay thin and write generated scripts into shell completion paths.
 - The current executable is a thin entry point over the `Safari` module and its application lifecycle model.

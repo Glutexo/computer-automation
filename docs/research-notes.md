@@ -18,6 +18,7 @@
 - CLI completion needs to consume metadata from modules and commands rather than hardcoding names in the executable.
 - Shell completion should stay a thin adapter over the CLI completion endpoint so command metadata has a single source of truth.
 - The Safari module now needs an explicit application model so lifecycle commands stay grouped by the part of the app they control.
+- A completion installer should handle only path selection and file writes, not duplicate script generation logic.
 
 ### Open questions
 

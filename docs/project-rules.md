@@ -23,6 +23,7 @@
 - Attach each command to the model that owns the underlying behavior.
 - Require module and command models to publish the metadata needed for CLI completion.
 - Keep generated shell completion scripts driven by shared completion metadata rather than duplicated command lists.
+- Keep shell completion installers as thin filesystem helpers over generated completion scripts.
 - Keep command implementation isolated in its own command directory.
 - Share code across modules or commands only through an explicit shared library, type, or module.
 - Start with the smallest useful automation slice and validate it end to end.

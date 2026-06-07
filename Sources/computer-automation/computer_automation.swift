@@ -42,6 +42,25 @@ struct ComputerAutomationApp {
             }
         }
 
+        if firstArgument == "--install-completion" {
+            guard arguments.count >= 2 else {
+                throw CLIError.missingShellName
+            }
+
+            switch arguments[1] {
+            case "zsh":
+                let result = try ShellCompletionInstaller.installZsh(executableName: executableName)
+                var lines = ["Installed zsh completion to \(result.filePath)"]
+                if result.requiresFpathUpdate {
+                    lines.append("Add this directory to fpath: \(result.directoryPath)")
+                    lines.append("Then run: autoload -Uz compinit && compinit")
+                }
+                return lines.joined(separator: "\n")
+            default:
+                throw CLIError.unsupportedShell(arguments[1])
+            }
+        }
+
         let moduleName = firstArgument
         guard let module = modules.first(where: { $0.name == moduleName }) else {
             throw CLIError.unknownModule(moduleName)

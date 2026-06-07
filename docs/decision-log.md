@@ -48,3 +48,8 @@
 - Structured the `Safari` module around a `SafariApplication` model that represents Safari as an application.
 - Attached `launch`, `running`, and `quit` commands to that model as the current lifecycle CRUD surface.
 - Recorded model architecture and CRUD coverage in dedicated internal documentation.
+
+### Zsh completion installer
+
+- Added a CLI installer for `zsh` completion files.
+- Kept installation logic separate from script rendering so completion metadata still has one source of truth.

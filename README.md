@@ -45,6 +45,14 @@ source ./_computer-automation
 
 The generated script delegates suggestions back to `computer-automation --complete`.
 
+## Install zsh completion
+
+```bash
+swift run computer-automation --install-completion zsh
+```
+
+The installer writes `_computer-automation` into the user's zsh completion directory and reports whether `fpath` still needs an update.
+
 ## Test
 
 ```bash

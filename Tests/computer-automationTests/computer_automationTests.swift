@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import AutomationFoundation
 @testable import Safari
 
@@ -49,4 +50,44 @@ import Testing
     #expect(script.contains("#compdef computer-automation"))
     #expect(script.contains("computer-automation --complete"))
     #expect(script.contains("_computer_automation"))
+}
+
+@Test func zshCompletionInstallerPrefersExistingZfuncDirectory() async throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let zfuncDirectory = temporaryDirectory.appendingPathComponent(".zfunc", isDirectory: true)
+    try fileManager.createDirectory(at: zfuncDirectory, withIntermediateDirectories: true)
+
+    let resolved = ShellCompletionInstaller.resolveZshDirectory(
+        homeDirectory: temporaryDirectory.path,
+        fileManager: fileManager
+    )
+
+    #expect(resolved == zfuncDirectory.path)
+}
+
+@Test func zshCompletionInstallerWritesScriptToCompletionPath() async throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let result = try ShellCompletionInstaller.installZsh(
+        executableName: "computer-automation",
+        environment: ["HOME": temporaryDirectory.path, "FPATH": ""],
+        fileManager: fileManager
+    )
+
+    #expect(result.filePath == temporaryDirectory.appendingPathComponent(".zsh/completions/_computer-automation").path)
+    #expect(result.directoryPath == temporaryDirectory.appendingPathComponent(".zsh/completions").path)
+    #expect(result.requiresFpathUpdate)
+    #expect(fileManager.fileExists(atPath: result.filePath))
+
+    let script = try String(contentsOfFile: result.filePath, encoding: .utf8)
+    #expect(script.contains("computer-automation --complete"))
 }
