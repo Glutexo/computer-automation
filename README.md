@@ -14,6 +14,17 @@ Repository for experiments, tooling, and documentation related to computer autom
 - `docs/decision-log.md` records notable technical and product decisions.
 - `docs/research-notes.md` stores findings, open questions, and implementation notes.
 
+## Current app
+
+- The repository currently contains a minimal Swift executable application.
+- The first runnable slice is a simple greeting used to verify the local Swift toolchain and repository workflow.
+
+## Run
+
+```bash
+swift run
+```
+
 ## Working model
 
 1. Update documentation when goals, constraints, or architecture change.

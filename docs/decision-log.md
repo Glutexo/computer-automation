@@ -12,3 +12,8 @@
 
 - Changed the GitHub repository visibility to public.
 - Added a standing rule to commit and push each verified change set immediately.
+
+### Initial Swift app scaffold
+
+- Bootstrapped the codebase as a Swift Package Manager executable.
+- Kept the first app intentionally minimal as a runnable `Ahoj světe!` baseline.
