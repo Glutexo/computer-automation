@@ -10,6 +10,7 @@
 - Update `README.md` when project scope or onboarding expectations change.
 - Append major decisions to `docs/decision-log.md` with date, context, and consequence.
 - Append research findings, dead ends, and useful references to `docs/research-notes.md`.
+- Commit and push every completed change set immediately after the update is verified.
 
 ## Engineering approach
 

@@ -7,3 +7,8 @@
 - Created the repository as `computer-automation`.
 - Started documentation-first with explicit project rules and persistent notes.
 - Chose a lightweight structure so early implementation can evolve without cleanup overhead.
+
+### Repository visibility and delivery rule
+
+- Changed the GitHub repository visibility to public.
+- Added a standing rule to commit and push each verified change set immediately.
