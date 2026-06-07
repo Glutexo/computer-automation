@@ -1,6 +1,6 @@
 import Testing
-@testable import computer_automation
+@testable import Safari
 
 @Test func example() async throws {
-    #expect(ComputerAutomationApp.greeting == "Ahoj světe!")
+    #expect(SafariModule.greeting == "Ahoj světe!")
 }

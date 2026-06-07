@@ -10,12 +10,14 @@
 - Update `README.md` when project scope or onboarding expectations change.
 - Keep `README.md` focused on user-facing overview, running, and testing instructions.
 - Keep user-facing documentation separate from development rules and internal working notes.
+- Keep Mermaid architecture diagrams in sync with the current module structure.
 - Append major decisions to `docs/decision-log.md` with date, context, and consequence.
 - Append research findings, dead ends, and useful references to `docs/research-notes.md`.
 - Commit and push every completed change set immediately after the update is verified.
 
 ## Engineering approach
 
+- Treat the first architectural level as modules, typically representing an application or a service.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Keep code and documentation changes aligned in the same working session.

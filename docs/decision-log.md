@@ -23,3 +23,9 @@
 
 - Development rules and internal notes must stay separate from user-facing documentation.
 - Cleaned the README so it remains a user-facing quickstart instead of an internal process document.
+
+### Module-first architecture
+
+- Defined the first architectural level as modules, typically representing an application or a service.
+- Started the modular structure with a dedicated `Safari` module.
+- Added Mermaid architecture diagrams as a maintained part of the documentation.

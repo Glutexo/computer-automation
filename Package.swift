@@ -6,14 +6,16 @@ import PackageDescription
 let package = Package(
     name: "computer-automation",
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
+        .target(
+            name: "Safari"
+        ),
         .executableTarget(
-            name: "computer-automation"
+            name: "computer-automation",
+            dependencies: ["Safari"]
         ),
         .testTarget(
             name: "computer-automationTests",
-            dependencies: ["computer-automation"]
+            dependencies: ["Safari"]
         ),
     ],
     swiftLanguageModes: [.v6]

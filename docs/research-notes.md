@@ -12,6 +12,7 @@
 
 - The first code scaffold uses Swift Package Manager with an executable target.
 - This keeps the initial app portable and easy to verify from the command line before adding UI or automation layers.
+- The next structural step is a module-first layout, starting with a `Safari` module behind the executable entry point.
 
 ### Open questions
 
