@@ -49,6 +49,11 @@
 - Attached `launch`, `running`, and `quit` commands to that model as the current lifecycle CRUD surface.
 - Recorded model architecture and CRUD coverage in dedicated internal documentation.
 
+### Safari profile model
+
+- Added a `SafariProfile` model for reading the Safari profile catalog.
+- Implemented the initial read operation as a `profiles` command backed by Safari's local tabs database.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

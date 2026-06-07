@@ -1,11 +1,18 @@
 import Testing
 import Foundation
+import SQLite3
 @testable import AutomationFoundation
 @testable import Safari
 
 @Test func safariModuleExposesApplicationModelMetadata() async throws {
     #expect(SafariModule.descriptor.name == "safari")
-    #expect(SafariModule.descriptor.models == [SafariApplication.descriptor])
+    #expect(
+        SafariModule.descriptor.models ==
+        [
+            SafariApplication.descriptor,
+            SafariProfile.descriptor
+        ]
+    )
     #expect(SafariApplication.descriptor.name == "application")
     #expect(SafariApplication.bundleIdentifier == "com.apple.Safari")
     #expect(
@@ -19,6 +26,9 @@ import Foundation
     #expect(SafariApplicationLaunchCommand.descriptor.operation == .create)
     #expect(SafariApplicationRunningCommand.descriptor.operation == .read)
     #expect(SafariApplicationQuitCommand.descriptor.operation == .delete)
+    #expect(SafariProfile.descriptor.name == "profile")
+    #expect(SafariProfile.descriptor.commands == [SafariProfileListCommand.descriptor])
+    #expect(SafariProfileListCommand.descriptor.operation == .read)
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
@@ -34,7 +44,8 @@ import Foundation
         [
             CompletionSuggestion(value: "launch", abstract: "Launch Safari."),
             CompletionSuggestion(value: "running", abstract: "Report whether Safari is currently running."),
-            CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running.")
+            CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running."),
+            CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles.")
         ]
     )
 
@@ -42,6 +53,55 @@ import Foundation
         CompletionEngine.suggestions(for: ["safari", "la"], modules: modules) ==
         [CompletionSuggestion(value: "launch", abstract: "Launch Safari.")]
     )
+}
+
+@Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    let databasePath = temporaryDirectory.appendingPathComponent("SafariTabs.db").path
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        external_uuid TEXT,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (parent, type, title, external_uuid, subtype) VALUES
+        (0, 1, 'Glutexo', 'DefaultProfile', 2),
+        (0, 1, 'Twisto', '33782F17-8AAD-41EA-BCB5-71A1A8348C55', 2),
+        (0, 1, 'Bookmarks Folder', 'not-a-profile', 0),
+        (15, 1, 'Nested Profile-Like Folder', 'nested', 2);
+    """
+
+    let database = try #require(openDatabase(at: databasePath))
+    defer { sqlite3_close(database) }
+
+    let createResult = sqlite3_exec(database, setupSQL, nil, nil, nil)
+    #expect(createResult == SQLITE_OK)
+
+    let profiles = try SafariProfile.listAvailableProfiles(databasePath: databasePath)
+    #expect(
+        profiles ==
+        [
+            SafariProfileRecord(name: "Glutexo", identifier: "DefaultProfile"),
+            SafariProfileRecord(name: "Twisto", identifier: "33782F17-8AAD-41EA-BCB5-71A1A8348C55")
+        ]
+    )
+}
+
+private func openDatabase(at path: String) -> OpaquePointer? {
+    var database: OpaquePointer?
+    let result = sqlite3_open(path, &database)
+    if result != SQLITE_OK {
+        sqlite3_close(database)
+        return nil
+    }
+    return database
 }
 
 @Test func zshCompletionScriptUsesCompletionEndpoint() async throws {
