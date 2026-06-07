@@ -19,6 +19,7 @@
 
 - Treat the first architectural level as modules, typically representing an application or a service.
 - Model each command as its own Swift type.
+- Require module and command models to publish the metadata needed for CLI completion.
 - Keep command implementation isolated in its own command directory.
 - Share code across modules or commands only through an explicit shared library, type, or module.
 - Start with the smallest useful automation slice and validate it end to end.

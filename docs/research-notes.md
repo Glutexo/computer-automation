@@ -15,6 +15,7 @@
 - The next structural step is a module-first layout, starting with a `Safari` module behind the executable entry point.
 - The first Safari capability should be a dedicated launch command rather than a mixed module-level script.
 - Launching Safari uses AppKit, so the package now declares a macOS 10.15+ minimum target.
+- CLI completion needs to consume metadata from modules and commands rather than hardcoding names in the executable.
 
 ### Open questions
 

@@ -36,3 +36,8 @@
 - Each command is represented by its own Swift type and isolated in its own directory.
 - Cross-command and cross-module reuse must happen only through explicit shared code boundaries.
 - Implemented `SafariLaunchCommand` as the first concrete command in the `Safari` module.
+
+### Completion metadata contract
+
+- Added a shared metadata contract for modules and commands in `AutomationFoundation`.
+- Completion data is now owned by module and command models and consumed by the CLI.

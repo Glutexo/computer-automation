@@ -10,15 +10,19 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Safari"
+            name: "AutomationFoundation"
+        ),
+        .target(
+            name: "Safari",
+            dependencies: ["AutomationFoundation"]
         ),
         .executableTarget(
             name: "computer-automation",
-            dependencies: ["Safari"]
+            dependencies: ["AutomationFoundation", "Safari"]
         ),
         .testTarget(
             name: "computer-automationTests",
-            dependencies: ["Safari"]
+            dependencies: ["AutomationFoundation", "Safari"]
         ),
     ],
     swiftLanguageModes: [.v6]
