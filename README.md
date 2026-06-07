@@ -34,6 +34,15 @@ swift run computer-automation --complete safari la
 
 The CLI reads completion candidates from module and command metadata.
 
+## Zsh completion
+
+```bash
+swift run computer-automation --completion-script zsh > _computer-automation
+source ./_computer-automation
+```
+
+The generated script delegates suggestions back to `computer-automation --complete`.
+
 ## Test
 
 ```bash

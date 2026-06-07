@@ -3,4 +3,6 @@ public enum CLIError: Error, Equatable {
     case missingCommand(moduleName: String)
     case unknownModule(String)
     case unknownCommand(moduleName: String, commandName: String)
+    case missingShellName
+    case unsupportedShell(String)
 }

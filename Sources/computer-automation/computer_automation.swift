@@ -18,6 +18,7 @@ struct ComputerAutomationApp {
 
     private static func run(arguments: [String]) throws -> String {
         let modules = [SafariModule.descriptor]
+        let executableName = "computer-automation"
 
         guard let firstArgument = arguments.first else {
             throw CLIError.missingModule
@@ -26,6 +27,19 @@ struct ComputerAutomationApp {
         if firstArgument == "--complete" {
             let suggestions = CompletionEngine.suggestions(for: Array(arguments.dropFirst()), modules: modules)
             return suggestions.map(\.value).joined(separator: "\n")
+        }
+
+        if firstArgument == "--completion-script" {
+            guard arguments.count >= 2 else {
+                throw CLIError.missingShellName
+            }
+
+            switch arguments[1] {
+            case "zsh":
+                return ShellCompletionScriptRenderer.zsh(executableName: executableName)
+            default:
+                throw CLIError.unsupportedShell(arguments[1])
+            }
         }
 
         let moduleName = firstArgument

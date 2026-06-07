@@ -27,3 +27,11 @@ import Testing
         [CompletionSuggestion(value: "launch", abstract: "Launch Safari.")]
     )
 }
+
+@Test func zshCompletionScriptUsesCompletionEndpoint() async throws {
+    let script = ShellCompletionScriptRenderer.zsh(executableName: "computer-automation")
+
+    #expect(script.contains("#compdef computer-automation"))
+    #expect(script.contains("computer-automation --complete"))
+    #expect(script.contains("_computer_automation"))
+}

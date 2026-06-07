@@ -41,3 +41,4 @@
 
 - Added a shared metadata contract for modules and commands in `AutomationFoundation`.
 - Completion data is now owned by module and command models and consumed by the CLI.
+- Added `zsh` completion script generation that delegates back to the shared completion endpoint.
