@@ -5,14 +5,15 @@ Minimal Swift application for computer automation experiments.
 ## Overview
 
 - The repository is organized by top-level modules.
-- The first module is `Safari`.
+- The current modules are `Safari` and `SafariUserInterface`.
 - The current runnable slice covers Safari application lifecycle commands, profile listing, and browser window operations.
+- The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Module and command models expose metadata for CLI tab completion.
 
 ## Current app
 
 - Built with Swift Package Manager.
-- The executable currently depends on the `Safari` module.
+- The executable currently depends on the `Safari` and `SafariUserInterface` modules.
 - The `Safari` module currently exposes application lifecycle commands.
 - Requires macOS with Safari installed.
 
@@ -27,6 +28,8 @@ swift run computer-automation safari windows
 swift run computer-automation safari open-window
 swift run computer-automation safari open-window Twisto
 swift run computer-automation safari close-window
+swift run computer-automation safari-ui menu-bar-items
+swift run computer-automation safari-ui file-menu-items
 ```
 
 Running the executable launches Safari on macOS.
@@ -36,6 +39,7 @@ Running the executable launches Safari on macOS.
 ```bash
 swift run computer-automation --complete
 swift run computer-automation --complete safari
+swift run computer-automation --complete safari-ui
 swift run computer-automation --complete safari la
 ```
 

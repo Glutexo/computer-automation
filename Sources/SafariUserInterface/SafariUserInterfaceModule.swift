@@ -12,6 +12,13 @@ public enum SafariUserInterfaceModule: ModuleModel {
     )
 
     public static func execute(commandName: String, arguments: [String]) throws -> String {
-        throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
+        switch commandName {
+        case SafariApplicationMenuBarListCommand.descriptor.name:
+            return try SafariApplicationMenuBarListCommand().execute(arguments: arguments)
+        case SafariFileMenuListCommand.descriptor.name:
+            return try SafariFileMenuListCommand().execute(arguments: arguments)
+        default:
+            throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
+        }
     }
 }

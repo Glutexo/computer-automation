@@ -69,6 +69,12 @@
 - Kept the `Safari` domain module dependent on that module through explicit API boundaries.
 - Added dedicated internal model documentation for `SafariUserInterface`, including CRUD coverage and a Mermaid diagram.
 
+### Locale-independent UI automation
+
+- Added a standing rule that automation must stay independent of the macOS and Safari language setting.
+- Moved Safari File menu inspection to structural access by menu position and item index instead of localized menu titles.
+- Added initial read commands for the Safari application menu bar and File menu so UI structure can be inspected directly.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

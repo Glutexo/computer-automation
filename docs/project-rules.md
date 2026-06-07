@@ -26,6 +26,8 @@
 - Keep shell completion installers as thin filesystem helpers over generated completion scripts.
 - Keep command implementation isolated in its own command directory.
 - Share code across modules or commands only through an explicit shared library, type, or module.
+- Keep automation independent of the macOS and Safari language setting.
+- Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Keep code and documentation changes aligned in the same working session.

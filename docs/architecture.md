@@ -16,6 +16,8 @@ flowchart TD
     SafariMenuBar["application-menu-bar model"]
     SafariFileMenu["file-menu model"]
     SafariMenuItem["menu-item model"]
+    MenuBarItems["menu-bar-items command"]
+    FileMenuItems["file-menu-items command"]
     Launch["launch command"]
     Running["running command"]
     Quit["quit command"]
@@ -38,6 +40,8 @@ flowchart TD
     SafariUI --> SafariMenuBar
     SafariUI --> SafariFileMenu
     SafariUI --> SafariMenuItem
+    SafariMenuBar --> MenuBarItems
+    SafariFileMenu --> FileMenuItems
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit
@@ -56,6 +60,7 @@ flowchart TD
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
+- UI automation must remain independent of the macOS and Safari language setting.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.

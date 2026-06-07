@@ -1,6 +1,7 @@
 import Darwin
 import AutomationFoundation
 import Safari
+import SafariUserInterface
 
 @main
 struct ComputerAutomationApp {
@@ -17,7 +18,7 @@ struct ComputerAutomationApp {
     }
 
     private static func run(arguments: [String]) throws -> String {
-        let modules = [SafariModule.descriptor]
+        let modules = [SafariModule.descriptor, SafariUserInterfaceModule.descriptor]
         let executableName = "computer-automation"
 
         guard let firstArgument = arguments.first else {
@@ -76,6 +77,8 @@ struct ComputerAutomationApp {
         switch module.name {
         case SafariModule.descriptor.name:
             return try SafariModule.execute(commandName: commandName, arguments: commandArguments)
+        case SafariUserInterfaceModule.descriptor.name:
+            return try SafariUserInterfaceModule.execute(commandName: commandName, arguments: commandArguments)
         default:
             throw CLIError.unknownModule(moduleName)
         }

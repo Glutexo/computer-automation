@@ -105,3 +105,4 @@ ORDER BY id;
 - GUI scripting and menu-level automation live in the separate `SafariUserInterface` module.
 - Its models are documented in `docs/safari-user-interface-models.md`.
 - `SafariFileMenu` is the current integration point used by the `SafariWindow` model.
+- Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.

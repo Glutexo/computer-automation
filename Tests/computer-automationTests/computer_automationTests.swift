@@ -51,14 +51,21 @@ import SQLite3
         SafariFileMenu.descriptor,
         SafariMenuItem.descriptor
     ])
+    #expect(SafariApplicationMenuBar.descriptor.commands == [SafariApplicationMenuBarListCommand.descriptor])
+    #expect(SafariApplicationMenuBarListCommand.descriptor.operation == .read)
+    #expect(SafariFileMenu.descriptor.commands == [SafariFileMenuListCommand.descriptor])
+    #expect(SafariFileMenuListCommand.descriptor.operation == .read)
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
-    let modules = [SafariModule.descriptor]
+    let modules = [SafariModule.descriptor, SafariUserInterfaceModule.descriptor]
 
     #expect(
         CompletionEngine.suggestions(for: [], modules: modules) ==
-        [CompletionSuggestion(value: "safari", abstract: "Automation commands for Safari.")]
+        [
+            CompletionSuggestion(value: "safari", abstract: "Automation commands for Safari."),
+            CompletionSuggestion(value: "safari-ui", abstract: "Safari user interface automation models.")
+        ]
     )
 
     #expect(
@@ -78,6 +85,14 @@ import SQLite3
         CompletionEngine.suggestions(for: ["safari", "la"], modules: modules) ==
         [CompletionSuggestion(value: "launch", abstract: "Launch Safari.")]
     )
+
+    #expect(
+        CompletionEngine.suggestions(for: ["safari-ui"], modules: modules) ==
+        [
+            CompletionSuggestion(value: "menu-bar-items", abstract: "List Safari application menu bar items."),
+            CompletionSuggestion(value: "file-menu-items", abstract: "List Safari File menu items.")
+        ]
+    )
 }
 
 @Test func safariWindowParsesAppleScriptListOutput() async throws {
@@ -96,6 +111,32 @@ import SQLite3
         [
             SafariWindowRecord(identifier: 1, index: 1, profileName: "Glutexo", name: "Start Page"),
             SafariWindowRecord(identifier: 2, index: 2, profileName: "Twisto", name: "OpenAI")
+        ]
+    )
+}
+
+@Test func safariMenuItemParsesIndexedMenuItemRecords() async throws {
+    let itemOne = NSAppleEventDescriptor.list()
+    itemOne.insert(NSAppleEventDescriptor(string: "1"), at: 1)
+    itemOne.insert(NSAppleEventDescriptor(string: "File"), at: 2)
+    itemOne.insert(NSAppleEventDescriptor(string: ""), at: 3)
+    itemOne.insert(NSAppleEventDescriptor(string: ""), at: 4)
+
+    let itemTwo = NSAppleEventDescriptor.list()
+    itemTwo.insert(NSAppleEventDescriptor(string: "2"), at: 1)
+    itemTwo.insert(NSAppleEventDescriptor(string: "Open…"), at: 2)
+    itemTwo.insert(NSAppleEventDescriptor(string: "O"), at: 3)
+    itemTwo.insert(NSAppleEventDescriptor(string: "0"), at: 4)
+
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(itemOne, at: 1)
+    listDescriptor.insert(itemTwo, at: 2)
+
+    #expect(
+        SafariMenuItem.parseRecordsWithKeyboardShortcut(from: listDescriptor) ==
+        [
+            SafariMenuItemRecord(index: 1, title: "File"),
+            SafariMenuItemRecord(index: 2, title: "Open…", commandCharacter: "O", commandModifiers: "0")
         ]
     )
 }
