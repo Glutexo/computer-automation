@@ -53,6 +53,7 @@
 
 - Added a `SafariProfile` model for reading the Safari profile catalog.
 - Implemented the initial read operation as a `profiles` command backed by Safari's local tabs database.
+- Documented the concrete Safari database path and row selection rules used for profile loading.
 
 ### Zsh completion installer
 

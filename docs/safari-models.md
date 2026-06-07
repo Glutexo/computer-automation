@@ -42,3 +42,31 @@ flowchart TD
 - `quit` is the delete operation for the application lifecycle.
 - `profiles` is the read operation for the profile catalog.
 - No update operation is currently defined because it does not fit the application lifecycle at this level.
+
+## Profile loading
+
+- The `SafariProfile` model reads profiles from Safari's local tabs database:
+  - `~/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db`
+- The `profiles` command queries the `bookmarks` table.
+- A row is treated as a Safari profile when all of these conditions hold:
+  - `parent = 0`
+  - `type = 1`
+  - `subtype = 2`
+- The profile display name is read from `title`.
+- The stable profile identifier is read from `external_uuid`.
+
+### Query shape
+
+```sql
+SELECT title, external_uuid
+FROM bookmarks
+WHERE parent = 0 AND type = 1 AND subtype = 2
+ORDER BY id;
+```
+
+### Output shape
+
+- The CLI currently prints one profile name per line.
+- Internally the model keeps both:
+  - `name`
+  - `identifier`
