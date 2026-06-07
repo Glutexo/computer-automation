@@ -55,6 +55,12 @@
 - Implemented the initial read operation as a `profiles` command backed by Safari's local tabs database.
 - Documented the concrete Safari database path and row selection rules used for profile loading.
 
+### Safari window model
+
+- Added a `SafariWindow` model for browser window CRUD operations.
+- Implemented `open-window`, `windows`, and `close-window` as the initial create, read, and delete commands.
+- Chose AppleScript as the execution layer for Safari window control.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

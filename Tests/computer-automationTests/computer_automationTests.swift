@@ -10,7 +10,8 @@ import SQLite3
         SafariModule.descriptor.models ==
         [
             SafariApplication.descriptor,
-            SafariProfile.descriptor
+            SafariProfile.descriptor,
+            SafariWindow.descriptor
         ]
     )
     #expect(SafariApplication.descriptor.name == "application")
@@ -29,6 +30,18 @@ import SQLite3
     #expect(SafariProfile.descriptor.name == "profile")
     #expect(SafariProfile.descriptor.commands == [SafariProfileListCommand.descriptor])
     #expect(SafariProfileListCommand.descriptor.operation == .read)
+    #expect(SafariWindow.descriptor.name == "window")
+    #expect(
+        SafariWindow.descriptor.commands ==
+        [
+            SafariWindowOpenCommand.descriptor,
+            SafariWindowListCommand.descriptor,
+            SafariWindowCloseCommand.descriptor
+        ]
+    )
+    #expect(SafariWindowOpenCommand.descriptor.operation == .create)
+    #expect(SafariWindowListCommand.descriptor.operation == .read)
+    #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
@@ -45,13 +58,30 @@ import SQLite3
             CompletionSuggestion(value: "launch", abstract: "Launch Safari."),
             CompletionSuggestion(value: "running", abstract: "Report whether Safari is currently running."),
             CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running."),
-            CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles.")
+            CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles."),
+            CompletionSuggestion(value: "open-window", abstract: "Open a new Safari browser window."),
+            CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
+            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window.")
         ]
     )
 
     #expect(
         CompletionEngine.suggestions(for: ["safari", "la"], modules: modules) ==
         [CompletionSuggestion(value: "launch", abstract: "Launch Safari.")]
+    )
+}
+
+@Test func safariWindowParsesAppleScriptListOutput() async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(NSAppleEventDescriptor(string: "1|Start Page"), at: 1)
+    listDescriptor.insert(NSAppleEventDescriptor(string: "2|OpenAI"), at: 2)
+
+    #expect(
+        SafariWindow.parseWindowList(listDescriptor) ==
+        [
+            SafariWindowRecord(index: 1, name: "Start Page"),
+            SafariWindowRecord(index: 2, name: "OpenAI")
+        ]
     )
 }
 

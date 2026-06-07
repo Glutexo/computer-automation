@@ -20,6 +20,7 @@
 - The Safari module now needs an explicit application model so lifecycle commands stay grouped by the part of the app they control.
 - A completion installer should handle only path selection and file writes, not duplicate script generation logic.
 - Safari profile names can be read from `SafariTabs.db` bookmark rows with `parent = 0`, `type = 1`, and `subtype = 2`.
+- Safari window creation and closing are better handled through AppleScript than by trying to infer them from local Safari state files.
 
 ### Open questions
 

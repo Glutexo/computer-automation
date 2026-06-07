@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The first module is `Safari`.
-- The current runnable slice covers Safari application lifecycle commands and profile listing.
+- The current runnable slice covers Safari application lifecycle commands, profile listing, and browser window operations.
 - Module and command models expose metadata for CLI tab completion.
 
 ## Current app
@@ -23,6 +23,9 @@ swift run computer-automation safari launch
 swift run computer-automation safari running
 swift run computer-automation safari quit
 swift run computer-automation safari profiles
+swift run computer-automation safari windows
+swift run computer-automation safari open-window
+swift run computer-automation safari close-window
 ```
 
 Running the executable launches Safari on macOS.
