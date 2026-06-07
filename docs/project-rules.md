@@ -29,6 +29,7 @@
 - Keep automation independent of the macOS and Safari language setting.
 - Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
 - Build new features primarily on general models before introducing specialized convenience models.
+- Keep specialized models when an operation truly belongs to a specific UI surface rather than to the general structure.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Keep code and documentation changes aligned in the same working session.

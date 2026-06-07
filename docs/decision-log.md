@@ -82,6 +82,7 @@
 - Kept `SafariFileMenu` as a thin specialization over `SafariMenu` instead of the primary abstraction.
 - Chose the general menu model as the preferred base for future menu-oriented automation.
 - Recorded a standing architecture rule that new features should be built primarily on general models before adding specialized convenience models.
+- Recorded the matching exception: keep specialized models when the behavior truly belongs to a specific UI surface, such as `openWindow(profile:)` on Safari's File menu.
 
 ### Zsh completion installer
 

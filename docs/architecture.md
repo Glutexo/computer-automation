@@ -66,6 +66,7 @@ flowchart TD
 - Modules typically represent an application or a service boundary.
 - Models represent distinct parts of a module's domain.
 - Prefer general structural UI models before adding specialized models for concrete application areas.
+- Keep specialized models for behaviors that are genuinely specific to one concrete UI surface.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
