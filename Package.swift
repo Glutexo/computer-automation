@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "computer-automation",
+    platforms: [
+        .macOS(.v10_15)
+    ],
     targets: [
         .target(
             name: "Safari"

@@ -29,3 +29,10 @@
 - Defined the first architectural level as modules, typically representing an application or a service.
 - Started the modular structure with a dedicated `Safari` module.
 - Added Mermaid architecture diagrams as a maintained part of the documentation.
+
+### Command isolation within modules
+
+- Chose commands as the next architectural level inside a module.
+- Each command is represented by its own Swift type and isolated in its own directory.
+- Cross-command and cross-module reuse must happen only through explicit shared code boundaries.
+- Implemented `SafariLaunchCommand` as the first concrete command in the `Safari` module.

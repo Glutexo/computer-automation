@@ -18,6 +18,9 @@
 ## Engineering approach
 
 - Treat the first architectural level as modules, typically representing an application or a service.
+- Model each command as its own Swift type.
+- Keep command implementation isolated in its own command directory.
+- Share code across modules or commands only through an explicit shared library, type, or module.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Keep code and documentation changes aligned in the same working session.

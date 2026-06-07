@@ -6,19 +6,22 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The first module is `Safari`.
-- The current runnable slice prints `Ahoj světe!`.
+- The current runnable slice launches Safari.
 
 ## Current app
 
 - Built with Swift Package Manager.
 - The executable currently depends on the `Safari` module.
-- Intended as the baseline for future automation features.
+- The first command is `SafariLaunchCommand`.
+- Requires macOS with Safari installed.
 
 ## Run
 
 ```bash
 swift run
 ```
+
+Running the executable launches Safari on macOS.
 
 ## Test
 
