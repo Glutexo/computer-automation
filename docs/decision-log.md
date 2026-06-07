@@ -81,6 +81,7 @@
 - Added a general `SafariMenu` model for top-level Safari menus addressed by menu bar index.
 - Kept `SafariFileMenu` as a thin specialization over `SafariMenu` instead of the primary abstraction.
 - Chose the general menu model as the preferred base for future menu-oriented automation.
+- Recorded a standing architecture rule that new features should be built primarily on general models before adding specialized convenience models.
 
 ### Zsh completion installer
 
