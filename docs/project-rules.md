@@ -8,6 +8,7 @@
 ## Documentation upkeep
 
 - Update `README.md` when project scope or onboarding expectations change.
+- Keep `README.md` focused on user-facing overview, running, and testing instructions.
 - Keep user-facing documentation separate from development rules and internal working notes.
 - Append major decisions to `docs/decision-log.md` with date, context, and consequence.
 - Append research findings, dead ends, and useful references to `docs/research-notes.md`.

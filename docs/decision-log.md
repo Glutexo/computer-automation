@@ -22,3 +22,4 @@
 ### Documentation separation rule
 
 - Development rules and internal notes must stay separate from user-facing documentation.
+- Cleaned the README so it remains a user-facing quickstart instead of an internal process document.
