@@ -90,6 +90,12 @@ ORDER BY id;
 
 - The `SafariWindow` model uses AppleScript to interact with Safari windows.
 - `open-window` activates Safari and runs `make new document`.
+- `open-window` accepts an optional profile name argument.
+- When a profile argument is provided, the command:
+  - validates the profile name against the `SafariProfile` model
+  - activates Safari
+  - uses GUI scripting to click the matching profile-specific "new window" menu item
 - `windows` enumerates `every window` and returns one line per window as:
-  - `index|name`
+  - `index|profile|name`
+- The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
 - `close-window` closes the current front window.

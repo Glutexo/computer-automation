@@ -21,6 +21,8 @@
 - A completion installer should handle only path selection and file writes, not duplicate script generation logic.
 - Safari profile names can be read from `SafariTabs.db` bookmark rows with `parent = 0`, `type = 1`, and `subtype = 2`.
 - Safari window creation and closing are better handled through AppleScript than by trying to infer them from local Safari state files.
+- Safari's scripting dictionary does not expose profile-aware window creation directly, so profile-specific window opening uses GUI scripting over Safari's File menu.
+- Open window profile names can be resolved from `SafariTabs.db` by joining `windows.active_profile_id` to `bookmarks.title`.
 
 ### Open questions
 

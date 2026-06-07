@@ -25,6 +25,7 @@ swift run computer-automation safari quit
 swift run computer-automation safari profiles
 swift run computer-automation safari windows
 swift run computer-automation safari open-window
+swift run computer-automation safari open-window Twisto
 swift run computer-automation safari close-window
 ```
 

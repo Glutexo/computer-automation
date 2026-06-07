@@ -40,6 +40,9 @@ import SQLite3
         ]
     )
     #expect(SafariWindowOpenCommand.descriptor.operation == .create)
+    #expect(SafariWindowOpenCommand.descriptor.arguments.count == 1)
+    #expect(SafariWindowOpenCommand.descriptor.arguments[0].name == "profile")
+    #expect(!SafariWindowOpenCommand.descriptor.arguments[0].isRequired)
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
 }
@@ -77,10 +80,56 @@ import SQLite3
     listDescriptor.insert(NSAppleEventDescriptor(string: "2|OpenAI"), at: 2)
 
     #expect(
-        SafariWindow.parseWindowList(listDescriptor) ==
+        SafariWindow.parseWindowList(
+            listDescriptor,
+            profilesByWindowIdentifier: [
+                1: "Glutexo",
+                2: "Twisto"
+            ]
+        ) ==
         [
-            SafariWindowRecord(index: 1, name: "Start Page"),
-            SafariWindowRecord(index: 2, name: "OpenAI")
+            SafariWindowRecord(identifier: 1, index: 1, profileName: "Glutexo", name: "Start Page"),
+            SafariWindowRecord(identifier: 2, index: 2, profileName: "Twisto", name: "OpenAI")
+        ]
+    )
+}
+
+@Test func safariWindowLoadsProfilesByWindowIdentifier() async throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    let databasePath = temporaryDirectory.appendingPathComponent("SafariTabs.db").path
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT
+    );
+    CREATE TABLE windows (
+        id INTEGER PRIMARY KEY,
+        active_profile_id INTEGER,
+        date_closed REAL
+    );
+    INSERT INTO bookmarks (id, title) VALUES
+        (5, 'Glutexo'),
+        (288, 'Twisto');
+    INSERT INTO windows (id, active_profile_id, date_closed) VALUES
+        (1, 5, NULL),
+        (2, 288, NULL),
+        (3, 288, 1.0);
+    """
+
+    let database = try #require(openDatabase(at: databasePath))
+    defer { sqlite3_close(database) }
+    #expect(sqlite3_exec(database, setupSQL, nil, nil, nil) == SQLITE_OK)
+
+    let profiles = try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
+    #expect(
+        profiles ==
+        [
+            1: "Glutexo",
+            2: "Twisto"
         ]
     )
 }

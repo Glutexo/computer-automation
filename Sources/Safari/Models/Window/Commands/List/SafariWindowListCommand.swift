@@ -22,7 +22,7 @@ public struct SafariWindowListCommand: CommandModel {
     public func execute(arguments: [String] = []) throws -> String {
         let windows = try SafariWindow.list(executor: executor)
         return windows
-            .map { "\($0.index)|\($0.name)" }
+            .map { "\($0.index)|\($0.profileName)|\($0.name)" }
             .joined(separator: "\n")
     }
 }

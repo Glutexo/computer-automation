@@ -60,6 +60,7 @@
 - Added a `SafariWindow` model for browser window CRUD operations.
 - Implemented `open-window`, `windows`, and `close-window` as the initial create, read, and delete commands.
 - Chose AppleScript as the execution layer for Safari window control.
+- Extended `open-window` with an optional Safari profile argument and included profile names in window listing output.
 
 ### Zsh completion installer
 
