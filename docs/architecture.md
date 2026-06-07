@@ -14,9 +14,11 @@ flowchart TD
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
     SafariMenuBar["application-menu-bar model"]
+    SafariMenu["menu model"]
     SafariFileMenu["file-menu model"]
     SafariMenuItem["menu-item model"]
     MenuBarItems["menu-bar-items command"]
+    MenuItems["menu-items command"]
     FileMenuItems["file-menu-items command"]
     MenuItemChildren["menu-item-children command"]
     Launch["launch command"]
@@ -39,11 +41,15 @@ flowchart TD
     Safari --> SafariProfile
     Safari --> SafariWindow
     SafariUI --> SafariMenuBar
+    SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
     SafariUI --> SafariMenuItem
     SafariMenuBar --> MenuBarItems
+    SafariMenu --> MenuItems
     SafariFileMenu --> FileMenuItems
     SafariMenuItem --> MenuItemChildren
+    SafariMenu --> SafariMenuItem
+    SafariFileMenu --> SafariMenu
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit
@@ -59,6 +65,7 @@ flowchart TD
 - The first architectural level is the module.
 - Modules typically represent an application or a service boundary.
 - Models represent distinct parts of a module's domain.
+- Prefer general structural UI models before adding specialized models for concrete application areas.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.

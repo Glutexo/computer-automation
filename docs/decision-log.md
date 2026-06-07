@@ -76,6 +76,12 @@
 - Added initial read commands for the Safari application menu bar and File menu so UI structure can be inspected directly.
 - Added a `SafariMenuItem` read command for listing child items of a concrete menu item via structural coordinates.
 
+### General menu model
+
+- Added a general `SafariMenu` model for top-level Safari menus addressed by menu bar index.
+- Kept `SafariFileMenu` as a thin specialization over `SafariMenu` instead of the primary abstraction.
+- Chose the general menu model as the preferred base for future menu-oriented automation.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

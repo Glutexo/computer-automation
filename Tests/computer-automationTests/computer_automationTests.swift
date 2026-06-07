@@ -48,11 +48,15 @@ import SQLite3
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
+        SafariMenu.descriptor,
         SafariFileMenu.descriptor,
         SafariMenuItem.descriptor
     ])
     #expect(SafariApplicationMenuBar.descriptor.commands == [SafariApplicationMenuBarListCommand.descriptor])
     #expect(SafariApplicationMenuBarListCommand.descriptor.operation == .read)
+    #expect(SafariMenu.descriptor.commands == [SafariMenuListItemsCommand.descriptor])
+    #expect(SafariMenuListItemsCommand.descriptor.operation == .read)
+    #expect(SafariMenuListItemsCommand.descriptor.arguments.count == 1)
     #expect(SafariFileMenu.descriptor.commands == [SafariFileMenuListCommand.descriptor])
     #expect(SafariFileMenuListCommand.descriptor.operation == .read)
     #expect(SafariMenuItem.descriptor.commands == [SafariMenuItemListChildItemsCommand.descriptor])
@@ -93,6 +97,7 @@ import SQLite3
         CompletionEngine.suggestions(for: ["safari-ui"], modules: modules) ==
         [
             CompletionSuggestion(value: "menu-bar-items", abstract: "List Safari application menu bar items."),
+            CompletionSuggestion(value: "menu-items", abstract: "List items for a Safari application menu."),
             CompletionSuggestion(value: "file-menu-items", abstract: "List Safari File menu items."),
             CompletionSuggestion(value: "menu-item-children", abstract: "List child menu items for a Safari menu item.")
         ]
@@ -158,6 +163,22 @@ import SQLite3
 
     #expect(throws: SafariUserInterfaceError.invalidMenuItemAddress("x", "2")) {
         try command.execute(arguments: ["x", "2"])
+    }
+}
+
+@Test func safariMenuListItemsCommandRejectsMissingAddress() async throws {
+    let command = SafariMenuListItemsCommand()
+
+    #expect(throws: SafariUserInterfaceError.missingMenuAddress) {
+        try command.execute(arguments: [])
+    }
+}
+
+@Test func safariMenuListItemsCommandRejectsInvalidAddress() async throws {
+    let command = SafariMenuListItemsCommand()
+
+    #expect(throws: SafariUserInterfaceError.invalidMenuAddress("x")) {
+        try command.execute(arguments: ["x"])
     }
 }
 
