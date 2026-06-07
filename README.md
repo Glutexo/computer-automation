@@ -13,13 +13,15 @@ Minimal Swift application for computer automation experiments.
 
 - Built with Swift Package Manager.
 - The executable currently depends on the `Safari` module.
-- The first command is `SafariLaunchCommand`.
+- The `Safari` module currently exposes application lifecycle commands.
 - Requires macOS with Safari installed.
 
 ## Run
 
 ```bash
 swift run computer-automation safari launch
+swift run computer-automation safari running
+swift run computer-automation safari quit
 ```
 
 Running the executable launches Safari on macOS.

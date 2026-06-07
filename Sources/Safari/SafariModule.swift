@@ -4,15 +4,19 @@ public enum SafariModule: ModuleModel {
     public static let descriptor = ModuleDescriptor(
         name: "safari",
         abstract: "Automation commands for Safari.",
-        commands: [
-            SafariLaunchCommand.descriptor
+        models: [
+            SafariApplication.descriptor
         ]
     )
 
     public static func execute(commandName: String, arguments: [String]) throws -> String {
         switch commandName {
-        case SafariLaunchCommand.descriptor.name:
-            return try SafariLaunchCommand().execute(arguments: arguments)
+        case SafariApplicationLaunchCommand.descriptor.name:
+            return try SafariApplicationLaunchCommand().execute(arguments: arguments)
+        case SafariApplicationRunningCommand.descriptor.name:
+            return try SafariApplicationRunningCommand().execute(arguments: arguments)
+        case SafariApplicationQuitCommand.descriptor.name:
+            return try SafariApplicationQuitCommand().execute(arguments: arguments)
         default:
             throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
         }

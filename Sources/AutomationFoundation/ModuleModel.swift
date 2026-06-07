@@ -7,11 +7,15 @@ public protocol ModuleModel {
 public struct ModuleDescriptor: Sendable, Equatable {
     public let name: String
     public let abstract: String
-    public let commands: [CommandDescriptor]
+    public let models: [ModelDescriptor]
 
-    public init(name: String, abstract: String, commands: [CommandDescriptor]) {
+    public var commands: [CommandDescriptor] {
+        models.flatMap(\.commands)
+    }
+
+    public init(name: String, abstract: String, models: [ModelDescriptor]) {
         self.name = name
         self.abstract = abstract
-        self.commands = commands
+        self.models = models
     }
 }

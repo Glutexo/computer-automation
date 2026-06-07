@@ -1,11 +1,11 @@
 import AppKit
 import AutomationFoundation
 
-public struct SafariLaunchCommand: CommandModel {
-    public static let bundleIdentifier = "com.apple.Safari"
+public struct SafariApplicationLaunchCommand: CommandModel {
     public static let descriptor = CommandDescriptor(
         name: "launch",
         abstract: "Launch Safari.",
+        operation: .create,
         arguments: []
     )
 
@@ -13,8 +13,8 @@ public struct SafariLaunchCommand: CommandModel {
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
-        guard let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleIdentifier) else {
-            throw SafariLaunchCommandError.applicationNotFound
+        guard let safariURL = SafariApplication.applicationURL() else {
+            throw SafariApplicationCommandError.applicationNotFound
         }
 
         let configuration = NSWorkspace.OpenConfiguration()
@@ -28,8 +28,4 @@ public struct SafariLaunchCommand: CommandModel {
 
         return "Safari launched."
     }
-}
-
-public enum SafariLaunchCommandError: Error {
-    case applicationNotFound
 }

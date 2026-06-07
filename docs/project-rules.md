@@ -18,7 +18,9 @@
 ## Engineering approach
 
 - Treat the first architectural level as modules, typically representing an application or a service.
+- Represent distinct parts of each module with explicit models.
 - Model each command as its own Swift type.
+- Attach each command to the model that owns the underlying behavior.
 - Require module and command models to publish the metadata needed for CLI completion.
 - Keep generated shell completion scripts driven by shared completion metadata rather than duplicated command lists.
 - Keep command implementation isolated in its own command directory.
@@ -29,6 +31,7 @@
 
 ## Knowledge capture
 
+- Keep an internal overview of module models and their CRUD coverage.
 - Record assumptions explicitly when requirements are still unclear.
 - Preserve implementation notes that would save repeated investigation later.
 - Prefer concise entries over polished essays so updates stay cheap.

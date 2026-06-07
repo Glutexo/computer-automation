@@ -17,6 +17,7 @@
 - Launching Safari uses AppKit, so the package now declares a macOS 10.15+ minimum target.
 - CLI completion needs to consume metadata from modules and commands rather than hardcoding names in the executable.
 - Shell completion should stay a thin adapter over the CLI completion endpoint so command metadata has a single source of truth.
+- The Safari module now needs an explicit application model so lifecycle commands stay grouped by the part of the app they control.
 
 ### Open questions
 

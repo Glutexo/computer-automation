@@ -2,11 +2,22 @@ import Testing
 @testable import AutomationFoundation
 @testable import Safari
 
-@Test func safariModuleExposesLaunchCommandMetadata() async throws {
+@Test func safariModuleExposesApplicationModelMetadata() async throws {
     #expect(SafariModule.descriptor.name == "safari")
-    #expect(SafariModule.descriptor.commands == [SafariLaunchCommand.descriptor])
-    #expect(SafariLaunchCommand.descriptor.name == "launch")
-    #expect(SafariLaunchCommand.bundleIdentifier == "com.apple.Safari")
+    #expect(SafariModule.descriptor.models == [SafariApplication.descriptor])
+    #expect(SafariApplication.descriptor.name == "application")
+    #expect(SafariApplication.bundleIdentifier == "com.apple.Safari")
+    #expect(
+        SafariApplication.descriptor.commands ==
+        [
+            SafariApplicationLaunchCommand.descriptor,
+            SafariApplicationRunningCommand.descriptor,
+            SafariApplicationQuitCommand.descriptor
+        ]
+    )
+    #expect(SafariApplicationLaunchCommand.descriptor.operation == .create)
+    #expect(SafariApplicationRunningCommand.descriptor.operation == .read)
+    #expect(SafariApplicationQuitCommand.descriptor.operation == .delete)
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
@@ -19,7 +30,11 @@ import Testing
 
     #expect(
         CompletionEngine.suggestions(for: ["safari"], modules: modules) ==
-        [CompletionSuggestion(value: "launch", abstract: "Launch Safari.")]
+        [
+            CompletionSuggestion(value: "launch", abstract: "Launch Safari."),
+            CompletionSuggestion(value: "running", abstract: "Report whether Safari is currently running."),
+            CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running.")
+        ]
     )
 
     #expect(

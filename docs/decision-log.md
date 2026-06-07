@@ -42,3 +42,9 @@
 - Added a shared metadata contract for modules and commands in `AutomationFoundation`.
 - Completion data is now owned by module and command models and consumed by the CLI.
 - Added `zsh` completion script generation that delegates back to the shared completion endpoint.
+
+### Safari application lifecycle model
+
+- Structured the `Safari` module around a `SafariApplication` model that represents Safari as an application.
+- Attached `launch`, `running`, and `quit` commands to that model as the current lifecycle CRUD surface.
+- Recorded model architecture and CRUD coverage in dedicated internal documentation.
