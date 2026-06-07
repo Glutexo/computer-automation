@@ -13,16 +13,20 @@ let package = Package(
             name: "AutomationFoundation"
         ),
         .target(
-            name: "Safari",
+            name: "SafariUserInterface",
             dependencies: ["AutomationFoundation"]
+        ),
+        .target(
+            name: "Safari",
+            dependencies: ["AutomationFoundation", "SafariUserInterface"]
         ),
         .executableTarget(
             name: "computer-automation",
-            dependencies: ["AutomationFoundation", "Safari"]
+            dependencies: ["AutomationFoundation", "Safari", "SafariUserInterface"]
         ),
         .testTarget(
             name: "computer-automationTests",
-            dependencies: ["AutomationFoundation", "Safari"]
+            dependencies: ["AutomationFoundation", "Safari", "SafariUserInterface"]
         ),
     ],
     swiftLanguageModes: [.v6]

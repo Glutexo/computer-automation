@@ -23,6 +23,7 @@
 - Safari window creation and closing are better handled through AppleScript than by trying to infer them from local Safari state files.
 - Safari's scripting dictionary does not expose profile-aware window creation directly, so profile-specific window opening uses GUI scripting over Safari's File menu.
 - Open window profile names can be resolved from `SafariTabs.db` by joining `windows.active_profile_id` to `bookmarks.title`.
+- Safari GUI scripting should live outside the `Safari` domain module in a dedicated `SafariUserInterface` module.
 
 ### Open questions
 

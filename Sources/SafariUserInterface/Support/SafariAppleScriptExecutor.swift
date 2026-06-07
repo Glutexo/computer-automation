@@ -1,12 +1,14 @@
 import AppKit
 import Foundation
 
-protocol SafariAppleScriptExecuting {
+public protocol SafariAppleScriptExecuting {
     func execute(script: String) throws -> NSAppleEventDescriptor?
 }
 
-struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
-    func execute(script: String) throws -> NSAppleEventDescriptor? {
+public struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
+    public init() {}
+
+    public func execute(script: String) throws -> NSAppleEventDescriptor? {
         guard let appleScript = NSAppleScript(source: script) else {
             throw SafariAppleScriptError.scriptCompilationFailed
         }
@@ -22,7 +24,7 @@ struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
     }
 }
 
-enum SafariAppleScriptError: Error {
+public enum SafariAppleScriptError: Error {
     case scriptCompilationFailed
     case executionFailed(String)
 }

@@ -3,6 +3,7 @@ import Foundation
 import SQLite3
 @testable import AutomationFoundation
 @testable import Safari
+@testable import SafariUserInterface
 
 @Test func safariModuleExposesApplicationModelMetadata() async throws {
     #expect(SafariModule.descriptor.name == "safari")
@@ -45,6 +46,11 @@ import SQLite3
     #expect(!SafariWindowOpenCommand.descriptor.arguments[0].isRequired)
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
+    #expect(SafariUserInterfaceModule.descriptor.models == [
+        SafariApplicationMenuBar.descriptor,
+        SafariFileMenu.descriptor,
+        SafariMenuItem.descriptor
+    ])
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {

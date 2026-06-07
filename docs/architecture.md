@@ -9,9 +9,13 @@ flowchart TD
     Zsh["zsh completion script"]
     ZshInstaller["zsh completion installer"]
     Safari["Safari module"]
+    SafariUI["SafariUserInterface module"]
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    SafariMenuBar["application-menu-bar model"]
+    SafariFileMenu["file-menu model"]
+    SafariMenuItem["menu-item model"]
     Launch["launch command"]
     Running["running command"]
     Quit["quit command"]
@@ -24,10 +28,16 @@ flowchart TD
     Zsh --> App
     ZshInstaller --> App
     App --> Safari
+    App --> SafariUI
     Safari --> Foundation
+    Safari --> SafariUI
+    SafariUI --> Foundation
     Safari --> SafariApplication
     Safari --> SafariProfile
     Safari --> SafariWindow
+    SafariUI --> SafariMenuBar
+    SafariUI --> SafariFileMenu
+    SafariUI --> SafariMenuItem
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit
@@ -35,6 +45,7 @@ flowchart TD
     SafariWindow --> WindowOpen
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    WindowOpen --> SafariFileMenu
 ```
 
 ## Notes
@@ -48,4 +59,4 @@ flowchart TD
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.
-- The current executable is a thin entry point over the `Safari` module and its application, profile, and window models.
+- The current executable is a thin entry point over the `Safari` and `SafariUserInterface` modules.

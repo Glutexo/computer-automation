@@ -88,14 +88,20 @@ ORDER BY id;
 
 ## Window operations
 
-- The `SafariWindow` model uses AppleScript to interact with Safari windows.
-- `open-window` activates Safari and runs `make new document`.
+- The `SafariWindow` model delegates user interface work to the `SafariUserInterface` module.
+- `open-window` uses the `SafariFileMenu` model in `SafariUserInterface`.
 - `open-window` accepts an optional profile name argument.
 - When a profile argument is provided, the command:
   - validates the profile name against the `SafariProfile` model
-  - activates Safari
-  - uses GUI scripting to click the matching profile-specific "new window" menu item
+  - delegates to the `SafariFileMenu` model to activate Safari
+  - clicks the matching profile-specific "new window" menu item
 - `windows` enumerates `every window` and returns one line per window as:
   - `index|profile|name`
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
 - `close-window` closes the current front window.
+
+## Related module
+
+- GUI scripting and menu-level automation live in the separate `SafariUserInterface` module.
+- Its models are documented in `docs/safari-user-interface-models.md`.
+- `SafariFileMenu` is the current integration point used by the `SafariWindow` model.

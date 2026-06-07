@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariUserInterface
 
 public struct SafariWindowCloseCommand: CommandModel {
     public static let descriptor = CommandDescriptor(

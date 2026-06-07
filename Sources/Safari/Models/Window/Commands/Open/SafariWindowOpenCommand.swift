@@ -1,4 +1,5 @@
 import AutomationFoundation
+import SafariUserInterface
 
 public struct SafariWindowOpenCommand: CommandModel {
     public static let descriptor = CommandDescriptor(
@@ -29,15 +30,7 @@ public struct SafariWindowOpenCommand: CommandModel {
         if let requestedProfile = arguments.first, !requestedProfile.isEmpty {
             return try openWindow(forProfileNamed: requestedProfile)
         }
-
-        let script = """
-        tell application "Safari"
-            activate
-            make new document
-        end tell
-        """
-
-        _ = try executor.execute(script: script)
+        try SafariFileMenu.openWindow(profileName: nil, executor: executor)
         return "Safari window opened."
     }
 
@@ -47,33 +40,8 @@ public struct SafariWindowOpenCommand: CommandModel {
             throw SafariWindowCommandError.profileNotFound(profileName)
         }
 
-        let escapedProfileName = profileName
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        let script = """
-        tell application "Safari" to activate
-        delay 0.1
-        tell application "System Events"
-            tell process "Safari"
-                tell menu 1 of menu bar item 3 of menu bar 1
-                    set targetItemName to missing value
-                    repeat with currentItem in every menu item
-                        set currentName to name of currentItem
-                        if currentName ends with "\(escapedProfileName)" then
-                            set targetItemName to currentName
-                            exit repeat
-                        end if
-                    end repeat
-                    if targetItemName is missing value then error "Profile menu item not found"
-                    click menu item targetItemName
-                end tell
-            end tell
-        end tell
-        """
-
         do {
-            _ = try executor.execute(script: script)
+            try SafariFileMenu.openWindow(profileName: profileName, executor: executor)
         } catch {
             throw SafariWindowCommandError.profileMenuItemNotFound(profileName)
         }

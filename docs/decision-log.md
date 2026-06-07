@@ -62,6 +62,13 @@
 - Chose AppleScript as the execution layer for Safari window control.
 - Extended `open-window` with an optional Safari profile argument and included profile names in window listing output.
 
+### Safari user interface module
+
+- Split Safari GUI scripting into a separate `SafariUserInterface` module.
+- Added explicit UI models for the application menu bar, the File menu, and menu items.
+- Kept the `Safari` domain module dependent on that module through explicit API boundaries.
+- Added dedicated internal model documentation for `SafariUserInterface`, including CRUD coverage and a Mermaid diagram.
+
 ### Zsh completion installer
 
 - Added a CLI installer for `zsh` completion files.

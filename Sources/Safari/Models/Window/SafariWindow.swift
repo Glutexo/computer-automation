@@ -1,5 +1,6 @@
 import AppKit
 import AutomationFoundation
+import SafariUserInterface
 import SQLite3
 
 public struct SafariWindowRecord: Equatable {
