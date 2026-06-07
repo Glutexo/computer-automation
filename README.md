@@ -25,6 +25,12 @@ Repository for experiments, tooling, and documentation related to computer autom
 swift run
 ```
 
+## Test
+
+```bash
+swift test
+```
+
 ## Working model
 
 1. Update documentation when goals, constraints, or architecture change.

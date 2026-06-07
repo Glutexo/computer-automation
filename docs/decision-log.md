@@ -17,3 +17,4 @@
 
 - Bootstrapped the codebase as a Swift Package Manager executable.
 - Kept the first app intentionally minimal as a runnable `Ahoj světe!` baseline.
+- Documented both run and test commands in the repository README.
