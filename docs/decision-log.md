@@ -74,6 +74,7 @@
 - Added a standing rule that automation must stay independent of the macOS and Safari language setting.
 - Moved Safari File menu inspection to structural access by menu position and item index instead of localized menu titles.
 - Added initial read commands for the Safari application menu bar and File menu so UI structure can be inspected directly.
+- Added a `SafariMenuItem` read command for listing child items of a concrete menu item via structural coordinates.
 
 ### Zsh completion installer
 

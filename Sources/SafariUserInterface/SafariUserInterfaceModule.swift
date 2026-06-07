@@ -17,6 +17,8 @@ public enum SafariUserInterfaceModule: ModuleModel {
             return try SafariApplicationMenuBarListCommand().execute(arguments: arguments)
         case SafariFileMenuListCommand.descriptor.name:
             return try SafariFileMenuListCommand().execute(arguments: arguments)
+        case SafariMenuItemListChildItemsCommand.descriptor.name:
+            return try SafariMenuItemListChildItemsCommand().execute(arguments: arguments)
         default:
             throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
         }

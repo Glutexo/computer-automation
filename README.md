@@ -30,6 +30,7 @@ swift run computer-automation safari open-window Twisto
 swift run computer-automation safari close-window
 swift run computer-automation safari-ui menu-bar-items
 swift run computer-automation safari-ui file-menu-items
+swift run computer-automation safari-ui menu-item-children 3 27
 ```
 
 Running the executable launches Safari on macOS.

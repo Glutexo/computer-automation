@@ -18,6 +18,7 @@ flowchart TD
     SafariMenuItem["menu-item model"]
     MenuBarItems["menu-bar-items command"]
     FileMenuItems["file-menu-items command"]
+    MenuItemChildren["menu-item-children command"]
     Launch["launch command"]
     Running["running command"]
     Quit["quit command"]
@@ -42,6 +43,7 @@ flowchart TD
     SafariUI --> SafariMenuItem
     SafariMenuBar --> MenuBarItems
     SafariFileMenu --> FileMenuItems
+    SafariMenuItem --> MenuItemChildren
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit

@@ -24,6 +24,7 @@
 - Safari's scripting dictionary does not expose profile-aware window creation directly, so profile-specific window opening uses GUI scripting over Safari's File menu.
 - Safari keeps the File menu in menu bar position `3` on the current build, which is a better automation anchor than the localized menu title.
 - Profile-specific new-window items still expose the user profile name in the menu item title, so matching by profile-name suffix avoids dependence on the localized command prefix.
+- Safari submenu traversal is available through `menu 1 of menu item <index>`, so submenu reads can stay structural as well.
 - Open window profile names can be resolved from `SafariTabs.db` by joining `windows.active_profile_id` to `bookmarks.title`.
 - Safari GUI scripting should live outside the `Safari` domain module in a dedicated `SafariUserInterface` module.
 

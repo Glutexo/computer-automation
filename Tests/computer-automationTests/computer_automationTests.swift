@@ -55,6 +55,9 @@ import SQLite3
     #expect(SafariApplicationMenuBarListCommand.descriptor.operation == .read)
     #expect(SafariFileMenu.descriptor.commands == [SafariFileMenuListCommand.descriptor])
     #expect(SafariFileMenuListCommand.descriptor.operation == .read)
+    #expect(SafariMenuItem.descriptor.commands == [SafariMenuItemListChildItemsCommand.descriptor])
+    #expect(SafariMenuItemListChildItemsCommand.descriptor.operation == .read)
+    #expect(SafariMenuItemListChildItemsCommand.descriptor.arguments.count == 2)
 }
 
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
@@ -90,7 +93,8 @@ import SQLite3
         CompletionEngine.suggestions(for: ["safari-ui"], modules: modules) ==
         [
             CompletionSuggestion(value: "menu-bar-items", abstract: "List Safari application menu bar items."),
-            CompletionSuggestion(value: "file-menu-items", abstract: "List Safari File menu items.")
+            CompletionSuggestion(value: "file-menu-items", abstract: "List Safari File menu items."),
+            CompletionSuggestion(value: "menu-item-children", abstract: "List child menu items for a Safari menu item.")
         ]
     )
 }
@@ -139,6 +143,22 @@ import SQLite3
             SafariMenuItemRecord(index: 2, title: "Open…", commandCharacter: "O", commandModifiers: "0")
         ]
     )
+}
+
+@Test func safariMenuItemListChildItemsCommandRejectsMissingAddress() async throws {
+    let command = SafariMenuItemListChildItemsCommand()
+
+    #expect(throws: SafariUserInterfaceError.missingMenuItemAddress) {
+        try command.execute(arguments: [])
+    }
+}
+
+@Test func safariMenuItemListChildItemsCommandRejectsInvalidAddress() async throws {
+    let command = SafariMenuItemListChildItemsCommand()
+
+    #expect(throws: SafariUserInterfaceError.invalidMenuItemAddress("x", "2")) {
+        try command.execute(arguments: ["x", "2"])
+    }
 }
 
 @Test func safariWindowLoadsProfilesByWindowIdentifier() async throws {

@@ -15,7 +15,7 @@
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
 | `SafariFileMenu` | `file-menu-items` | `R` | List items currently exposed by Safari's `File` menu. |
 | `SafariFileMenu` | Internal `openWindow` API | `C` | Open a new Safari window, optionally for a specific profile. |
-| `SafariMenuItem` | None yet | N/A | Shared representation of concrete menu items. |
+| `SafariMenuItem` | `menu-item-children` | `R` | List the child items of a specific Safari menu item. |
 
 ## Model architecture
 
@@ -27,6 +27,7 @@ flowchart TD
     SafariMenuItem["SafariMenuItem model"]
     MenuBarItems["menu-bar-items command (R)"]
     FileMenuItems["file-menu-items command (R)"]
+    MenuItemChildren["menu-item-children command (R)"]
     OpenWindow["openWindow(profileName:) API (C)"]
 
     SafariUI --> SafariMenuBar
@@ -37,6 +38,7 @@ flowchart TD
     SafariFileMenu --> SafariMenuItem
     SafariFileMenu --> FileMenuItems
     SafariFileMenu --> OpenWindow
+    SafariMenuItem --> MenuItemChildren
 ```
 
 ## Notes
@@ -46,12 +48,14 @@ flowchart TD
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
 - UI automation must remain independent of the macOS and Safari language setting.
 - The module identifies Safari's `File` menu by menu bar position instead of by localized title text.
+- `SafariMenuItem` addresses concrete menu items by structural coordinates: `menu-bar-item-index` plus `menu-item-index`.
 - No update or delete command surface is defined for these UI models yet.
 
 ## Current implementation
 
 - `menu-bar-items` returns one line per top-level menu in the form `index|title`.
 - `file-menu-items` returns one line per File menu item in the form `index|title|commandCharacter|commandModifiers`.
+- `menu-item-children <menu-bar-item-index> <menu-item-index>` returns one line per child item in the form `index|title|commandCharacter|commandModifiers`.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
-- `SafariMenuItem` currently serves as the shared representation type for concrete menu items and leaves room for later explicit menu-item commands.
+- `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.

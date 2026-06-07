@@ -106,3 +106,4 @@ ORDER BY id;
 - Its models are documented in `docs/safari-user-interface-models.md`.
 - `SafariFileMenu` is the current integration point used by the `SafariWindow` model.
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.
+- Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
