@@ -237,6 +237,126 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     )
 }
 
+@Test func safariAppleScriptWindowParseWindowListRejectsInvalidOrEmptyDescriptors() async throws {
+    let descriptors: [NSAppleEventDescriptor?] = [
+        nil,
+        NSAppleEventDescriptor.list(),
+        NSAppleEventDescriptor(string: ""),
+        NSAppleEventDescriptor(string: "invalid"),
+        NSAppleEventDescriptor(string: "abc|Start Page")
+    ]
+
+    for descriptor in descriptors {
+        #expect(SafariAppleScriptWindow.parseWindowList(descriptor).isEmpty)
+    }
+}
+
+@Test func safariAppleScriptWindowParseWindowListSkipsMalformedRows() async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(NSAppleEventDescriptor(string: "1|Start Page"), at: 1)
+    listDescriptor.insert(NSAppleEventDescriptor(string: "invalid"), at: 2)
+    listDescriptor.insert(NSAppleEventDescriptor(string: "abc|Broken"), at: 3)
+    listDescriptor.insert(NSAppleEventDescriptor(string: "2|OpenAI"), at: 4)
+
+    #expect(
+        SafariAppleScriptWindow.parseWindowList(listDescriptor) ==
+        [
+            SafariAppleScriptWindowRecord(identifier: 1, name: "Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 2, name: "OpenAI")
+        ]
+    )
+}
+
+@Test(arguments: [
+    (1, "Open…", "", ""),
+    (2, "Share…", "missing value", "missing value"),
+    (3, "Close", "W", "0")
+])
+func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, String, String)) async throws {
+    let descriptor = makeShortcutList([row])
+    let items = SafariAppleScriptMenuItem.parseRecordsWithKeyboardShortcut(from: descriptor)
+
+    #expect(items.count == 1)
+    #expect(items[0].index == row.0)
+    #expect(items[0].title == row.1)
+    #expect(items[0].commandCharacter == normalizedShortcut(row.2))
+    #expect(items[0].commandModifiers == normalizedShortcut(row.3))
+}
+
+@Test func safariAppleScriptMenuItemParserSkipsMalformedRows() async throws {
+    let valid = NSAppleEventDescriptor.list()
+    valid.insert(NSAppleEventDescriptor(string: "1"), at: 1)
+    valid.insert(NSAppleEventDescriptor(string: "Open…"), at: 2)
+    valid.insert(NSAppleEventDescriptor(string: "O"), at: 3)
+    valid.insert(NSAppleEventDescriptor(string: "0"), at: 4)
+
+    let missingIndex = NSAppleEventDescriptor.list()
+    missingIndex.insert(NSAppleEventDescriptor(string: "Broken"), at: 1)
+
+    let nonNumericIndex = NSAppleEventDescriptor.list()
+    nonNumericIndex.insert(NSAppleEventDescriptor(string: "x"), at: 1)
+    nonNumericIndex.insert(NSAppleEventDescriptor(string: "Broken"), at: 2)
+    nonNumericIndex.insert(NSAppleEventDescriptor(string: ""), at: 3)
+    nonNumericIndex.insert(NSAppleEventDescriptor(string: ""), at: 4)
+
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(valid, at: 1)
+    listDescriptor.insert(missingIndex, at: 2)
+    listDescriptor.insert(nonNumericIndex, at: 3)
+
+    #expect(
+        SafariAppleScriptMenuItem.parseRecordsWithKeyboardShortcut(from: listDescriptor) ==
+        [
+            SafariAppleScriptMenuItemRecord(index: 1, title: "Open…", commandCharacter: "O", commandModifiers: "0")
+        ]
+    )
+}
+
+@Test(arguments: [
+    SafariMenuItemRecord(index: 1, title: "Open…"),
+    SafariMenuItemRecord(index: 2, title: "Close", commandCharacter: "W"),
+    SafariMenuItemRecord(index: 3, title: "Share…", commandModifiers: "8"),
+    SafariMenuItemRecord(index: 4, title: "Import", commandCharacter: "I", commandModifiers: "2")
+])
+func safariMenuItemFormatFillsMissingFieldsWithEmptyStrings(item: SafariMenuItemRecord) async throws {
+    let components = SafariMenuItem.format(item).split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+    #expect(components.count == 4)
+    #expect(components[0] == String(item.index))
+    #expect(components[1] == item.title)
+    #expect(components[2] == (item.commandCharacter ?? ""))
+    #expect(components[3] == (item.commandModifiers ?? ""))
+}
+
+@Test(arguments: [
+    SafariAppleScriptMenuItemRecord(index: 1, title: "Apple"),
+    SafariAppleScriptMenuItemRecord(index: 2, title: "Open…", commandCharacter: "O", commandModifiers: "0")
+])
+func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScriptMenuItemRecord) async throws {
+    let bridged = SafariMenuItemRecord(record)
+    #expect(bridged.index == record.index)
+    #expect(bridged.title == record.title)
+    #expect(bridged.commandCharacter == record.commandCharacter)
+    #expect(bridged.commandModifiers == record.commandModifiers)
+}
+
+@Test(arguments: [
+    ("Glutexo", [1: "Glutexo"], [SafariWindowRecord(identifier: 1, index: 1, profileName: "Glutexo", name: "Glutexo")]),
+    ("Glutexo — Start Page", [:], [SafariWindowRecord(identifier: 1, index: 1, profileName: "", name: "Glutexo — Start Page")]),
+    ("Unknown", [:], [SafariWindowRecord(identifier: 1, index: 1, profileName: "", name: "Unknown")])
+])
+func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
+    title: String,
+    mappings: [Int: String],
+    expected: [SafariWindowRecord]
+) async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(NSAppleEventDescriptor(string: "1|\(title)"), at: 1)
+
+    #expect(
+        SafariWindow.parseWindowList(listDescriptor, profilesByWindowIdentifier: mappings) == expected
+    )
+}
+
 @Test(arguments: [(true, "true"), (false, "false")])
 func safariApplicationRunningCommandReflectsRunningState(input: (Bool, String)) async throws {
     let command = SafariApplicationRunningCommand(isRunning: { input.0 })
@@ -670,6 +790,10 @@ private func makeShortcutList(_ rows: [(Int, String, String, String)]) -> NSAppl
 
 private func emptyToNil(_ value: String) -> String? {
     value.isEmpty ? nil : value
+}
+
+private func normalizedShortcut(_ value: String) -> String? {
+    value.isEmpty || value == "missing value" ? nil : value
 }
 
 private final class MockAppleScriptExecutor: SafariAppleScriptExecuting {
