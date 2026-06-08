@@ -9,11 +9,19 @@ public struct SafariApplicationQuitCommand: CommandModel {
         arguments: []
     )
 
-    public init() {}
+    private let runningApplicationsProvider: () -> [SafariApplicationTerminating]
+
+    public init() {
+        self.runningApplicationsProvider = { SafariApplication.runningApplications().map { $0 as SafariApplicationTerminating } }
+    }
+
+    init(runningApplicationsProvider: @escaping () -> [SafariApplicationTerminating]) {
+        self.runningApplicationsProvider = runningApplicationsProvider
+    }
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
-        let applications = SafariApplication.runningApplications()
+        let applications = runningApplicationsProvider()
         guard !applications.isEmpty else {
             return "Safari is not running."
         }
@@ -26,6 +34,6 @@ public struct SafariApplicationQuitCommand: CommandModel {
     }
 }
 
-public enum SafariApplicationCommandError: Error {
+public enum SafariApplicationCommandError: Error, Equatable {
     case applicationNotFound
 }

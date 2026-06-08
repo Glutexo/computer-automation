@@ -172,6 +172,288 @@ import SQLite3
     )
 }
 
+@Test(arguments: [(true, "true"), (false, "false")])
+func safariApplicationRunningCommandReflectsRunningState(input: (Bool, String)) async throws {
+    let command = SafariApplicationRunningCommand(isRunning: { input.0 })
+    #expect(try command.execute(arguments: []) == input.1)
+}
+
+@Test func safariApplicationLaunchCommandLaunchesResolvedApplicationURL() async throws {
+    let safariURL = URL(fileURLWithPath: "/Applications/Safari.app")
+    var openedURL: URL?
+    let command = SafariApplicationLaunchCommand(
+        applicationURLProvider: { safariURL },
+        openApplication: { openedURL = $0 }
+    )
+
+    #expect(try command.execute(arguments: []) == "Safari launched.")
+    #expect(openedURL == safariURL)
+}
+
+@Test func safariApplicationLaunchCommandRejectsMissingApplicationURL() async throws {
+    let command = SafariApplicationLaunchCommand(
+        applicationURLProvider: { nil },
+        openApplication: { _ in Issue.record("openApplication should not be called") }
+    )
+
+    #expect(throws: SafariApplicationCommandError.applicationNotFound) {
+        try command.execute(arguments: [])
+    }
+}
+
+@Test(arguments: [0, 1, 3])
+func safariApplicationQuitCommandTerminatesEveryRunningApplication(applicationCount: Int) async throws {
+    let applications = (0..<applicationCount).map { _ in FakeRunningApplication() }
+    let command = SafariApplicationQuitCommand(
+        runningApplicationsProvider: { applications }
+    )
+
+    let output = try command.execute(arguments: [])
+
+    if applicationCount == 0 {
+        #expect(output == "Safari is not running.")
+    } else {
+        #expect(output == "Safari quit requested.")
+    }
+
+    let terminatedCount = applications.filter(\.didTerminate).count
+    #expect(terminatedCount == applicationCount)
+}
+
+@Test(arguments: [
+    [SafariProfileRecord(name: "Glutexo", identifier: "1")],
+    [
+        SafariProfileRecord(name: "Glutexo", identifier: "1"),
+        SafariProfileRecord(name: "Twisto", identifier: "2")
+    ],
+    []
+])
+func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]) async throws {
+    let command = SafariProfileListCommand(listProfiles: { profiles })
+    let output = try command.execute(arguments: [])
+    #expect(output == profiles.map(\.name).joined(separator: "\n"))
+}
+
+@Test func safariWindowOpenCommandOpensUnprofiledWindow() async throws {
+    let executor = MockAppleScriptExecutor()
+    var receivedProfileName: String?
+    let command = SafariWindowOpenCommand(
+        executor: executor,
+        listProfiles: { [] },
+        openWindow: { profileName, _ in receivedProfileName = profileName }
+    )
+
+    #expect(try command.execute(arguments: []) == "Safari window opened.")
+    #expect(receivedProfileName == nil)
+}
+
+@Test func safariWindowOpenCommandRejectsUnknownProfile() async throws {
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { [SafariProfileRecord(name: "Glutexo", identifier: "1")] },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.profileNotFound("Twisto")) {
+        try command.execute(arguments: ["Twisto"])
+    }
+}
+
+@Test func safariWindowOpenCommandWrapsProfileWindowOpenFailure() async throws {
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
+        openWindow: { _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") }
+    )
+
+    #expect(throws: SafariWindowCommandError.profileMenuItemNotFound("Twisto")) {
+        try command.execute(arguments: ["Twisto"])
+    }
+}
+
+@Test func safariWindowOpenCommandFormatsProfileLaunchMessage() async throws {
+    var receivedProfileName: String?
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
+        openWindow: { profileName, _ in receivedProfileName = profileName }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.")
+    #expect(receivedProfileName == "Twisto")
+}
+
+@Test(arguments: [
+    [],
+    [SafariWindowRecord(identifier: 1, index: 1, profileName: "Glutexo", name: "Start Page")],
+    [
+        SafariWindowRecord(identifier: 1, index: 1, profileName: "Glutexo", name: "Start Page"),
+        SafariWindowRecord(identifier: 2, index: 2, profileName: "Twisto", name: "OpenAI")
+    ]
+])
+func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) async throws {
+    let command = SafariWindowListCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: { _ in windows }
+    )
+
+    let output = try command.execute(arguments: [])
+    let expected = windows.map { "\($0.index)|\($0.profileName)|\($0.name)" }.joined(separator: "\n")
+    #expect(output == expected)
+}
+
+@Test(arguments: [
+    (false, "ignored", "Safari is not running."),
+    (true, "Safari front window closed.", "Safari front window closed."),
+    (true, "Safari has no open windows.", "Safari has no open windows.")
+])
+func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String)) async throws {
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { input.0 },
+        closeFrontWindow: { _ in input.1 }
+    )
+
+    #expect(try command.execute(arguments: []) == input.2)
+}
+
+@Test func safariAppleScriptApplicationActivateExecutesActivateScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptApplication.activate(executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("tell application \"Safari\" to activate"))
+}
+
+@Test func safariAppleScriptWindowOpenNewDocumentExecutesDocumentScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptWindow.openNewDocument(executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("make new document"))
+}
+
+@Test func safariAppleScriptWindowCloseFrontWindowReturnsScriptResult() async throws {
+    let executor = MockAppleScriptExecutor(results: [.string("Safari front window closed.")])
+    #expect(try SafariAppleScriptWindow.closeFrontWindow(executor: executor) == "Safari front window closed.")
+}
+
+@Test(arguments: [
+    [(1, "Apple"), (2, "Safari")],
+    []
+])
+func safariAppleScriptApplicationMenuBarListsItems(rows: [(Int, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeIndexTitleList(rows))])
+    let items = try SafariAppleScriptApplicationMenuBar.listItems(executor: executor)
+    let expected = rows.map { SafariAppleScriptMenuItemRecord(index: $0.0, title: $0.1) }
+    #expect(items == expected)
+}
+
+@Test(arguments: [
+    [(1, "Open…", "O", "0"), (2, "Close", "W", "0")],
+    []
+])
+func safariAppleScriptMenuListsItems(rows: [(Int, String, String, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList(rows))])
+    let items = try SafariAppleScriptMenu.listItems(menuBarItemIndex: 3, executor: executor)
+    let expected = rows.map {
+        SafariAppleScriptMenuItemRecord(index: $0.0, title: $0.1, commandCharacter: emptyToNil($0.2), commandModifiers: emptyToNil($0.3))
+    }
+    #expect(items == expected)
+}
+
+@Test func safariAppleScriptMenuClickItemExecutesIndexedClickScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptMenu.clickItem(menuBarItemIndex: 3, menuItemIndex: 7, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("click menu item 7"))
+}
+
+@Test(arguments: [
+    [(1, "Google Chrome…", "", "0"), (2, "Firefox…", "", "0")],
+    []
+])
+func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList(rows))])
+    let items = try SafariAppleScriptMenuItem.listChildItems(menuBarItemIndex: 3, menuItemIndex: 27, executor: executor)
+    let expected = rows.map {
+        SafariAppleScriptMenuItemRecord(index: $0.0, title: $0.1, commandCharacter: emptyToNil($0.2), commandModifiers: emptyToNil($0.3))
+    }
+    #expect(items == expected)
+}
+
+@Test func safariApplicationMenuBarMapsAppleScriptItemsIntoUiModel() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeIndexTitleList([(1, "Apple"), (2, "Safari")]))])
+    let items = try SafariApplicationMenuBar.listItems(executor: executor)
+    #expect(items == [
+        SafariMenuItemRecord(index: 1, title: "Apple"),
+        SafariMenuItemRecord(index: 2, title: "Safari")
+    ])
+}
+
+@Test func safariMenuMapsAppleScriptItemsIntoUiModel() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Open…", "O", "0")]))])
+    let items = try SafariMenu.listItems(menuBarItemIndex: 3, executor: executor)
+    #expect(items == [SafariMenuItemRecord(index: 1, title: "Open…", commandCharacter: "O", commandModifiers: "0")])
+}
+
+@Test func safariMenuWrapsAppleScriptFailure() async throws {
+    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
+    #expect(throws: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 3)) {
+        try SafariMenu.listItems(menuBarItemIndex: 3, executor: executor)
+    }
+}
+
+@Test func safariMenuItemMapsAppleScriptChildItemsIntoUiModel() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Firefox…", "", "0")]))])
+    let items = try SafariMenuItem.listChildItems(menuBarItemIndex: 3, menuItemIndex: 27, executor: executor)
+    #expect(items == [SafariMenuItemRecord(index: 1, title: "Firefox…", commandModifiers: "0")])
+}
+
+@Test func safariMenuItemWrapsAppleScriptFailure() async throws {
+    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
+    #expect(throws: SafariUserInterfaceError.menuItemChildrenUnavailable(menuBarItemIndex: 3, menuItemIndex: 27)) {
+        try SafariMenuItem.listChildItems(menuBarItemIndex: 3, menuItemIndex: 27, executor: executor)
+    }
+}
+
+@Test func safariFileMenuListItemsUsesFileMenuIndex() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Open…", "O", "0")]))])
+    let items = try SafariFileMenu.listItems(executor: executor)
+    #expect(items == [SafariMenuItemRecord(index: 1, title: "Open…", commandCharacter: "O", commandModifiers: "0")])
+    #expect(executor.executedScripts[0].contains("menu bar item 3"))
+}
+
+@Test func safariFileMenuOpenWindowWithoutProfileUsesNewDocumentPath() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariFileMenu.openWindow(profileName: nil, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("make new document"))
+}
+
+@Test func safariFileMenuOpenWindowForProfileClicksMatchedSuffixItem() async throws {
+    let executor = MockAppleScriptExecutor(results: [
+        .descriptor(makeShortcutList([
+            (1, "Nuova finestra di Glutexo", "N", "0"),
+            (2, "Nuova finestra di Twisto", "N", "0")
+        ])),
+        .none
+    ])
+
+    try SafariFileMenu.openWindow(profileName: "Twisto", executor: executor)
+
+    #expect(executor.executedScripts.count == 2)
+    #expect(executor.executedScripts[1].contains("click menu item 2"))
+}
+
+@Test func safariFileMenuOpenWindowRejectsMissingProfileMenuItem() async throws {
+    let executor = MockAppleScriptExecutor(results: [
+        .descriptor(makeShortcutList([(1, "Nuova finestra privata", "N", "1")]))
+    ])
+
+    #expect(throws: SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto")) {
+        try SafariFileMenu.openWindow(profileName: "Twisto", executor: executor)
+    }
+}
+
 @Test func safariMenuItemListChildItemsCommandRejectsMissingAddress() async throws {
     let command = SafariMenuItemListChildItemsCommand()
 
@@ -291,6 +573,86 @@ private func openDatabase(at path: String) -> OpaquePointer? {
         return nil
     }
     return database
+}
+
+private func makeIndexTitleList(_ rows: [(Int, String)]) -> NSAppleEventDescriptor {
+    let listDescriptor = NSAppleEventDescriptor.list()
+
+    for (offset, row) in rows.enumerated() {
+        let item = NSAppleEventDescriptor.list()
+        item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
+        item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
+        listDescriptor.insert(item, at: offset + 1)
+    }
+
+    return listDescriptor
+}
+
+private func makeShortcutList(_ rows: [(Int, String, String, String)]) -> NSAppleEventDescriptor {
+    let listDescriptor = NSAppleEventDescriptor.list()
+
+    for (offset, row) in rows.enumerated() {
+        let item = NSAppleEventDescriptor.list()
+        item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
+        item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
+        item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
+        item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
+        listDescriptor.insert(item, at: offset + 1)
+    }
+
+    return listDescriptor
+}
+
+private func emptyToNil(_ value: String) -> String? {
+    value.isEmpty ? nil : value
+}
+
+private final class MockAppleScriptExecutor: SafariAppleScriptExecuting {
+    enum Result {
+        case none
+        case string(String)
+        case descriptor(NSAppleEventDescriptor)
+    }
+
+    var executedScripts: [String] = []
+    private var results: [Result]
+    private let error: Error?
+
+    init(results: [Result] = [], error: Error? = nil) {
+        self.results = results
+        self.error = error
+    }
+
+    func execute(script: String) throws -> NSAppleEventDescriptor? {
+        executedScripts.append(script)
+
+        if let error {
+            throw error
+        }
+
+        guard !results.isEmpty else {
+            return nil
+        }
+
+        let nextResult = results.removeFirst()
+        switch nextResult {
+        case .none:
+            return nil
+        case .string(let value):
+            return NSAppleEventDescriptor(string: value)
+        case .descriptor(let descriptor):
+            return descriptor
+        }
+    }
+}
+
+private final class FakeRunningApplication: SafariApplicationTerminating {
+    private(set) var didTerminate = false
+
+    func terminate() -> Bool {
+        didTerminate = true
+        return true
+    }
 }
 
 @Test func zshCompletionScriptUsesCompletionEndpoint() async throws {

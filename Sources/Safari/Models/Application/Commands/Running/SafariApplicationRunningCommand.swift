@@ -8,10 +8,18 @@ public struct SafariApplicationRunningCommand: CommandModel {
         arguments: []
     )
 
-    public init() {}
+    private let isRunning: () -> Bool
+
+    public init() {
+        self.isRunning = SafariApplication.isRunning
+    }
+
+    init(isRunning: @escaping () -> Bool) {
+        self.isRunning = isRunning
+    }
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
-        SafariApplication.isRunning() ? "true" : "false"
+        isRunning() ? "true" : "false"
     }
 }

@@ -11,18 +11,26 @@ public struct SafariWindowListCommand: CommandModel {
     )
 
     private let executor: SafariAppleScriptExecuting
+    private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord]
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
+        self.listWindows = { executor in try SafariWindow.list(executor: executor) }
     }
 
-    init(executor: SafariAppleScriptExecuting) {
+    init(
+        executor: SafariAppleScriptExecuting,
+        listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariWindowRecord] = { executor in
+            try SafariWindow.list(executor: executor)
+        }
+    ) {
         self.executor = executor
+        self.listWindows = listWindows
     }
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
-        let windows = try SafariWindow.list(executor: executor)
+        let windows = try listWindows(executor)
         return windows
             .map { "\($0.index)|\($0.profileName)|\($0.name)" }
             .joined(separator: "\n")

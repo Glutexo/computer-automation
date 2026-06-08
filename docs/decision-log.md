@@ -9,6 +9,12 @@
 - Required tests to cover both user-story examples and general behavior, invariants, and edge conditions.
 - Allowed mocks as a first-class tool when they improve coverage, isolation, or reproducibility.
 
+### Model test coverage expansion
+
+- Reviewed the existing model tests against the new testing standard and filled the main gaps.
+- Added parameterized behavior tests across Safari, SafariUserInterface, and SafariAppleScript models.
+- Introduced explicit dependency injection points for lifecycle and window commands so they can be tested with mocks instead of AppKit side effects.
+
 ## 2026-06-07
 
 ### Initial repository bootstrap

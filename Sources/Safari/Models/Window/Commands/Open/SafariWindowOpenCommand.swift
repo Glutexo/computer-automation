@@ -17,13 +17,23 @@ public struct SafariWindowOpenCommand: CommandModel {
     )
 
     private let executor: SafariAppleScriptExecuting
+    private let listProfiles: () throws -> [SafariProfileRecord]
+    private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
+        self.listProfiles = { try SafariProfile.listAvailableProfiles() }
+        self.openWindow = SafariFileMenu.openWindow
     }
 
-    init(executor: SafariAppleScriptExecuting) {
+    init(
+        executor: SafariAppleScriptExecuting,
+        listProfiles: @escaping () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() },
+        openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow
+    ) {
         self.executor = executor
+        self.listProfiles = listProfiles
+        self.openWindow = openWindow
     }
 
     @discardableResult
@@ -31,18 +41,18 @@ public struct SafariWindowOpenCommand: CommandModel {
         if let requestedProfile = arguments.first, !requestedProfile.isEmpty {
             return try openWindow(forProfileNamed: requestedProfile)
         }
-        try SafariFileMenu.openWindow(profileName: nil, executor: executor)
+        try openWindow(nil, executor)
         return "Safari window opened."
     }
 
     private func openWindow(forProfileNamed profileName: String) throws -> String {
-        let profiles = try SafariProfile.listAvailableProfiles()
+        let profiles = try listProfiles()
         guard profiles.contains(where: { $0.name == profileName }) else {
             throw SafariWindowCommandError.profileNotFound(profileName)
         }
 
         do {
-            try SafariFileMenu.openWindow(profileName: profileName, executor: executor)
+            try openWindow(profileName, executor)
         } catch {
             throw SafariWindowCommandError.profileMenuItemNotFound(profileName)
         }

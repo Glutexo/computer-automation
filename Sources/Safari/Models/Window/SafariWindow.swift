@@ -4,7 +4,7 @@ import SafariAppleScript
 import SafariUserInterface
 import SQLite3
 
-public struct SafariWindowRecord: Equatable {
+public struct SafariWindowRecord: Equatable, Sendable {
     public let identifier: Int
     public let index: Int
     public let profileName: String

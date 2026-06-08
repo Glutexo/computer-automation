@@ -2,7 +2,7 @@ import Foundation
 import AutomationFoundation
 import SQLite3
 
-public struct SafariProfileRecord: Equatable {
+public struct SafariProfileRecord: Equatable, Sendable {
     public let name: String
     public let identifier: String
 

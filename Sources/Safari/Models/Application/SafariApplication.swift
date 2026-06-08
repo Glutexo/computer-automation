@@ -1,6 +1,13 @@
 import AppKit
 import AutomationFoundation
 
+protocol SafariApplicationTerminating {
+    @discardableResult
+    func terminate() -> Bool
+}
+
+extension NSRunningApplication: SafariApplicationTerminating {}
+
 public enum SafariApplication: ModelModel {
     public static let bundleIdentifier = "com.apple.Safari"
 
