@@ -177,6 +177,24 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     }
 }
 
+@Test func safariModuleRejectsUnknownCommand() async throws {
+    #expect(throws: CLIError.unknownCommand(moduleName: "safari", commandName: "unknown")) {
+        try SafariModule.execute(commandName: "unknown", arguments: [])
+    }
+}
+
+@Test func safariUserInterfaceModuleRejectsUnknownCommand() async throws {
+    #expect(throws: CLIError.unknownCommand(moduleName: "safari-ui", commandName: "unknown")) {
+        try SafariUserInterfaceModule.execute(commandName: "unknown", arguments: [])
+    }
+}
+
+@Test func safariAppleScriptModuleRejectsUnknownCommand() async throws {
+    #expect(throws: CLIError.unknownCommand(moduleName: "safari-applescript", commandName: "unknown")) {
+        try SafariAppleScriptModule.execute(commandName: "unknown", arguments: [])
+    }
+}
+
 @Test func safariWindowParsesAppleScriptListOutput() async throws {
     let listDescriptor = NSAppleEventDescriptor.list()
     listDescriptor.insert(NSAppleEventDescriptor(string: "1|Start Page"), at: 1)
@@ -386,6 +404,16 @@ func safariApplicationRunningCommandReflectsRunningState(input: (Bool, String)) 
     }
 }
 
+@Test func safariProfileListCommandPropagatesProfileLoadingFailure() async throws {
+    let command = SafariProfileListCommand(
+        listProfiles: { throw SafariProfileCommandError.queryPreparationFailed }
+    )
+
+    #expect(throws: SafariProfileCommandError.queryPreparationFailed) {
+        try command.execute(arguments: [])
+    }
+}
+
 @Test(arguments: [0, 1, 3])
 func safariApplicationQuitCommandTerminatesEveryRunningApplication(applicationCount: Int) async throws {
     let applications = (0..<applicationCount).map { _ in FakeRunningApplication() }
@@ -487,6 +515,17 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
     #expect(output == expected)
 }
 
+@Test func safariWindowListCommandPropagatesListFailure() async throws {
+    let command = SafariWindowListCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: { _ in throw SafariWindowCommandError.queryPreparationFailed }
+    )
+
+    #expect(throws: SafariWindowCommandError.queryPreparationFailed) {
+        try command.execute(arguments: [])
+    }
+}
+
 @Test(arguments: [
     (false, "ignored", "Safari is not running."),
     (true, "Safari front window closed.", "Safari front window closed."),
@@ -502,11 +541,39 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     #expect(try command.execute(arguments: []) == input.2)
 }
 
+@Test func safariWindowCloseCommandPropagatesCloseFailure() async throws {
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in throw SafariAppleScriptError.scriptCompilationFailed }
+    )
+
+    #expect(throws: SafariAppleScriptError.scriptCompilationFailed) {
+        try command.execute(arguments: [])
+    }
+}
+
 @Test func safariAppleScriptApplicationActivateExecutesActivateScript() async throws {
     let executor = MockAppleScriptExecutor()
     try SafariAppleScriptApplication.activate(executor: executor)
     #expect(executor.executedScripts.count == 1)
     #expect(executor.executedScripts[0].contains("tell application \"Safari\" to activate"))
+}
+
+@Test func safariAppleScriptExecutorRejectsInvalidScript() async throws {
+    let executor = SafariAppleScriptExecutor()
+
+    do {
+        _ = try executor.execute(script: "not valid applescript")
+        Issue.record("Expected invalid AppleScript to throw.")
+    } catch let error as SafariAppleScriptError {
+        switch error {
+        case .scriptCompilationFailed:
+            break
+        case .executionFailed(let message):
+            #expect(!message.isEmpty)
+        }
+    }
 }
 
 @Test func safariAppleScriptWindowOpenNewDocumentExecutesDocumentScript() async throws {

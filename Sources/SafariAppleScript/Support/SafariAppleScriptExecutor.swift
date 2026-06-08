@@ -24,7 +24,7 @@ public struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
     }
 }
 
-public enum SafariAppleScriptError: Error {
+public enum SafariAppleScriptError: Error, Equatable {
     case scriptCompilationFailed
     case executionFailed(String)
 }

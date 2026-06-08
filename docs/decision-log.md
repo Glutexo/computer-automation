@@ -114,3 +114,9 @@
 
 - Added a CLI installer for `zsh` completion files.
 - Kept installation logic separate from script rendering so completion metadata still has one source of truth.
+
+### Error contract coverage
+
+- Expanded command-level error contract tests across the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.
+- Added explicit tests for unknown command routing and failure propagation from profile, window, and AppleScript command boundaries.
+- Made `SafariAppleScriptError` equatable so error outcomes can be asserted directly in parameterized tests.
