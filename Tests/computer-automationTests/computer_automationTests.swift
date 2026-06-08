@@ -347,8 +347,8 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
             privateWindowIdentifiers: [2]
         ) ==
         [
-            SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page"),
-            SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", tabGroupName: nil, name: "OpenAI")
+            SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page"),
+            SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "OpenAI")
         ]
     )
 }
@@ -496,9 +496,9 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 }
 
 @Test(arguments: [
-    ("Glutexo", [1: "Glutexo"], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Glutexo")]),
-    ("Glutexo — Start Page", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", tabGroupName: nil, name: "Glutexo — Start Page")]),
-    ("Unknown", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", tabGroupName: nil, name: "Unknown")])
+    ("Glutexo", [1: "Glutexo"], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Glutexo")]),
+    ("Glutexo — Start Page", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Glutexo — Start Page")]),
+    ("Unknown", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Unknown")])
 ])
 func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     title: String,
@@ -658,10 +658,10 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 
 @Test(arguments: [
     [],
-    [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page")],
+    [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")],
     [
-        SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page"),
-        SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", tabGroupName: "Focus", name: "OpenAI")
+        SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page"),
+        SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", name: "OpenAI")
     ]
 ])
 func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) async throws {
@@ -671,7 +671,7 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
     )
 
     let output = try command.execute(arguments: [])
-    let expected = windows.map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.tabGroupName ?? "")|\($0.name)" }.joined(separator: "\n")
+    let expected = windows.map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)" }.joined(separator: "\n")
     #expect(output == expected)
 }
 
@@ -1334,11 +1334,13 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     );
     INSERT INTO bookmarks (id, parent, type, title, subtype) VALUES
         (5, 0, 1, 'Glutexo', 2),
-        (6, 0, 1, 'Twisto', 2);
+        (6, 0, 1, 'Twisto', 2),
+        (1000, 6, 1, 'Focus', 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', 1);
     INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
         (1, 100, 5, NULL, 101),
         (2, 202, 6, NULL, 202),
-        (3, 300, 6, NULL, NULL),
+        (3, 1000, 6, NULL, NULL),
         (4, 404, 5, 1.0, 404);
     """
 
@@ -1347,9 +1349,9 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(
         try SafariWindow.loadWindowStateByWindowIdentifier(databasePath: databasePath) ==
         [
-            1: SafariWindowState(profileName: "Glutexo", tabGroupName: nil, isPrivate: false),
-            2: SafariWindowState(profileName: "Twisto", tabGroupName: nil, isPrivate: true),
-            3: SafariWindowState(profileName: "Twisto", tabGroupName: nil, isPrivate: false)
+            1: SafariWindowState(profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: false),
+            2: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: true),
+            3: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", isPrivate: false)
         ]
     )
 }

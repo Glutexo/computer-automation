@@ -9,14 +9,16 @@ public struct SafariWindowRecord: Equatable, Sendable {
     public let index: Int
     public let isPrivate: Bool
     public let profileName: String
+    public let selectedTabGroupIdentifier: Int?
     public let tabGroupName: String?
     public let name: String
 
-    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, tabGroupName: String? = nil, name: String) {
+    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, selectedTabGroupIdentifier: Int? = nil, tabGroupName: String? = nil, name: String) {
         self.identifier = identifier
         self.index = index
         self.isPrivate = isPrivate
         self.profileName = profileName
+        self.selectedTabGroupIdentifier = selectedTabGroupIdentifier
         self.tabGroupName = tabGroupName
         self.name = name
     }
@@ -56,6 +58,7 @@ public enum SafariWindow: ModelModel {
                 index: offset + 1,
                 isPrivate: state?.isPrivate ?? false,
                 profileName: profileName,
+                selectedTabGroupIdentifier: state?.selectedTabGroupIdentifier,
                 tabGroupName: state?.tabGroupName,
                 name: rawWindow.name
             )
@@ -74,6 +77,7 @@ public enum SafariWindow: ModelModel {
                 index: offset + 1,
                 isPrivate: privateWindowIdentifiers.contains(rawWindow.identifier),
                 profileName: profilesByWindowIdentifier[rawWindow.identifier] ?? "",
+                selectedTabGroupIdentifier: nil,
                 tabGroupName: nil,
                 name: rawWindow.name
             )
@@ -100,6 +104,7 @@ public enum SafariWindow: ModelModel {
         SELECT
             w.id,
             COALESCE(b.title, ''),
+            g.id,
             g.title,
             CASE
                 WHEN w.private_tab_group_id IS NOT NULL AND w.active_tab_group_id = w.private_tab_group_id THEN 1
@@ -132,9 +137,15 @@ public enum SafariWindow: ModelModel {
         while sqlite3_step(statement) == SQLITE_ROW {
             let identifier = Int(sqlite3_column_int(statement, 0))
             let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-            let tabGroupName = sqlite3_column_text(statement, 2).map { String(cString: $0) }
-            let isPrivate = sqlite3_column_int(statement, 3) == 1
-            stateByWindowIdentifier[identifier] = SafariWindowState(profileName: profileName, tabGroupName: tabGroupName, isPrivate: isPrivate)
+            let selectedTabGroupIdentifier = sqlite3_column_type(statement, 2) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 2))
+            let tabGroupName = sqlite3_column_text(statement, 3).map { String(cString: $0) }
+            let isPrivate = sqlite3_column_int(statement, 4) == 1
+            stateByWindowIdentifier[identifier] = SafariWindowState(
+                profileName: profileName,
+                selectedTabGroupIdentifier: selectedTabGroupIdentifier,
+                tabGroupName: tabGroupName,
+                isPrivate: isPrivate
+            )
         }
 
         return stateByWindowIdentifier
@@ -163,6 +174,7 @@ private struct RawSafariWindow {
 
 struct SafariWindowState: Equatable, Sendable {
     let profileName: String
+    let selectedTabGroupIdentifier: Int?
     let tabGroupName: String?
     let isPrivate: Bool
 }
