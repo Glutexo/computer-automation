@@ -117,6 +117,10 @@ ORDER BY id;
 - `windows` enumerates `every window` and returns one line per window as:
   - `index|profile|name`
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
+- Safari also has a virtual private-window profile:
+  - it is not a normal profile row in `SafariTabs.db`
+  - it should be treated as a special window mode rather than as a persisted user profile
+  - window/profile logic must therefore allow profile-like window states that do not map to the persisted profile catalog
 - `close-window` closes the current front window.
 
 ## Tab operations

@@ -139,3 +139,8 @@
 - Implemented `open-tab`, `tabs`, `set-tab-url`, and `close-tab` as the initial tab CRUD surface.
 - Added a matching `SafariAppleScriptTab` infrastructure model because Safari exposes tab URL inspection and mutation directly through AppleScript.
 - Kept tab CRUD independent from `SafariUserInterface` because it does not require localized menu traversal or accessibility scripting.
+
+### Virtual private-window profile
+
+- Recorded that Safari private windows behave like a virtual window profile rather than a persisted Safari profile.
+- Window and tab logic must therefore allow profile-like window states that are not present in the persisted profile catalog.

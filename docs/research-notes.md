@@ -28,6 +28,7 @@
 - The same structural technique works for any top-level Safari menu, so menu inspection should live in a general menu model rather than only in a File-specific model.
 - Open window profile names can be resolved from `SafariTabs.db` by joining `windows.active_profile_id` to `bookmarks.title`.
 - Safari GUI scripting should live outside the `Safari` domain module in a dedicated `SafariUserInterface` module.
+- Safari private windows appear to represent a virtual window profile rather than a normal persisted Safari profile, so profile-mapping logic must not assume every window profile has a `SafariTabs.db` bookmark row.
 
 ### Open questions
 
