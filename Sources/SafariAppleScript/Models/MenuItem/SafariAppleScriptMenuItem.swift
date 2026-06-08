@@ -1,7 +1,7 @@
 import AppKit
 import AutomationFoundation
 
-public struct SafariAppleScriptMenuItemRecord: Equatable {
+public struct SafariAppleScriptMenuItemRecord: Equatable, Sendable {
     public let index: Int
     public let title: String
     public let commandCharacter: String?

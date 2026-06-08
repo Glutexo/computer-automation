@@ -1,7 +1,7 @@
 import AppKit
 import AutomationFoundation
 
-public struct SafariAppleScriptWindowRecord: Equatable {
+public struct SafariAppleScriptWindowRecord: Equatable, Sendable {
     public let identifier: Int
     public let name: String
 
