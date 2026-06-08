@@ -14,7 +14,8 @@ import SQLite3
         [
             SafariApplication.descriptor,
             SafariProfile.descriptor,
-            SafariWindow.descriptor
+            SafariWindow.descriptor,
+            SafariTab.descriptor
         ]
     )
     #expect(SafariApplication.descriptor.name == "application")
@@ -48,6 +49,20 @@ import SQLite3
     #expect(!SafariWindowOpenCommand.descriptor.arguments[0].isRequired)
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
+    #expect(SafariTab.descriptor.name == "tab")
+    #expect(
+        SafariTab.descriptor.commands ==
+        [
+            SafariTabOpenCommand.descriptor,
+            SafariTabListCommand.descriptor,
+            SafariTabSetURLCommand.descriptor,
+            SafariTabCloseCommand.descriptor
+        ]
+    )
+    #expect(SafariTabOpenCommand.descriptor.operation == .create)
+    #expect(SafariTabListCommand.descriptor.operation == .read)
+    #expect(SafariTabSetURLCommand.descriptor.operation == .update)
+    #expect(SafariTabCloseCommand.descriptor.operation == .delete)
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
         SafariMenu.descriptor,
@@ -67,6 +82,7 @@ import SQLite3
     #expect(SafariAppleScriptModule.descriptor.models == [
         SafariAppleScriptApplication.descriptor,
         SafariAppleScriptWindow.descriptor,
+        SafariAppleScriptTab.descriptor,
         SafariAppleScriptApplicationMenuBar.descriptor,
         SafariAppleScriptMenu.descriptor,
         SafariAppleScriptMenuItem.descriptor
@@ -93,7 +109,11 @@ import SQLite3
             CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles."),
             CompletionSuggestion(value: "open-window", abstract: "Open a new Safari browser window."),
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
-            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window.")
+            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
+            CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
+            CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
+            CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
         ]
     )
 
@@ -162,6 +182,26 @@ import SQLite3
     #expect(childItems[1].kind == .positional)
     #expect(childItems[1].isRequired)
     #expect(childItems[1].completionSuggestions.isEmpty)
+
+    let tabOpen = SafariTabOpenCommand.descriptor.arguments
+    #expect(tabOpen.count == 2)
+    #expect(tabOpen[0].name == "window-index")
+    #expect(tabOpen[0].kind == .positional)
+    #expect(tabOpen[0].isRequired)
+    #expect(tabOpen[1].name == "url")
+    #expect(tabOpen[1].kind == .positional)
+    #expect(!tabOpen[1].isRequired)
+
+    let setTabURL = SafariTabSetURLCommand.descriptor.arguments
+    #expect(setTabURL.count == 3)
+    #expect(setTabURL[0].name == "window-index")
+    #expect(setTabURL[1].name == "tab-index")
+    #expect(setTabURL[2].name == "url")
+
+    let closeTab = SafariTabCloseCommand.descriptor.arguments
+    #expect(closeTab.count == 2)
+    #expect(closeTab[0].name == "window-index")
+    #expect(closeTab[1].name == "tab-index")
 }
 
 @Test func completionEngineFiltersCommandsUsingSecondTokenForDeeperInput() async throws {
@@ -169,7 +209,10 @@ import SQLite3
 
     #expect(
         CompletionEngine.suggestions(for: ["safari", "cl", "ignored"], modules: modules) ==
-        [CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window.")]
+        [
+            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
+        ]
     )
 
     #expect(
@@ -220,11 +263,12 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
 }
 
 @Test func cliReturnsModuleCompletionSuggestions() async throws {
-    let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari-ui"])
-    #expect(output.contains("menu-bar-items"))
-    #expect(output.contains("menu-items"))
-    #expect(output.contains("file-menu-items"))
-    #expect(output.contains("menu-item-children"))
+    let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari"])
+    #expect(output.contains("open-window"))
+    #expect(output.contains("open-tab"))
+    #expect(output.contains("tabs"))
+    #expect(output.contains("set-tab-url"))
+    #expect(output.contains("close-tab"))
 }
 
 @Test func cliRendersZshCompletionScript() async throws {
@@ -625,6 +669,222 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     #expect(throws: SafariAppleScriptError.scriptCompilationFailed) {
         try command.execute(arguments: [])
     }
+}
+
+@Test func safariTabOpenCommandRejectsMissingWindowIndex() async throws {
+    let command = SafariTabOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        openTab: { _, _, _ in Issue.record("openTab should not be called") }
+    )
+
+    #expect(throws: SafariTabCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+}
+
+@Test func safariTabOpenCommandRejectsInvalidWindowIndex() async throws {
+    let command = SafariTabOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        openTab: { _, _, _ in Issue.record("openTab should not be called") }
+    )
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("0")) {
+        try command.execute(arguments: ["0"])
+    }
+}
+
+@Test func safariTabOpenCommandFormatsMessages() async throws {
+    var received: (Int, String?)?
+    let command = SafariTabOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        openTab: { windowIndex, url, _ in received = (windowIndex, url) }
+    )
+
+    #expect(try command.execute(arguments: ["2"]) == "Safari tab opened in window 2.")
+    #expect(received?.0 == 2)
+    #expect(received?.1 == nil)
+
+    #expect(try command.execute(arguments: ["2", "https://example.com"]) == "Safari tab opened in window 2 with URL https://example.com.")
+    #expect(received?.0 == 2)
+    #expect(received?.1 == "https://example.com")
+}
+
+@Test(arguments: [
+    [],
+    [SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com")],
+    [
+        SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
+        SafariTabRecord(windowIndex: 1, index: 2, url: "https://openai.com"),
+        SafariTabRecord(windowIndex: 2, index: 1, url: "")
+    ]
+])
+func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
+    let command = SafariTabListCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabs: { _ in tabs }
+    )
+
+    let output = try command.execute(arguments: [])
+    let expected = tabs.map { "\($0.windowIndex)|\($0.index)|\($0.url)" }.joined(separator: "\n")
+    #expect(output == expected)
+}
+
+@Test func safariTabListCommandPropagatesListFailure() async throws {
+    let command = SafariTabListCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabs: { _ in throw SafariAppleScriptError.scriptCompilationFailed }
+    )
+
+    #expect(throws: SafariAppleScriptError.scriptCompilationFailed) {
+        try command.execute(arguments: [])
+    }
+}
+
+@Test func safariTabSetURLCommandRejectsMissingAddressOrURL() async throws {
+    let command = SafariTabSetURLCommand(
+        executor: MockAppleScriptExecutor(),
+        setURL: { _, _, _, _ in Issue.record("setURL should not be called") }
+    )
+
+    #expect(throws: SafariTabCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabCommandError.missingTabAddress) {
+        try command.execute(arguments: ["1"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingURL) {
+        try command.execute(arguments: ["1", "2"])
+    }
+}
+
+@Test func safariTabSetURLCommandRejectsInvalidIndices() async throws {
+    let command = SafariTabSetURLCommand(
+        executor: MockAppleScriptExecutor(),
+        setURL: { _, _, _, _ in Issue.record("setURL should not be called") }
+    )
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("x")) {
+        try command.execute(arguments: ["x", "1", "https://example.com"])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidTabAddress("2", "0")) {
+        try command.execute(arguments: ["2", "0", "https://example.com"])
+    }
+}
+
+@Test func safariTabSetURLCommandFormatsSuccessMessage() async throws {
+    var received: (Int, Int, String)?
+    let command = SafariTabSetURLCommand(
+        executor: MockAppleScriptExecutor(),
+        setURL: { windowIndex, tabIndex, url, _ in received = (windowIndex, tabIndex, url) }
+    )
+
+    #expect(
+        try command.execute(arguments: ["2", "3", "https://example.com"]) ==
+        "Safari tab URL updated for window 2 tab 3."
+    )
+    #expect(received?.0 == 2)
+    #expect(received?.1 == 3)
+    #expect(received?.2 == "https://example.com")
+}
+
+@Test func safariTabCloseCommandRejectsMissingOrInvalidAddress() async throws {
+    let command = SafariTabCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        closeTab: { _, _, _ in Issue.record("closeTab should not be called"); return "" }
+    )
+
+    #expect(throws: SafariTabCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabCommandError.missingTabAddress) {
+        try command.execute(arguments: ["1"])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("-1")) {
+        try command.execute(arguments: ["-1", "1"])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidTabAddress("2", "x")) {
+        try command.execute(arguments: ["2", "x"])
+    }
+}
+
+@Test func safariTabCloseCommandReturnsAppleScriptMessage() async throws {
+    let command = SafariTabCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        closeTab: { _, _, _ in "Safari tab closed." }
+    )
+
+    #expect(try command.execute(arguments: ["1", "2"]) == "Safari tab closed.")
+}
+
+@Test func safariAppleScriptTabOpenExecutesExpectedScripts() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptTab.open(windowIndex: 2, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("tell window 2"))
+    #expect(executor.executedScripts[0].contains("make new tab at end of tabs"))
+
+    let secondExecutor = MockAppleScriptExecutor()
+    try SafariAppleScriptTab.open(windowIndex: 1, url: "https://example.com", executor: secondExecutor)
+    #expect(secondExecutor.executedScripts[0].contains("set URL of newTab"))
+    #expect(secondExecutor.executedScripts[0].contains("https://example.com"))
+}
+
+@Test func safariAppleScriptTabSetURLExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptTab.setURL(windowIndex: 2, tabIndex: 3, url: "https://openai.com", executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("tell window 2"))
+    #expect(executor.executedScripts[0].contains("set URL of tab 3"))
+    #expect(executor.executedScripts[0].contains("https://openai.com"))
+}
+
+@Test func safariAppleScriptTabCloseReturnsScriptResult() async throws {
+    let executor = MockAppleScriptExecutor(results: [.string("Safari tab closed.")])
+    #expect(try SafariAppleScriptTab.close(windowIndex: 1, tabIndex: 2, executor: executor) == "Safari tab closed.")
+}
+
+@Test(arguments: [
+    [(1, 1, "https://example.com")],
+    [(1, 1, "https://example.com"), (1, 2, "https://openai.com"), (2, 1, "https://swift.org")],
+    []
+])
+func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeTabList(rows))])
+    let items = try SafariAppleScriptTab.list(executor: executor)
+    let expected = rows.map { SafariAppleScriptTabRecord(windowIndex: $0.0, index: $0.1, url: $0.2) }
+    #expect(items == expected)
+}
+
+@Test func safariAppleScriptTabParseListSkipsMalformedRowsAndPreservesURLs() async throws {
+    let descriptor = NSAppleEventDescriptor.list()
+    descriptor.insert(NSAppleEventDescriptor(string: "1|1|https://example.com"), at: 1)
+    descriptor.insert(NSAppleEventDescriptor(string: "bad row"), at: 2)
+    descriptor.insert(NSAppleEventDescriptor(string: "2|3|https://example.com/a|b"), at: 3)
+
+    #expect(
+        SafariAppleScriptTab.parseTabList(descriptor) ==
+        [
+            SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
+            SafariAppleScriptTabRecord(windowIndex: 2, index: 3, url: "https://example.com/a|b")
+        ]
+    )
+}
+
+@Test func safariTabParseTabListMapsAppleScriptRecords() async throws {
+    let descriptor = makeTabList([(1, 1, "https://example.com"), (2, 1, "")])
+    #expect(
+        SafariTab.parseTabList(descriptor) ==
+        [
+            SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
+            SafariTabRecord(windowIndex: 2, index: 1, url: "")
+        ]
+    )
 }
 
 @Test func safariAppleScriptApplicationActivateExecutesActivateScript() async throws {
@@ -1055,6 +1315,19 @@ private func makeShortcutList(_ rows: [(Int, String, String, String)]) -> NSAppl
         item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
         item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
         listDescriptor.insert(item, at: offset + 1)
+    }
+
+    return listDescriptor
+}
+
+private func makeTabList(_ rows: [(Int, Int, String)]) -> NSAppleEventDescriptor {
+    let listDescriptor = NSAppleEventDescriptor.list()
+
+    for (offset, row) in rows.enumerated() {
+        listDescriptor.insert(
+            NSAppleEventDescriptor(string: "\(row.0)|\(row.1)|\(row.2)"),
+            at: offset + 1
+        )
     }
 
     return listDescriptor

@@ -14,8 +14,10 @@ flowchart TD
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    SafariTab["SafariTab model"]
     ScriptApplication["script application model"]
     ScriptWindow["script window model"]
+    ScriptTab["script tab model"]
     ScriptMenuBar["script menu bar model"]
     ScriptMenu["script menu model"]
     ScriptMenuItem["script menu item model"]
@@ -34,6 +36,10 @@ flowchart TD
     WindowOpen["open-window command"]
     Windows["windows command"]
     WindowClose["close-window command"]
+    TabOpen["open-tab command"]
+    Tabs["tabs command"]
+    TabSetURL["set-tab-url command"]
+    TabClose["close-tab command"]
 
     App --> Foundation
     Zsh --> App
@@ -50,8 +56,10 @@ flowchart TD
     Safari --> SafariApplication
     Safari --> SafariProfile
     Safari --> SafariWindow
+    Safari --> SafariTab
     SafariScript --> ScriptApplication
     SafariScript --> ScriptWindow
+    SafariScript --> ScriptTab
     SafariScript --> ScriptMenuBar
     SafariScript --> ScriptMenu
     SafariScript --> ScriptMenuItem
@@ -72,7 +80,12 @@ flowchart TD
     SafariWindow --> WindowOpen
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    SafariTab --> TabOpen
+    SafariTab --> Tabs
+    SafariTab --> TabSetURL
+    SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
+    SafariTab --> ScriptTab
 ```
 
 ## Notes
@@ -87,6 +100,7 @@ flowchart TD
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - UI automation must remain independent of the macOS and Safari language setting.
 - Direct AppleScript access should live in `SafariAppleScript`, not inside `Safari` or `SafariUserInterface`.
+- Direct tab CRUD currently lives across `SafariTab` and `SafariAppleScriptTab` because Safari exposes tab URL state directly in AppleScript.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.

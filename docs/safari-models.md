@@ -2,10 +2,11 @@
 
 ## Overview
 
-- The `Safari` module currently exposes three models: `SafariApplication`, `SafariProfile`, and `SafariWindow`.
+- The `Safari` module currently exposes four models: `SafariApplication`, `SafariProfile`, `SafariWindow`, and `SafariTab`.
 - `SafariApplication` represents Safari as an application and owns its lifecycle commands.
 - `SafariProfile` represents the profiles available in Safari.
 - `SafariWindow` represents browser windows managed by Safari.
+- `SafariTab` represents browser tabs managed inside Safari windows.
 
 ## CRUD matrix
 
@@ -18,6 +19,10 @@
 | `SafariWindow` | `open-window` | `C` | Open a new Safari browser window. |
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
+| `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
+| `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
+| `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
+| `SafariTab` | `close-tab` | `D` | Close a Safari tab. |
 
 ## Model architecture
 
@@ -27,6 +32,7 @@ flowchart TD
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    SafariTab["SafariTab model"]
     Launch["SafariApplicationLaunchCommand (C)"]
     Running["SafariApplicationRunningCommand (R)"]
     Quit["SafariApplicationQuitCommand (D)"]
@@ -34,10 +40,15 @@ flowchart TD
     WindowOpen["SafariWindowOpenCommand (C)"]
     Windows["SafariWindowListCommand (R)"]
     WindowClose["SafariWindowCloseCommand (D)"]
+    TabOpen["SafariTabOpenCommand (C)"]
+    Tabs["SafariTabListCommand (R)"]
+    TabSetURL["SafariTabSetURLCommand (U)"]
+    TabClose["SafariTabCloseCommand (D)"]
 
     SafariModule --> SafariApplication
     SafariModule --> SafariProfile
     SafariModule --> SafariWindow
+    SafariModule --> SafariTab
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit
@@ -45,6 +56,10 @@ flowchart TD
     SafariWindow --> WindowOpen
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    SafariTab --> TabOpen
+    SafariTab --> Tabs
+    SafariTab --> TabSetURL
+    SafariTab --> TabClose
 ```
 
 ## Notes
@@ -56,7 +71,11 @@ flowchart TD
 - `open-window` is the create operation for the browser window model.
 - `windows` is the read operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
-- No update operation is currently defined because it does not fit the application lifecycle at this level.
+- `open-tab` is the create operation for the browser tab model.
+- `tabs` is the read operation for the browser tab model.
+- `set-tab-url` is the update operation for the browser tab model.
+- `close-tab` is the delete operation for the browser tab model.
+- No update operation is currently defined for the application lifecycle or window lifecycle at this level.
 
 ## Profile loading
 
@@ -100,6 +119,21 @@ ORDER BY id;
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
 - `close-window` closes the current front window.
 
+## Tab operations
+
+- Each Safari window is treated as an ordered container of tabs.
+- Tabs are addressed structurally by:
+  - `window-index`
+  - `tab-index`
+- `open-tab` creates a new tab inside a specific window and accepts:
+  - a required `window-index`
+  - an optional `url`
+- `tabs` returns one line per tab as:
+  - `windowIndex|tabIndex|url`
+- `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`.
+- `close-tab` closes a specific tab identified by `window-index` and `tab-index`.
+- The `SafariTab` model currently delegates all tab CRUD work directly to the `SafariAppleScript` module because Safari exposes tab URL mutation directly through AppleScript.
+
 ## Related module
 
 - GUI scripting and menu-level automation live in the separate `SafariUserInterface` module.
@@ -110,3 +144,4 @@ ORDER BY id;
 - `SafariMenu` is the general top-level menu abstraction in that module.
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.
 - Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
+- Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.

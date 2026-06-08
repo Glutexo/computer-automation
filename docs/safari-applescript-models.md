@@ -3,9 +3,10 @@
 ## Overview
 
 - The `SafariAppleScript` module owns direct AppleScript access to Safari.
-- It currently exposes five models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
+- It currently exposes six models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
+- `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
 - `SafariAppleScriptApplicationMenuBar` represents AppleScript-level access to Safari's application menu bar.
 - `SafariAppleScriptMenu` represents AppleScript-level access to a top-level Safari menu.
 - `SafariAppleScriptMenuItem` represents AppleScript-level access to a Safari menu item and its child items.
@@ -16,6 +17,7 @@
 | --- | --- | --- |
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
 | `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()` | Read and mutate Safari window state through AppleScript. |
+| `SafariAppleScriptTab` | `list()`, `open()`, `setURL()`, `close()` | Read and mutate Safari tab state through AppleScript. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
 | `SafariAppleScriptMenu` | `listItems()`, `clickItem()` | Read and invoke items of a top-level Safari menu. |
 | `SafariAppleScriptMenuItem` | `listChildItems()` | Read submenu items for a specific Safari menu item. |
@@ -27,6 +29,7 @@ flowchart TD
     SafariAppleScript["SafariAppleScript module"]
     ScriptApp["SafariAppleScriptApplication model"]
     ScriptWindow["SafariAppleScriptWindow model"]
+    ScriptTab["SafariAppleScriptTab model"]
     ScriptMenuBar["SafariAppleScriptApplicationMenuBar model"]
     ScriptMenu["SafariAppleScriptMenu model"]
     ScriptMenuItem["SafariAppleScriptMenuItem model"]
@@ -34,6 +37,10 @@ flowchart TD
     ListWindows["list()"]
     OpenDocument["openNewDocument()"]
     CloseWindow["closeFrontWindow()"]
+    ListTabs["list()"]
+    OpenTab["open()"]
+    SetTabURL["setURL()"]
+    CloseTab["close()"]
     ListMenuBar["listItems()"]
     ListMenu["listItems()"]
     ClickMenuItem["clickItem()"]
@@ -41,6 +48,7 @@ flowchart TD
 
     SafariAppleScript --> ScriptApp
     SafariAppleScript --> ScriptWindow
+    SafariAppleScript --> ScriptTab
     SafariAppleScript --> ScriptMenuBar
     SafariAppleScript --> ScriptMenu
     SafariAppleScript --> ScriptMenuItem
@@ -48,6 +56,10 @@ flowchart TD
     ScriptWindow --> ListWindows
     ScriptWindow --> OpenDocument
     ScriptWindow --> CloseWindow
+    ScriptTab --> ListTabs
+    ScriptTab --> OpenTab
+    ScriptTab --> SetTabURL
+    ScriptTab --> CloseTab
     ScriptMenuBar --> ListMenuBar
     ScriptMenu --> ListMenu
     ScriptMenu --> ClickMenuItem
@@ -59,4 +71,4 @@ flowchart TD
 - `SafariAppleScript` is an infrastructure module, not a user-facing CLI surface.
 - `Safari` and `SafariUserInterface` depend on it through explicit model APIs.
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
-- This module owns script parsing artifacts such as AppleScript-derived menu-item and window records.
+- This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.

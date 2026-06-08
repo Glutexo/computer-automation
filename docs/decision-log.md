@@ -132,3 +132,10 @@
 - Added explicit tests for metadata-layer invariants rather than leaving them implicit in implementation.
 - Covered command argument descriptor defaults, command flattening order inside module descriptors, and concrete argument metadata exposed by command descriptors.
 - Added completion engine contract tests for deeper input handling and command filtering by the second token.
+
+### Safari tab model
+
+- Added a `SafariTab` model for ordered browser tabs inside Safari windows.
+- Implemented `open-tab`, `tabs`, `set-tab-url`, and `close-tab` as the initial tab CRUD surface.
+- Added a matching `SafariAppleScriptTab` infrastructure model because Safari exposes tab URL inspection and mutation directly through AppleScript.
+- Kept tab CRUD independent from `SafariUserInterface` because it does not require localized menu traversal or accessibility scripting.

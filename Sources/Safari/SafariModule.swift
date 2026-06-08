@@ -7,7 +7,8 @@ public enum SafariModule: ModuleModel {
         models: [
             SafariApplication.descriptor,
             SafariProfile.descriptor,
-            SafariWindow.descriptor
+            SafariWindow.descriptor,
+            SafariTab.descriptor
         ]
     )
 
@@ -27,6 +28,14 @@ public enum SafariModule: ModuleModel {
             return try SafariWindowListCommand().execute(arguments: arguments)
         case SafariWindowCloseCommand.descriptor.name:
             return try SafariWindowCloseCommand().execute(arguments: arguments)
+        case SafariTabOpenCommand.descriptor.name:
+            return try SafariTabOpenCommand().execute(arguments: arguments)
+        case SafariTabListCommand.descriptor.name:
+            return try SafariTabListCommand().execute(arguments: arguments)
+        case SafariTabSetURLCommand.descriptor.name:
+            return try SafariTabSetURLCommand().execute(arguments: arguments)
+        case SafariTabCloseCommand.descriptor.name:
+            return try SafariTabCloseCommand().execute(arguments: arguments)
         default:
             throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
         }
