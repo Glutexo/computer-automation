@@ -150,3 +150,8 @@
 - Added an explicit `open-private-window` create command on the `SafariWindow` model.
 - Kept the operation specialized to `SafariFileMenu`, because opening a private window is a concrete File-menu behavior.
 - Identified the private-window menu item through shortcut metadata instead of localized menu titles.
+
+### Private mode ownership
+
+- Recorded that private mode belongs to the window model, not to the tab model.
+- Tabs inherit their containing window context, but they do not own a separate private-mode property.

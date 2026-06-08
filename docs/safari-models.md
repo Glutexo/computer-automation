@@ -133,6 +133,8 @@ ORDER BY id;
 ## Tab operations
 
 - Each Safari window is treated as an ordered container of tabs.
+- A tab belongs to a window, and the window owns whether it is private or not.
+- Private mode is therefore a window property, not a tab property.
 - Tabs are addressed structurally by:
   - `window-index`
   - `tab-index`
