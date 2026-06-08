@@ -166,6 +166,13 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("computer-automation --complete"))
 }
 
+@Test func completionEngineReturnsNoSuggestionsForUnknownModule() async throws {
+    let modules = [SafariModule.descriptor, SafariUserInterfaceModule.descriptor]
+
+    #expect(CompletionEngine.suggestions(for: ["unknown"], modules: modules).isEmpty)
+    #expect(CompletionEngine.suggestions(for: ["unknown", "anything"], modules: modules).isEmpty)
+}
+
 @Test func cliDispatchesSafariRunningCommand() async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["safari", "running"])
     #expect(output == "true" || output == "false")
@@ -1050,6 +1057,15 @@ private final class FakeRunningApplication: SafariApplicationTerminating {
     #expect(script.contains("_computer_automation"))
 }
 
+@Test func zshCompletionInstallerParsesFpathContracts() async throws {
+    #expect(ShellCompletionInstaller.parseFpath(nil).isEmpty)
+    #expect(ShellCompletionInstaller.parseFpath("").isEmpty)
+    #expect(
+        ShellCompletionInstaller.parseFpath("/usr/share/zsh/site-functions:/Users/test/.zsh/completions") ==
+        ["/usr/share/zsh/site-functions", "/Users/test/.zsh/completions"]
+    )
+}
+
 @Test func zshCompletionInstallerPrefersExistingZfuncDirectory() async throws {
     let fileManager = FileManager.default
     let temporaryDirectory = fileManager.temporaryDirectory
@@ -1066,6 +1082,21 @@ private final class FakeRunningApplication: SafariApplicationTerminating {
     )
 
     #expect(resolved == zfuncDirectory.path)
+}
+
+@Test func zshCompletionInstallerFallsBackToZshCompletionsDirectory() async throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let resolved = ShellCompletionInstaller.resolveZshDirectory(
+        homeDirectory: temporaryDirectory.path,
+        fileManager: fileManager
+    )
+
+    #expect(resolved == temporaryDirectory.appendingPathComponent(".zsh/completions").path)
 }
 
 @Test func zshCompletionInstallerWritesScriptToCompletionPath() async throws {
@@ -1088,4 +1119,53 @@ private final class FakeRunningApplication: SafariApplicationTerminating {
 
     let script = try String(contentsOfFile: result.filePath, encoding: .utf8)
     #expect(script.contains("computer-automation --complete"))
+}
+
+@Test func zshCompletionInstallerSkipsFpathUpdateWhenDirectoryAlreadyConfigured() async throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let completionDirectory = temporaryDirectory.appendingPathComponent(".zsh/completions").path
+    let result = try ShellCompletionInstaller.installZsh(
+        executableName: "computer-automation",
+        environment: ["HOME": temporaryDirectory.path, "FPATH": "/usr/share/zsh/site-functions:\(completionDirectory)"],
+        fileManager: fileManager
+    )
+
+    #expect(!result.requiresFpathUpdate)
+}
+
+@Test func zshCompletionInstallerRejectsMissingHomeDirectory() async throws {
+    #expect(throws: CLIError.missingHomeDirectory) {
+        try ShellCompletionInstaller.installZsh(
+            executableName: "computer-automation",
+            environment: [:],
+            fileManager: .default
+        )
+    }
+}
+
+@Test func zshCompletionInstallerPropagatesFilesystemFailure() async throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let homeFile = temporaryDirectory.appendingPathComponent("home-file")
+    try Data("not a directory".utf8).write(to: homeFile)
+
+    do {
+        _ = try ShellCompletionInstaller.installZsh(
+            executableName: "computer-automation",
+            environment: ["HOME": homeFile.path, "FPATH": ""],
+            fileManager: fileManager
+        )
+        Issue.record("Expected completion installation to fail when HOME points to a file.")
+    } catch {
+        #expect(error is CocoaError)
+    }
 }

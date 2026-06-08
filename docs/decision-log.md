@@ -120,3 +120,9 @@
 - Expanded command-level error contract tests across the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.
 - Added explicit tests for unknown command routing and failure propagation from profile, window, and AppleScript command boundaries.
 - Made `SafariAppleScriptError` equatable so error outcomes can be asserted directly in parameterized tests.
+
+### Completion and installer coverage
+
+- Added explicit error-contract tests for shell completion and completion installation.
+- Covered missing `HOME`, configured versus missing `FPATH`, fallback completion directory resolution, and filesystem failure propagation during installation.
+- Added a completion engine contract test for unknown modules returning no suggestions.
