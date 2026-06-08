@@ -113,6 +113,73 @@ import SQLite3
     )
 }
 
+@Test func commandArgumentDescriptorDefaultsToRequiredWithoutSuggestions() async throws {
+    let descriptor = CommandArgumentDescriptor(name: "profile", kind: .positional)
+
+    #expect(descriptor.name == "profile")
+    #expect(descriptor.kind == .positional)
+    #expect(descriptor.isRequired)
+    #expect(descriptor.completionSuggestions.isEmpty)
+}
+
+@Test func moduleDescriptorFlattensCommandsInModelOrder() async throws {
+    let firstCommand = CommandDescriptor(name: "first", abstract: "First", operation: .read)
+    let secondCommand = CommandDescriptor(name: "second", abstract: "Second", operation: .create)
+    let thirdCommand = CommandDescriptor(name: "third", abstract: "Third", operation: .delete)
+    let module = ModuleDescriptor(
+        name: "test-module",
+        abstract: "Test module.",
+        models: [
+            ModelDescriptor(name: "alpha", abstract: "Alpha", commands: [firstCommand, secondCommand]),
+            ModelDescriptor(name: "beta", abstract: "Beta", commands: [thirdCommand])
+        ]
+    )
+
+    #expect(module.commands == [firstCommand, secondCommand, thirdCommand])
+}
+
+@Test func concreteCommandDescriptorsExposeExpectedArgumentMetadata() async throws {
+    let windowOpen = SafariWindowOpenCommand.descriptor.arguments
+    #expect(windowOpen.count == 1)
+    #expect(windowOpen[0].name == "profile")
+    #expect(windowOpen[0].kind == .positional)
+    #expect(!windowOpen[0].isRequired)
+    #expect(windowOpen[0].completionSuggestions.isEmpty)
+
+    let menuItems = SafariMenuListItemsCommand.descriptor.arguments
+    #expect(menuItems.count == 1)
+    #expect(menuItems[0].name == "menu-bar-item-index")
+    #expect(menuItems[0].kind == .positional)
+    #expect(menuItems[0].isRequired)
+    #expect(menuItems[0].completionSuggestions.isEmpty)
+
+    let childItems = SafariMenuItemListChildItemsCommand.descriptor.arguments
+    #expect(childItems.count == 2)
+    #expect(childItems[0].name == "menu-bar-item-index")
+    #expect(childItems[0].kind == .positional)
+    #expect(childItems[0].isRequired)
+    #expect(childItems[1].name == "menu-item-index")
+    #expect(childItems[1].kind == .positional)
+    #expect(childItems[1].isRequired)
+    #expect(childItems[1].completionSuggestions.isEmpty)
+}
+
+@Test func completionEngineFiltersCommandsUsingSecondTokenForDeeperInput() async throws {
+    let modules = [SafariModule.descriptor, SafariUserInterfaceModule.descriptor]
+
+    #expect(
+        CompletionEngine.suggestions(for: ["safari", "cl", "ignored"], modules: modules) ==
+        [CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window.")]
+    )
+
+    #expect(
+        CompletionEngine.suggestions(for: ["safari", ""], modules: modules) ==
+        SafariModule.descriptor.commands.map {
+            CompletionSuggestion(value: $0.name, abstract: $0.abstract)
+        }
+    )
+}
+
 @Test func cliRejectsMissingModule() async throws {
     #expect(throws: CLIError.missingModule) {
         try ComputerAutomationCLI.run(arguments: [])

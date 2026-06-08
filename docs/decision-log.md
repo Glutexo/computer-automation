@@ -126,3 +126,9 @@
 - Added explicit error-contract tests for shell completion and completion installation.
 - Covered missing `HOME`, configured versus missing `FPATH`, fallback completion directory resolution, and filesystem failure propagation during installation.
 - Added a completion engine contract test for unknown modules returning no suggestions.
+
+### Metadata and completion invariants
+
+- Added explicit tests for metadata-layer invariants rather than leaving them implicit in implementation.
+- Covered command argument descriptor defaults, command flattening order inside module descriptors, and concrete argument metadata exposed by command descriptors.
+- Added completion engine contract tests for deeper input handling and command filtering by the second token.
