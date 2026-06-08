@@ -14,6 +14,8 @@
 - Reviewed the existing model tests against the new testing standard and filled the main gaps.
 - Added parameterized behavior tests across Safari, SafariUserInterface, and SafariAppleScript models.
 - Introduced explicit dependency injection points for lifecycle and window commands so they can be tested with mocks instead of AppKit side effects.
+- Extended the same testing discipline to the top-level CLI router, including error handling and completion entry points.
+- Extracted the CLI router into a shared target so it can be tested directly without executable-only linkage limits.
 
 ## 2026-06-07
 

@@ -5,6 +5,7 @@ import SQLite3
 @testable import SafariAppleScript
 @testable import Safari
 @testable import SafariUserInterface
+@testable import ComputerAutomationKit
 
 @Test func safariModuleExposesApplicationModelMetadata() async throws {
     #expect(SafariModule.descriptor.name == "safari")
@@ -110,6 +111,70 @@ import SQLite3
             CompletionSuggestion(value: "menu-item-children", abstract: "List child menu items for a Safari menu item.")
         ]
     )
+}
+
+@Test func cliRejectsMissingModule() async throws {
+    #expect(throws: CLIError.missingModule) {
+        try ComputerAutomationCLI.run(arguments: [])
+    }
+}
+
+@Test func cliRejectsUnknownModule() async throws {
+    #expect(throws: CLIError.unknownModule("unknown")) {
+        try ComputerAutomationCLI.run(arguments: ["unknown"])
+    }
+}
+
+@Test(arguments: ["safari", "safari-ui"])
+func cliRejectsMissingCommand(module: String) async throws {
+    #expect(throws: CLIError.missingCommand(moduleName: module)) {
+        try ComputerAutomationCLI.run(arguments: [module])
+    }
+}
+
+@Test(arguments: ["--completion-script", "--install-completion"])
+func cliRejectsMissingShellName(flag: String) async throws {
+    #expect(throws: CLIError.missingShellName) {
+        try ComputerAutomationCLI.run(arguments: [flag])
+    }
+}
+
+@Test(arguments: ["--completion-script", "--install-completion"])
+func cliRejectsUnsupportedShell(flag: String) async throws {
+    #expect(throws: CLIError.unsupportedShell("fish")) {
+        try ComputerAutomationCLI.run(arguments: [flag, "fish"])
+    }
+}
+
+@Test func cliReturnsTopLevelCompletionSuggestions() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["--complete"])
+    #expect(output.contains("safari"))
+    #expect(output.contains("safari-ui"))
+}
+
+@Test func cliReturnsModuleCompletionSuggestions() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari-ui"])
+    #expect(output.contains("menu-bar-items"))
+    #expect(output.contains("menu-items"))
+    #expect(output.contains("file-menu-items"))
+    #expect(output.contains("menu-item-children"))
+}
+
+@Test func cliRendersZshCompletionScript() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["--completion-script", "zsh"])
+    #expect(output.contains("#compdef computer-automation"))
+    #expect(output.contains("computer-automation --complete"))
+}
+
+@Test func cliDispatchesSafariRunningCommand() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["safari", "running"])
+    #expect(output == "true" || output == "false")
+}
+
+@Test func cliSurfacesUnknownSafariUiCommand() async throws {
+    #expect(throws: CLIError.unknownCommand(moduleName: "safari-ui", commandName: "unknown")) {
+        try ComputerAutomationCLI.run(arguments: ["safari-ui", "unknown"])
+    }
 }
 
 @Test func safariWindowParsesAppleScriptListOutput() async throws {
