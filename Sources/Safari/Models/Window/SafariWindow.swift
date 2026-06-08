@@ -7,12 +7,14 @@ import SQLite3
 public struct SafariWindowRecord: Equatable, Sendable {
     public let identifier: Int
     public let index: Int
+    public let isPrivate: Bool
     public let profileName: String
     public let name: String
 
-    public init(identifier: Int, index: Int, profileName: String, name: String) {
+    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, name: String) {
         self.identifier = identifier
         self.index = index
+        self.isPrivate = isPrivate
         self.profileName = profileName
         self.name = name
     }
@@ -38,17 +40,19 @@ public enum SafariWindow: ModelModel {
             return []
         }
         let rawWindows = try SafariAppleScriptWindow.list(executor: executor)
-        let profilesByWindowIdentifier = try loadProfilesByWindowIdentifier(databasePath: databasePath)
+        let statesByWindowIdentifier = try loadWindowStateByWindowIdentifier(databasePath: databasePath)
         let knownProfileNames = Set(try SafariProfile.listAvailableProfiles(databasePath: databasePath).map(\.name))
 
         return rawWindows.enumerated().map { offset, rawWindow in
-            let profileName = profilesByWindowIdentifier[rawWindow.identifier]
+            let state = statesByWindowIdentifier[rawWindow.identifier]
+            let profileName = state?.profileName
                 ?? inferProfileName(fromWindowTitle: rawWindow.name, knownProfileNames: knownProfileNames)
                 ?? ""
 
             return SafariWindowRecord(
                 identifier: rawWindow.identifier,
                 index: offset + 1,
+                isPrivate: state?.isPrivate ?? false,
                 profileName: profileName,
                 name: rawWindow.name
             )
@@ -57,13 +61,15 @@ public enum SafariWindow: ModelModel {
 
     static func parseWindowList(
         _ descriptor: NSAppleEventDescriptor?,
-        profilesByWindowIdentifier: [Int: String] = [:]
+        profilesByWindowIdentifier: [Int: String] = [:],
+        privateWindowIdentifiers: Set<Int> = []
     ) -> [SafariWindowRecord] {
         let rawWindows = SafariAppleScriptWindow.parseWindowList(descriptor)
         return rawWindows.enumerated().map { offset, rawWindow in
             SafariWindowRecord(
                 identifier: rawWindow.identifier,
                 index: offset + 1,
+                isPrivate: privateWindowIdentifiers.contains(rawWindow.identifier),
                 profileName: profilesByWindowIdentifier[rawWindow.identifier] ?? "",
                 name: rawWindow.name
             )
@@ -73,6 +79,12 @@ public enum SafariWindow: ModelModel {
     static func loadProfilesByWindowIdentifier(
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [Int: String] {
+        try loadWindowStateByWindowIdentifier(databasePath: databasePath).mapValues(\.profileName)
+    }
+
+    static func loadWindowStateByWindowIdentifier(
+        databasePath: String = SafariProfile.databasePath()
+    ) throws -> [Int: SafariWindowState] {
         var database: OpaquePointer?
         guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
             defer { sqlite3_close(database) }
@@ -81,7 +93,13 @@ public enum SafariWindow: ModelModel {
         defer { sqlite3_close(database) }
 
         let query = """
-        SELECT w.id, COALESCE(b.title, '')
+        SELECT
+            w.id,
+            COALESCE(b.title, ''),
+            CASE
+                WHEN w.private_tab_group_id IS NOT NULL AND w.active_tab_group_id = w.private_tab_group_id THEN 1
+                ELSE 0
+            END
         FROM windows w
         LEFT JOIN bookmarks b ON b.id = w.active_profile_id
         WHERE w.date_closed IS NULL;
@@ -94,15 +112,16 @@ public enum SafariWindow: ModelModel {
         }
         defer { sqlite3_finalize(statement) }
 
-        var profilesByWindowIdentifier: [Int: String] = [:]
+        var stateByWindowIdentifier: [Int: SafariWindowState] = [:]
 
         while sqlite3_step(statement) == SQLITE_ROW {
             let identifier = Int(sqlite3_column_int(statement, 0))
             let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-            profilesByWindowIdentifier[identifier] = profileName
+            let isPrivate = sqlite3_column_int(statement, 2) == 1
+            stateByWindowIdentifier[identifier] = SafariWindowState(profileName: profileName, isPrivate: isPrivate)
         }
 
-        return profilesByWindowIdentifier
+        return stateByWindowIdentifier
     }
 
     private static func parseRawWindowList(_ descriptor: NSAppleEventDescriptor?) -> [RawSafariWindow] {
@@ -124,6 +143,11 @@ public enum SafariWindow: ModelModel {
 private struct RawSafariWindow {
     let identifier: Int
     let name: String
+}
+
+struct SafariWindowState: Equatable, Sendable {
+    let profileName: String
+    let isPrivate: Bool
 }
 
 enum SafariWindowCommandError: Error, Equatable {

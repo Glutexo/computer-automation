@@ -120,7 +120,8 @@ ORDER BY id;
   - delegates to the `SafariFileMenu` model to activate Safari
   - clicks the matching profile-specific "new window" menu item
 - `windows` enumerates `every window` and returns one line per window as:
-  - `index|profile|name`
+  - `index|isPrivate|profile|name`
+- The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id`.
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
 - Safari also has a virtual private-window profile:
   - it is not a normal profile row in `SafariTabs.db`
