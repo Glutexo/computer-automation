@@ -17,6 +17,7 @@
 | `SafariApplication` | `quit` | `D` | Request Safari to terminate. |
 | `SafariProfile` | `profiles` | `R` | List available Safari profiles. |
 | `SafariWindow` | `open-window` | `C` | Open a new Safari browser window. |
+| `SafariWindow` | `open-private-window` | `C` | Open a new private Safari browser window. |
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
@@ -38,6 +39,7 @@ flowchart TD
     Quit["SafariApplicationQuitCommand (D)"]
     Profiles["SafariProfileListCommand (R)"]
     WindowOpen["SafariWindowOpenCommand (C)"]
+    WindowOpenPrivate["SafariWindowOpenPrivateCommand (C)"]
     Windows["SafariWindowListCommand (R)"]
     WindowClose["SafariWindowCloseCommand (D)"]
     TabOpen["SafariTabOpenCommand (C)"]
@@ -54,6 +56,7 @@ flowchart TD
     SafariApplication --> Quit
     SafariProfile --> Profiles
     SafariWindow --> WindowOpen
+    SafariWindow --> WindowOpenPrivate
     SafariWindow --> Windows
     SafariWindow --> WindowClose
     SafariTab --> TabOpen
@@ -69,6 +72,7 @@ flowchart TD
 - `quit` is the delete operation for the application lifecycle.
 - `profiles` is the read operation for the profile catalog.
 - `open-window` is the create operation for the browser window model.
+- `open-private-window` is an additional create operation for the browser window model.
 - `windows` is the read operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
 - `open-tab` is the create operation for the browser tab model.
@@ -109,6 +113,7 @@ ORDER BY id;
 
 - The `SafariWindow` model delegates user interface work to the `SafariUserInterface` module.
 - `open-window` uses the `SafariFileMenu` model in `SafariUserInterface`.
+- `open-private-window` also uses the `SafariFileMenu` model in `SafariUserInterface`.
 - `open-window` accepts an optional profile name argument.
 - When a profile argument is provided, the command:
   - validates the profile name against the `SafariProfile` model
@@ -121,6 +126,7 @@ ORDER BY id;
   - it is not a normal profile row in `SafariTabs.db`
   - it should be treated as a special window mode rather than as a persisted user profile
   - window/profile logic must therefore allow profile-like window states that do not map to the persisted profile catalog
+- `open-private-window` is the explicit create operation for that virtual private-window mode.
 - `close-window` closes the current front window.
 
 ## Tab operations
@@ -147,5 +153,6 @@ ORDER BY id;
 - `SafariFileMenu` is the current specialized integration point used by the `SafariWindow` model.
 - `SafariMenu` is the general top-level menu abstraction in that module.
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.
+- Private-window opening resolves the target File-menu item through shortcut metadata instead of localized menu titles.
 - Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
 - Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.

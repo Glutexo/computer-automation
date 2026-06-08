@@ -34,6 +34,7 @@ flowchart TD
     Quit["quit command"]
     Profiles["profiles command"]
     WindowOpen["open-window command"]
+    WindowOpenPrivate["open-private-window command"]
     Windows["windows command"]
     WindowClose["close-window command"]
     TabOpen["open-tab command"]
@@ -78,6 +79,7 @@ flowchart TD
     SafariApplication --> Quit
     SafariProfile --> Profiles
     SafariWindow --> WindowOpen
+    SafariWindow --> WindowOpenPrivate
     SafariWindow --> Windows
     SafariWindow --> WindowClose
     SafariTab --> TabOpen
@@ -85,6 +87,7 @@ flowchart TD
     SafariTab --> TabSetURL
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
+    WindowOpenPrivate --> SafariFileMenu
     SafariTab --> ScriptTab
 ```
 

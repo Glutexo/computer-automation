@@ -1,5 +1,6 @@
 public enum SafariUserInterfaceError: Error, Equatable {
     case profileWindowMenuItemNotFound(String)
+    case privateWindowMenuItemNotFound
     case missingMenuAddress
     case invalidMenuAddress(String)
     case menuUnavailable(menuBarItemIndex: Int)

@@ -23,6 +23,24 @@ public enum SafariFileMenu: ModelModel {
         try SafariAppleScriptWindow.openNewDocument(executor: executor)
     }
 
+    public static func openPrivateWindow(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let menuItems = try listItems(executor: executor)
+
+        guard let menuItem = menuItems.first(where: {
+            $0.commandCharacter == "N" && $0.commandModifiers == "1"
+        }) else {
+            throw SafariUserInterfaceError.privateWindowMenuItemNotFound
+        }
+
+        try SafariAppleScriptMenu.clickItem(
+            menuBarItemIndex: menuBarItemIndex,
+            menuItemIndex: menuItem.index,
+            executor: executor
+        )
+    }
+
     public static func listItems(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> [SafariMenuItemRecord] {

@@ -144,3 +144,9 @@
 
 - Recorded that Safari private windows behave like a virtual window profile rather than a persisted Safari profile.
 - Window and tab logic must therefore allow profile-like window states that are not present in the persisted profile catalog.
+
+### Private-window create operation
+
+- Added an explicit `open-private-window` create command on the `SafariWindow` model.
+- Kept the operation specialized to `SafariFileMenu`, because opening a private window is a concrete File-menu behavior.
+- Identified the private-window menu item through shortcut metadata instead of localized menu titles.

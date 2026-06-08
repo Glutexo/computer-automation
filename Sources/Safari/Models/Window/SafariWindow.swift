@@ -24,6 +24,7 @@ public enum SafariWindow: ModelModel {
         abstract: "Safari browser windows.",
         commands: [
             SafariWindowOpenCommand.descriptor,
+            SafariWindowOpenPrivateCommand.descriptor,
             SafariWindowListCommand.descriptor,
             SafariWindowCloseCommand.descriptor
         ]
@@ -130,4 +131,5 @@ enum SafariWindowCommandError: Error, Equatable {
     case queryPreparationFailed
     case profileNotFound(String)
     case profileMenuItemNotFound(String)
+    case privateWindowMenuItemNotFound
 }

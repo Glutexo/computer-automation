@@ -39,11 +39,13 @@ import SQLite3
         SafariWindow.descriptor.commands ==
         [
             SafariWindowOpenCommand.descriptor,
+            SafariWindowOpenPrivateCommand.descriptor,
             SafariWindowListCommand.descriptor,
             SafariWindowCloseCommand.descriptor
         ]
     )
     #expect(SafariWindowOpenCommand.descriptor.operation == .create)
+    #expect(SafariWindowOpenPrivateCommand.descriptor.operation == .create)
     #expect(SafariWindowOpenCommand.descriptor.arguments.count == 1)
     #expect(SafariWindowOpenCommand.descriptor.arguments[0].name == "profile")
     #expect(!SafariWindowOpenCommand.descriptor.arguments[0].isRequired)
@@ -108,6 +110,7 @@ import SQLite3
             CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running."),
             CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles."),
             CompletionSuggestion(value: "open-window", abstract: "Open a new Safari browser window."),
+            CompletionSuggestion(value: "open-private-window", abstract: "Open a new private Safari browser window."),
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
@@ -265,6 +268,7 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
 @Test func cliReturnsModuleCompletionSuggestions() async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari"])
     #expect(output.contains("open-window"))
+    #expect(output.contains("open-private-window"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
     #expect(output.contains("set-tab-url"))
@@ -612,6 +616,28 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 
     #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.")
     #expect(receivedProfileName == "Twisto")
+}
+
+@Test func safariWindowOpenPrivateCommandFormatsSuccessMessage() async throws {
+    var didOpen = false
+    let command = SafariWindowOpenPrivateCommand(
+        executor: MockAppleScriptExecutor(),
+        openPrivateWindow: { _ in didOpen = true }
+    )
+
+    #expect(try command.execute(arguments: []) == "Safari private window opened.")
+    #expect(didOpen)
+}
+
+@Test func safariWindowOpenPrivateCommandWrapsUiFailure() async throws {
+    let command = SafariWindowOpenPrivateCommand(
+        executor: MockAppleScriptExecutor(),
+        openPrivateWindow: { _ in throw SafariUserInterfaceError.privateWindowMenuItemNotFound }
+    )
+
+    #expect(throws: SafariWindowCommandError.privateWindowMenuItemNotFound) {
+        try command.execute(arguments: [])
+    }
 }
 
 @Test(arguments: [
@@ -1037,6 +1063,33 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
 
     #expect(throws: SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto")) {
         try SafariFileMenu.openWindow(profileName: "Twisto", executor: executor)
+    }
+}
+
+@Test func safariFileMenuOpenPrivateWindowClicksShortcutMatchedItem() async throws {
+    let executor = MockAppleScriptExecutor(results: [
+        .descriptor(makeShortcutList([
+            (1, "Nuova finestra", "N", "0"),
+            (2, "Nuova finestra privata", "N", "1")
+        ])),
+        .none
+    ])
+
+    try SafariFileMenu.openPrivateWindow(executor: executor)
+
+    #expect(executor.executedScripts.count == 2)
+    #expect(executor.executedScripts[1].contains("click menu item 2"))
+}
+
+@Test func safariFileMenuOpenPrivateWindowRejectsMissingMenuItem() async throws {
+    let executor = MockAppleScriptExecutor(results: [
+        .descriptor(makeShortcutList([
+            (1, "Nuova finestra", "N", "0")
+        ]))
+    ])
+
+    #expect(throws: SafariUserInterfaceError.privateWindowMenuItemNotFound) {
+        try SafariFileMenu.openPrivateWindow(executor: executor)
     }
 }
 

@@ -18,6 +18,7 @@
 | `SafariMenu` | `menu-items` | `R` | List items for a top-level Safari menu chosen by menu bar item index. |
 | `SafariFileMenu` | `file-menu-items` | `R` | List items currently exposed by Safari's `File` menu. |
 | `SafariFileMenu` | Internal `openWindow` API | `C` | Open a new Safari window, optionally for a specific profile. |
+| `SafariFileMenu` | Internal `openPrivateWindow` API | `C` | Open a new Safari private window. |
 | `SafariMenuItem` | `menu-item-children` | `R` | List the child items of a specific Safari menu item. |
 
 ## Model architecture
@@ -34,6 +35,7 @@ flowchart TD
     FileMenuItems["file-menu-items command (R)"]
     MenuItemChildren["menu-item-children command (R)"]
     OpenWindow["openWindow(profileName:) API (C)"]
+    OpenPrivateWindow["openPrivateWindow() API (C)"]
 
     SafariUI --> SafariMenuBar
     SafariUI --> SafariMenu
@@ -46,6 +48,7 @@ flowchart TD
     SafariFileMenu --> SafariMenu
     SafariFileMenu --> FileMenuItems
     SafariFileMenu --> OpenWindow
+    SafariFileMenu --> OpenPrivateWindow
     SafariMenu --> SafariMenuItem
     SafariMenuItem --> MenuItemChildren
 ```
@@ -57,6 +60,7 @@ flowchart TD
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` through an explicit module boundary.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
+- `SafariFileMenu.openPrivateWindow()` is the explicit create operation for Safari's private-window mode.
 - UI automation must remain independent of the macOS and Safari language setting.
 - The module identifies Safari's `File` menu by menu bar position instead of by localized title text.
 - `SafariFileMenu` is intentionally a thin specialization rather than the primary abstraction for menu automation.
@@ -73,4 +77,5 @@ flowchart TD
 - `SafariUserInterface` uses `SafariAppleScript` as its script transport and parsing layer.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
+- `SafariFileMenu.openPrivateWindow()` first reads the File menu structure and then identifies the private-window entry through shortcut metadata (`N` with modifier value `1`) instead of localized title text.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.

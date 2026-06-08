@@ -24,6 +24,8 @@ public enum SafariModule: ModuleModel {
             return try SafariProfileListCommand().execute(arguments: arguments)
         case SafariWindowOpenCommand.descriptor.name:
             return try SafariWindowOpenCommand().execute(arguments: arguments)
+        case SafariWindowOpenPrivateCommand.descriptor.name:
+            return try SafariWindowOpenPrivateCommand().execute(arguments: arguments)
         case SafariWindowListCommand.descriptor.name:
             return try SafariWindowListCommand().execute(arguments: arguments)
         case SafariWindowCloseCommand.descriptor.name:
