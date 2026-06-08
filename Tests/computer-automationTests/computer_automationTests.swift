@@ -62,6 +62,7 @@ import SQLite3
         [
             SafariTabOpenCommand.descriptor,
             SafariTabListCommand.descriptor,
+            SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
             SafariTabCloseCommand.descriptor
         ]
@@ -122,6 +123,7 @@ import SQLite3
             CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
+            CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
             CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
         ]
@@ -213,6 +215,12 @@ import SQLite3
     #expect(closeTab[0].name == "window-index")
     #expect(closeTab[1].name == "tab-index")
 
+    let windowTabs = SafariTabListWindowTabsCommand.descriptor.arguments
+    #expect(windowTabs.count == 1)
+    #expect(windowTabs[0].name == "window-index")
+    #expect(windowTabs[0].kind == .positional)
+    #expect(windowTabs[0].isRequired)
+
     let tabGroupTabs = SafariTabGroupListTabsCommand.descriptor.arguments
     #expect(tabGroupTabs.count == 1)
     #expect(tabGroupTabs[0].name == "tab-group-identifier")
@@ -286,6 +294,7 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("tab-group-tabs"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
+    #expect(output.contains("window-tabs"))
     #expect(output.contains("set-tab-url"))
     #expect(output.contains("close-tab"))
 }
@@ -848,6 +857,51 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     }
 }
 
+@Test(arguments: [
+    [],
+    [SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://example.com")],
+    [
+        SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+        SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://openai.com")
+    ]
+])
+func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) async throws {
+    let command = SafariTabListWindowTabsCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindowTabs: { _, _ in tabs }
+    )
+
+    let output = try command.execute(arguments: ["2"])
+    let expected = tabs.map { "\($0.index)|\($0.isFromSelectedTabGroup)|\($0.selectedTabGroupTabIndex.map(String.init) ?? "")|\($0.url)" }.joined(separator: "\n")
+    #expect(output == expected)
+}
+
+@Test func safariTabListWindowTabsCommandRejectsMissingOrInvalidWindowIndex() async throws {
+    let command = SafariTabListWindowTabsCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindowTabs: { _, _ in [] }
+    )
+
+    #expect(throws: SafariTabCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("0")) {
+        try command.execute(arguments: ["0"])
+    }
+}
+
+@Test func safariTabListWindowTabsCommandPropagatesFailure() async throws {
+    let command = SafariTabListWindowTabsCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindowTabs: { _, _ in throw SafariAppleScriptError.scriptCompilationFailed }
+    )
+
+    #expect(throws: SafariAppleScriptError.scriptCompilationFailed) {
+        try command.execute(arguments: ["1"])
+    }
+}
+
 @Test func safariTabSetURLCommandRejectsMissingAddressOrURL() async throws {
     let command = SafariTabSetURLCommand(
         executor: MockAppleScriptExecutor(),
@@ -993,6 +1047,97 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
             SafariTabRecord(windowIndex: 2, index: 1, url: "")
         ]
     )
+}
+
+@Test func safariTabMatchesLiveTabsAgainstSelectedTabGroupTabs() async throws {
+    let liveTabs = [
+        SafariTabRecord(windowIndex: 2, index: 1, url: "https://example.com"),
+        SafariTabRecord(windowIndex: 2, index: 2, url: "https://changed.example"),
+        SafariTabRecord(windowIndex: 2, index: 3, url: "https://extra.example")
+    ]
+    let selectedGroupTabs = [
+        SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),
+        SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 2, url: "https://openai.com")
+    ]
+
+    #expect(
+        SafariTab.matchTabs(liveTabs, againstSelectedTabGroupTabs: selectedGroupTabs) ==
+        [
+            SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+            SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://changed.example"),
+            SafariWindowTabRecord(index: 3, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://extra.example")
+        ]
+    )
+}
+
+@Test func safariTabListWindowTabsUsesSelectedSavedTabGroupContext() async throws {
+    let tabs = try SafariTab.listWindowTabs(
+        windowIndex: 2,
+        executor: MockAppleScriptExecutor(),
+        databasePath: "/tmp/ignored",
+        isRunning: { true },
+        listWindows: { _ in
+            [
+                SafariAppleScriptWindowRecord(identifier: 10, name: "First"),
+                SafariAppleScriptWindowRecord(identifier: 20, name: "Second")
+            ]
+        },
+        listTabs: { _ in
+            [
+                SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://other.example"),
+                SafariAppleScriptTabRecord(windowIndex: 2, index: 1, url: "https://example.com"),
+                SafariAppleScriptTabRecord(windowIndex: 2, index: 2, url: "https://changed.example")
+            ]
+        },
+        loadWindowStates: { _ in
+            [
+                20: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", isPrivate: false)
+            ]
+        },
+        loadTabGroupTabs: { identifier, _ in
+            #expect(identifier == 1000)
+            return [
+                SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),
+                SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 2, url: "https://openai.com")
+            ]
+        }
+    )
+
+    #expect(
+        tabs ==
+        [
+            SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+            SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://changed.example")
+        ]
+    )
+}
+
+@Test func safariTabListWindowTabsReturnsEmptyForMissingWindowOrStoppedSafari() async throws {
+    let stoppedTabs = try SafariTab.listWindowTabs(
+        windowIndex: 1,
+        executor: MockAppleScriptExecutor(),
+        databasePath: "/tmp/ignored",
+        isRunning: { false },
+        listWindows: { _ in [] },
+        listTabs: { _ in [] },
+        loadWindowStates: { _ in [:] },
+        loadTabGroupTabs: { _, _ in [] }
+    )
+
+    #expect(stoppedTabs.isEmpty)
+
+    let missingWindowTabs = try SafariTab.listWindowTabs(
+        windowIndex: 2,
+        executor: MockAppleScriptExecutor(),
+        databasePath: "/tmp/ignored",
+        isRunning: { true },
+        listWindows: { _ in [SafariAppleScriptWindowRecord(identifier: 10, name: "Only")] },
+        listTabs: { _ in [SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com")] },
+        loadWindowStates: { _ in [:] },
+        loadTabGroupTabs: { _, _ in [] }
+    )
+
+    #expect(missingWindowTabs.isEmpty)
 }
 
 @Test func safariAppleScriptApplicationActivateExecutesActivateScript() async throws {

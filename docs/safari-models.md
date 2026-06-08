@@ -25,6 +25,7 @@
 | `SafariTabGroup` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
+| `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
 | `SafariTab` | `close-tab` | `D` | Close a Safari tab. |
 
@@ -50,6 +51,7 @@ flowchart TD
     TabGroupTabs["SafariTabGroupListTabsCommand (R)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
+    WindowTabs["SafariTabListWindowTabsCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
     TabClose["SafariTabCloseCommand (D)"]
 
@@ -70,6 +72,7 @@ flowchart TD
     SafariTabGroup --> TabGroupTabs
     SafariTab --> TabOpen
     SafariTab --> Tabs
+    SafariTab --> WindowTabs
     SafariTab --> TabSetURL
     SafariTab --> TabClose
 ```
@@ -88,6 +91,7 @@ flowchart TD
 - `tab-group-tabs` is the structural read operation for the tabs stored inside a saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
+- `window-tabs` is the window-scoped read operation for the browser tab model.
 - `set-tab-url` is the update operation for the browser tab model.
 - `close-tab` is the delete operation for the browser tab model.
 - No update operation is currently defined for the application lifecycle or window lifecycle at this level.
@@ -174,6 +178,13 @@ ORDER BY id;
   - an optional `url`
 - `tabs` returns one line per tab as:
   - `windowIndex|tabIndex|url`
+- `window-tabs <window-index>` returns one line per tab as:
+  - `tabIndex|isFromSelectedTabGroup|selectedTabGroupTabIndex|url`
+- `window-tabs` compares live tabs with the currently selected saved tab group of that window.
+- A live tab is currently treated as coming from the selected saved tab group only when:
+  - a selected saved tab group exists for the window
+  - the saved-group tab exists at the same tab index
+  - the saved-group tab URL equals the live tab URL
 - `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`.
 - `close-tab` closes a specific tab identified by `window-index` and `tab-index`.
 - The `SafariTab` model currently delegates all tab CRUD work directly to the `SafariAppleScript` module because Safari exposes tab URL mutation directly through AppleScript.

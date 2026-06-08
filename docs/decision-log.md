@@ -165,3 +165,5 @@
 - Extended `SafariWindow` read output further with an optional active saved tab-group identifier, so callers can address the selected saved group structurally instead of only by display name.
 - Added `tab-group-tabs` as the next read surface for the model.
 - Kept saved-group tab content separate from live `SafariTab`, because stored group tabs come from the bookmark database rather than from current Safari windows.
+- Added `window-tabs` as a second read surface on `SafariTab` for one concrete window.
+- Kept the selected-group relation as window-scoped read metadata instead of treating it as an intrinsic tab property.

@@ -30,6 +30,11 @@ swift run computer-automation safari open-window Twisto
 swift run computer-automation safari close-window
 swift run computer-automation safari tab-groups
 swift run computer-automation safari tab-group-tabs 1000
+swift run computer-automation safari open-tab 1 https://example.com
+swift run computer-automation safari tabs
+swift run computer-automation safari window-tabs 1
+swift run computer-automation safari set-tab-url 1 1 https://example.com
+swift run computer-automation safari close-tab 1 1
 swift run computer-automation safari-ui menu-bar-items
 swift run computer-automation safari-ui menu-items 3
 swift run computer-automation safari-ui file-menu-items

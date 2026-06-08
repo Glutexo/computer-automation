@@ -42,6 +42,7 @@ flowchart TD
     TabGroupTabs["tab-group-tabs command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
+    WindowTabs["window-tabs command"]
     TabSetURL["set-tab-url command"]
     TabClose["close-tab command"]
 
@@ -90,6 +91,7 @@ flowchart TD
     SafariTabGroup --> TabGroupTabs
     SafariTab --> TabOpen
     SafariTab --> Tabs
+    SafariTab --> WindowTabs
     SafariTab --> TabSetURL
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
