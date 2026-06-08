@@ -711,6 +711,62 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     )
 }
 
+@Test func safariWindowLoadProfilesRejectsMissingDatabase() async throws {
+    let missingPath = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+        .appendingPathComponent("Missing.db")
+        .path
+
+    #expect(throws: SafariWindowCommandError.databaseOpenFailed(path: missingPath)) {
+        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: missingPath)
+    }
+}
+
+@Test func safariWindowLoadProfilesRejectsMissingSchema() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    #expect(throws: SafariWindowCommandError.queryPreparationFailed) {
+        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
+    }
+}
+
+@Test func safariWindowLoadProfilesMapsMissingBookmarksToEmptyString() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT
+    );
+    CREATE TABLE windows (
+        id INTEGER PRIMARY KEY,
+        active_profile_id INTEGER,
+        date_closed REAL
+    );
+    INSERT INTO bookmarks (id, title) VALUES
+        (5, 'Glutexo'),
+        (6, NULL);
+    INSERT INTO windows (id, active_profile_id, date_closed) VALUES
+        (1, 5, NULL),
+        (2, 6, NULL),
+        (3, 999, NULL),
+        (4, 5, 1.0);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
+        [
+            1: "Glutexo",
+            2: "",
+            3: ""
+        ]
+    )
+}
+
 @Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
     let temporaryDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -750,6 +806,65 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     )
 }
 
+@Test func safariProfileDatabasePathUsesProvidedHomeDirectory() async throws {
+    #expect(
+        SafariProfile.databasePath(homeDirectory: "/tmp/example-home") ==
+        "/tmp/example-home/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db"
+    )
+}
+
+@Test func safariProfileListAvailableProfilesRejectsMissingDatabase() async throws {
+    let missingPath = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+        .appendingPathComponent("Missing.db")
+        .path
+
+    #expect(throws: SafariProfileCommandError.databaseOpenFailed(path: missingPath)) {
+        try SafariProfile.listAvailableProfiles(databasePath: missingPath)
+    }
+}
+
+@Test func safariProfileListAvailableProfilesRejectsMissingSchema() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    #expect(throws: SafariProfileCommandError.queryPreparationFailed) {
+        try SafariProfile.listAvailableProfiles(databasePath: databasePath)
+    }
+}
+
+@Test func safariProfileListAvailableProfilesSkipsRowsWithNullFieldsAndPreservesOrder() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        external_uuid TEXT,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, external_uuid, subtype) VALUES
+        (10, 0, 1, 'Beta', 'beta-id', 2),
+        (11, 0, 1, NULL, 'missing-title', 2),
+        (12, 0, 1, 'Gamma', NULL, 2),
+        (13, 0, 1, 'Alpha', 'alpha-id', 2),
+        (14, 1, 1, 'Nested', 'nested-id', 2);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariProfile.listAvailableProfiles(databasePath: databasePath) ==
+        [
+            SafariProfileRecord(name: "Beta", identifier: "beta-id"),
+            SafariProfileRecord(name: "Alpha", identifier: "alpha-id")
+        ]
+    )
+}
+
 private func openDatabase(at path: String) -> OpaquePointer? {
     var database: OpaquePointer?
     let result = sqlite3_open(path, &database)
@@ -758,6 +873,22 @@ private func openDatabase(at path: String) -> OpaquePointer? {
         return nil
     }
     return database
+}
+
+private func makeTemporaryDatabase() throws -> String {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    let databasePath = temporaryDirectory.appendingPathComponent("Test.db").path
+    let database = try #require(openDatabase(at: databasePath))
+    sqlite3_close(database)
+    return databasePath
+}
+
+private func executeSQL(_ sql: String, at databasePath: String) throws {
+    let database = try #require(openDatabase(at: databasePath))
+    defer { sqlite3_close(database) }
+    #expect(sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK)
 }
 
 private func makeIndexTitleList(_ rows: [(Int, String)]) -> NSAppleEventDescriptor {

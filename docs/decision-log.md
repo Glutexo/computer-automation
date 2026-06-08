@@ -17,6 +17,7 @@
 - Extended the same testing discipline to the top-level CLI router, including error handling and completion entry points.
 - Extracted the CLI router into a shared target so it can be tested directly without executable-only linkage limits.
 - Added property-like parser and formatter tests for AppleScript descriptors, menu-item normalization, and window-list tolerance for malformed input.
+- Added property-like coverage for SQLite-backed profile and window mapping, including missing databases, missing schema, NULL fields, and LEFT JOIN fallbacks.
 
 ## 2026-06-07
 
