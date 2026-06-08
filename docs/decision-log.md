@@ -1,5 +1,14 @@
 # Decision Log
 
+## 2026-06-08
+
+### Model testing standard
+
+- Recorded a standing rule that every model must be covered by robust parameterized tests.
+- Extended that requirement explicitly to UI models and AppleScript models, not only domain models.
+- Required tests to cover both user-story examples and general behavior, invariants, and edge conditions.
+- Allowed mocks as a first-class tool when they improve coverage, isolation, or reproducibility.
+
 ## 2026-06-07
 
 ### Initial repository bootstrap

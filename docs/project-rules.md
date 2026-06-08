@@ -30,6 +30,9 @@
 - Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
 - Build new features primarily on general models before introducing specialized convenience models.
 - Keep specialized models when an operation truly belongs to a specific UI surface rather than to the general structure.
+- Cover every model with robust parameterized tests, including UI and AppleScript models.
+- Test not only concrete user-story cases but also general behavior, invariants, and edge conditions.
+- Use mocks freely when they improve coverage, isolation, or reproducibility without weakening the contract being tested.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Keep code and documentation changes aligned in the same working session.
