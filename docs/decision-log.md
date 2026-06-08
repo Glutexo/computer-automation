@@ -162,3 +162,5 @@
 - Kept the first surface read-only as `tab-groups`, because create/update/delete semantics for saved groups were not yet specified.
 - A saved group is detected structurally from `bookmarks` plus its `TopScopedBookmarkList` child, which excludes internal `Local` and `Private` groups.
 - Extended `SafariWindow` read output with an optional active saved tab-group name when a window currently selects one.
+- Added `tab-group-tabs` as the next read surface for the model.
+- Kept saved-group tab content separate from live `SafariTab`, because stored group tabs come from the bookmark database rather than from current Safari windows.

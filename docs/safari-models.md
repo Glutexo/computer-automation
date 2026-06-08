@@ -22,6 +22,7 @@
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
+| `SafariTabGroup` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
@@ -46,6 +47,7 @@ flowchart TD
     Windows["SafariWindowListCommand (R)"]
     WindowClose["SafariWindowCloseCommand (D)"]
     TabGroups["SafariTabGroupListCommand (R)"]
+    TabGroupTabs["SafariTabGroupListTabsCommand (R)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
@@ -65,6 +67,7 @@ flowchart TD
     SafariWindow --> Windows
     SafariWindow --> WindowClose
     SafariTabGroup --> TabGroups
+    SafariTabGroup --> TabGroupTabs
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabSetURL
@@ -82,6 +85,7 @@ flowchart TD
 - `windows` is the read operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
 - `tab-groups` is the read operation for the saved tab-group model.
+- `tab-group-tabs` is the structural read operation for the tabs stored inside a saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
 - `set-tab-url` is the update operation for the browser tab model.
@@ -143,12 +147,18 @@ ORDER BY id;
 - `SafariTabGroup` currently exposes a read-only surface.
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
+- `tab-group-tabs` returns one line per stored tab as:
+  - `index|url`
 - A bookmark is treated as a saved tab group when:
   - `type = 1`
   - `subtype = 0`
   - its parent is a Safari profile bookmark
   - it has a child bookmark with `type = 1` and `subtype = 1`
 - This intentionally excludes internal `Local` and `Private` groups.
+- `tab-group-tabs <identifier>` reads child bookmark rows of that saved group:
+  - only child rows with `type = 0` are treated as stored tabs
+  - rows are ordered by `order_index`, then `id`
+  - the current model reads only the URL property, so output is limited to `index|url`
 
 ## Tab operations
 

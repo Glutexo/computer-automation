@@ -53,8 +53,9 @@ import SQLite3
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
     #expect(SafariTabGroup.descriptor.name == "tab-group")
-    #expect(SafariTabGroup.descriptor.commands == [SafariTabGroupListCommand.descriptor])
+    #expect(SafariTabGroup.descriptor.commands == [SafariTabGroupListCommand.descriptor, SafariTabGroupListTabsCommand.descriptor])
     #expect(SafariTabGroupListCommand.descriptor.operation == .read)
+    #expect(SafariTabGroupListTabsCommand.descriptor.operation == .read)
     #expect(SafariTab.descriptor.name == "tab")
     #expect(
         SafariTab.descriptor.commands ==
@@ -118,6 +119,7 @@ import SQLite3
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
+            CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
@@ -210,6 +212,12 @@ import SQLite3
     #expect(closeTab.count == 2)
     #expect(closeTab[0].name == "window-index")
     #expect(closeTab[1].name == "tab-index")
+
+    let tabGroupTabs = SafariTabGroupListTabsCommand.descriptor.arguments
+    #expect(tabGroupTabs.count == 1)
+    #expect(tabGroupTabs[0].name == "tab-group-identifier")
+    #expect(tabGroupTabs[0].kind == .positional)
+    #expect(tabGroupTabs[0].isRequired)
 }
 
 @Test func completionEngineFiltersCommandsUsingSecondTokenForDeeperInput() async throws {
@@ -275,6 +283,7 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("open-window"))
     #expect(output.contains("open-private-window"))
     #expect(output.contains("tab-groups"))
+    #expect(output.contains("tab-group-tabs"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
     #expect(output.contains("set-tab-url"))
@@ -688,6 +697,47 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
         try command.execute(arguments: [])
+    }
+}
+
+@Test(arguments: [
+    [],
+    [SafariTabGroupTabRecord(tabGroupIdentifier: 10, index: 1, url: "https://example.com")],
+    [
+        SafariTabGroupTabRecord(tabGroupIdentifier: 10, index: 1, url: "https://example.com"),
+        SafariTabGroupTabRecord(tabGroupIdentifier: 10, index: 2, url: "https://openai.com")
+    ]
+])
+func safariTabGroupListTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]) async throws {
+    let command = SafariTabGroupListTabsCommand(listTabs: { _ in tabs })
+    let output = try command.execute(arguments: ["10"])
+    let expected = tabs.map { "\($0.index)|\($0.url)" }.joined(separator: "\n")
+    #expect(output == expected)
+}
+
+@Test func safariTabGroupListTabsCommandRejectsMissingOrInvalidIdentifier() async throws {
+    let command = SafariTabGroupListTabsCommand(listTabs: { _ in [] })
+
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupIdentifier) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("0")) {
+        try command.execute(arguments: ["0"])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("abc")) {
+        try command.execute(arguments: ["abc"])
+    }
+}
+
+@Test func safariTabGroupListTabsCommandPropagatesFailure() async throws {
+    let command = SafariTabGroupListTabsCommand(
+        listTabs: { _ in throw SafariTabGroupCommandError.queryPreparationFailed }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
+        try command.execute(arguments: ["10"])
     }
 }
 
@@ -1356,6 +1406,75 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
         try SafariTabGroup.list(databasePath: databasePath)
     }
+
+    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
+        try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath)
+    }
+}
+
+@Test func safariTabGroupListsTabsInBookmarkOrder() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        url TEXT,
+        order_index INTEGER NOT NULL,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
+        (5, 0, 1, 'Glutexo', NULL, 0, 2),
+        (1000, 5, 1, 'Focus', NULL, 0, 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (1002, 1000, 0, 'OpenAI', 'https://openai.com', 2, 0),
+        (1003, 1000, 0, 'Example', 'https://example.com', 1, 0),
+        (1004, 1000, 0, 'Empty URL', NULL, 3, 0),
+        (2000, NULL, 1, 'Local', NULL, 0, 0),
+        (2001, 2000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (2002, 2000, 0, 'Ignored Local Tab', 'https://ignored.local', 1, 0);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath) ==
+        [
+            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),
+            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 2, url: "https://openai.com"),
+            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 3, url: "")
+        ]
+    )
+}
+
+@Test func safariTabGroupListTabsIgnoresUnknownOrUnsavedGroups() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        url TEXT,
+        order_index INTEGER NOT NULL,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
+        (5, 0, 1, 'Glutexo', NULL, 0, 2),
+        (1000, NULL, 1, 'Local', NULL, 0, 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (1002, 1000, 0, 'Local Tab', 'https://local.example', 1, 0);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(try SafariTabGroup.listTabs(tabGroupIdentifier: 9999, databasePath: databasePath).isEmpty)
+    #expect(try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath).isEmpty)
 }
 
 @Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
