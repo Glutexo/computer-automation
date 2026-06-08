@@ -9,13 +9,15 @@ public struct SafariWindowRecord: Equatable, Sendable {
     public let index: Int
     public let isPrivate: Bool
     public let profileName: String
+    public let tabGroupName: String?
     public let name: String
 
-    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, name: String) {
+    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, tabGroupName: String? = nil, name: String) {
         self.identifier = identifier
         self.index = index
         self.isPrivate = isPrivate
         self.profileName = profileName
+        self.tabGroupName = tabGroupName
         self.name = name
     }
 }
@@ -54,6 +56,7 @@ public enum SafariWindow: ModelModel {
                 index: offset + 1,
                 isPrivate: state?.isPrivate ?? false,
                 profileName: profileName,
+                tabGroupName: state?.tabGroupName,
                 name: rawWindow.name
             )
         }
@@ -71,6 +74,7 @@ public enum SafariWindow: ModelModel {
                 index: offset + 1,
                 isPrivate: privateWindowIdentifiers.contains(rawWindow.identifier),
                 profileName: profilesByWindowIdentifier[rawWindow.identifier] ?? "",
+                tabGroupName: nil,
                 name: rawWindow.name
             )
         }
@@ -96,12 +100,23 @@ public enum SafariWindow: ModelModel {
         SELECT
             w.id,
             COALESCE(b.title, ''),
+            g.title,
             CASE
                 WHEN w.private_tab_group_id IS NOT NULL AND w.active_tab_group_id = w.private_tab_group_id THEN 1
                 ELSE 0
             END
         FROM windows w
         LEFT JOIN bookmarks b ON b.id = w.active_profile_id
+        LEFT JOIN bookmarks g ON g.id = w.active_tab_group_id
+            AND g.type = 1
+            AND g.subtype = 0
+            AND EXISTS (
+                SELECT 1
+                FROM bookmarks child
+                WHERE child.parent = g.id
+                  AND child.type = 1
+                  AND child.subtype = 1
+            )
         WHERE w.date_closed IS NULL;
         """
 
@@ -117,8 +132,9 @@ public enum SafariWindow: ModelModel {
         while sqlite3_step(statement) == SQLITE_ROW {
             let identifier = Int(sqlite3_column_int(statement, 0))
             let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-            let isPrivate = sqlite3_column_int(statement, 2) == 1
-            stateByWindowIdentifier[identifier] = SafariWindowState(profileName: profileName, isPrivate: isPrivate)
+            let tabGroupName = sqlite3_column_text(statement, 2).map { String(cString: $0) }
+            let isPrivate = sqlite3_column_int(statement, 3) == 1
+            stateByWindowIdentifier[identifier] = SafariWindowState(profileName: profileName, tabGroupName: tabGroupName, isPrivate: isPrivate)
         }
 
         return stateByWindowIdentifier
@@ -147,6 +163,7 @@ private struct RawSafariWindow {
 
 struct SafariWindowState: Equatable, Sendable {
     let profileName: String
+    let tabGroupName: String?
     let isPrivate: Bool
 }
 

@@ -155,3 +155,10 @@
 
 - Recorded that private mode belongs to the window model, not to the tab model.
 - Tabs inherit their containing window context, but they do not own a separate private-mode property.
+
+### Safari saved tab-group model
+
+- Added a `SafariTabGroup` model for saved Safari tab groups.
+- Kept the first surface read-only as `tab-groups`, because create/update/delete semantics for saved groups were not yet specified.
+- A saved group is detected structurally from `bookmarks` plus its `TopScopedBookmarkList` child, which excludes internal `Local` and `Private` groups.
+- Extended `SafariWindow` read output with an optional active saved tab-group name when a window currently selects one.

@@ -32,7 +32,7 @@ public struct SafariWindowListCommand: CommandModel {
     public func execute(arguments: [String] = []) throws -> String {
         let windows = try listWindows(executor)
         return windows
-            .map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.name)" }
+            .map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.tabGroupName ?? "")|\($0.name)" }
             .joined(separator: "\n")
     }
 }

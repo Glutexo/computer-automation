@@ -14,6 +14,7 @@ flowchart TD
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    SafariTabGroup["SafariTabGroup model"]
     SafariTab["SafariTab model"]
     ScriptApplication["script application model"]
     ScriptWindow["script window model"]
@@ -37,6 +38,7 @@ flowchart TD
     WindowOpenPrivate["open-private-window command"]
     Windows["windows command"]
     WindowClose["close-window command"]
+    TabGroups["tab-groups command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
     TabSetURL["set-tab-url command"]
@@ -57,6 +59,7 @@ flowchart TD
     Safari --> SafariApplication
     Safari --> SafariProfile
     Safari --> SafariWindow
+    Safari --> SafariTabGroup
     Safari --> SafariTab
     SafariScript --> ScriptApplication
     SafariScript --> ScriptWindow
@@ -82,6 +85,7 @@ flowchart TD
     SafariWindow --> WindowOpenPrivate
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    SafariTabGroup --> TabGroups
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabSetURL
@@ -103,6 +107,7 @@ flowchart TD
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - UI automation must remain independent of the macOS and Safari language setting.
 - Direct AppleScript access should live in `SafariAppleScript`, not inside `Safari` or `SafariUserInterface`.
+- Saved tab-group metadata currently comes from Safari's local database rather than AppleScript.
 - Direct tab CRUD currently lives across `SafariTab` and `SafariAppleScriptTab` because Safari exposes tab URL state directly in AppleScript.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.

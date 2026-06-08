@@ -2,10 +2,11 @@
 
 ## Overview
 
-- The `Safari` module currently exposes four models: `SafariApplication`, `SafariProfile`, `SafariWindow`, and `SafariTab`.
+- The `Safari` module currently exposes five models: `SafariApplication`, `SafariProfile`, `SafariWindow`, `SafariTabGroup`, and `SafariTab`.
 - `SafariApplication` represents Safari as an application and owns its lifecycle commands.
 - `SafariProfile` represents the profiles available in Safari.
 - `SafariWindow` represents browser windows managed by Safari.
+- `SafariTabGroup` represents saved Safari tab groups.
 - `SafariTab` represents browser tabs managed inside Safari windows.
 
 ## CRUD matrix
@@ -20,6 +21,7 @@
 | `SafariWindow` | `open-private-window` | `C` | Open a new private Safari browser window. |
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
+| `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
@@ -33,6 +35,7 @@ flowchart TD
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
+    SafariTabGroup["SafariTabGroup model"]
     SafariTab["SafariTab model"]
     Launch["SafariApplicationLaunchCommand (C)"]
     Running["SafariApplicationRunningCommand (R)"]
@@ -42,6 +45,7 @@ flowchart TD
     WindowOpenPrivate["SafariWindowOpenPrivateCommand (C)"]
     Windows["SafariWindowListCommand (R)"]
     WindowClose["SafariWindowCloseCommand (D)"]
+    TabGroups["SafariTabGroupListCommand (R)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
@@ -50,6 +54,7 @@ flowchart TD
     SafariModule --> SafariApplication
     SafariModule --> SafariProfile
     SafariModule --> SafariWindow
+    SafariModule --> SafariTabGroup
     SafariModule --> SafariTab
     SafariApplication --> Launch
     SafariApplication --> Running
@@ -59,6 +64,7 @@ flowchart TD
     SafariWindow --> WindowOpenPrivate
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    SafariTabGroup --> TabGroups
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabSetURL
@@ -75,6 +81,7 @@ flowchart TD
 - `open-private-window` is an additional create operation for the browser window model.
 - `windows` is the read operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
+- `tab-groups` is the read operation for the saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
 - `set-tab-url` is the update operation for the browser tab model.
@@ -120,15 +127,28 @@ ORDER BY id;
   - delegates to the `SafariFileMenu` model to activate Safari
   - clicks the matching profile-specific "new window" menu item
 - `windows` enumerates `every window` and returns one line per window as:
-  - `index|isPrivate|profile|name`
+  - `index|isPrivate|profile|tabGroup|name`
 - The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id`.
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
+- The `tabGroup` column is populated only when the current `active_tab_group_id` points to a saved tab group.
 - Safari also has a virtual private-window profile:
   - it is not a normal profile row in `SafariTabs.db`
   - it should be treated as a special window mode rather than as a persisted user profile
   - window/profile logic must therefore allow profile-like window states that do not map to the persisted profile catalog
 - `open-private-window` is the explicit create operation for that virtual private-window mode.
 - `close-window` closes the current front window.
+
+## Saved tab-group operations
+
+- `SafariTabGroup` currently exposes a read-only surface.
+- `tab-groups` returns one line per saved group as:
+  - `identifier|profile|name`
+- A bookmark is treated as a saved tab group when:
+  - `type = 1`
+  - `subtype = 0`
+  - its parent is a Safari profile bookmark
+  - it has a child bookmark with `type = 1` and `subtype = 1`
+- This intentionally excludes internal `Local` and `Private` groups.
 
 ## Tab operations
 

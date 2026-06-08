@@ -15,6 +15,7 @@ import SQLite3
             SafariApplication.descriptor,
             SafariProfile.descriptor,
             SafariWindow.descriptor,
+            SafariTabGroup.descriptor,
             SafariTab.descriptor
         ]
     )
@@ -51,6 +52,9 @@ import SQLite3
     #expect(!SafariWindowOpenCommand.descriptor.arguments[0].isRequired)
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
+    #expect(SafariTabGroup.descriptor.name == "tab-group")
+    #expect(SafariTabGroup.descriptor.commands == [SafariTabGroupListCommand.descriptor])
+    #expect(SafariTabGroupListCommand.descriptor.operation == .read)
     #expect(SafariTab.descriptor.name == "tab")
     #expect(
         SafariTab.descriptor.commands ==
@@ -113,6 +117,7 @@ import SQLite3
             CompletionSuggestion(value: "open-private-window", abstract: "Open a new private Safari browser window."),
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
@@ -269,6 +274,7 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari"])
     #expect(output.contains("open-window"))
     #expect(output.contains("open-private-window"))
+    #expect(output.contains("tab-groups"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
     #expect(output.contains("set-tab-url"))
@@ -332,8 +338,8 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
             privateWindowIdentifiers: [2]
         ) ==
         [
-            SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", name: "Start Page"),
-            SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", name: "OpenAI")
+            SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page"),
+            SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", tabGroupName: nil, name: "OpenAI")
         ]
     )
 }
@@ -481,9 +487,9 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 }
 
 @Test(arguments: [
-    ("Glutexo", [1: "Glutexo"], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", name: "Glutexo")]),
-    ("Glutexo — Start Page", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", name: "Glutexo — Start Page")]),
-    ("Unknown", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", name: "Unknown")])
+    ("Glutexo", [1: "Glutexo"], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Glutexo")]),
+    ("Glutexo — Start Page", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", tabGroupName: nil, name: "Glutexo — Start Page")]),
+    ("Unknown", [:], [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "", tabGroupName: nil, name: "Unknown")])
 ])
 func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     title: String,
@@ -643,10 +649,10 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 
 @Test(arguments: [
     [],
-    [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", name: "Start Page")],
+    [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page")],
     [
-        SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", name: "Start Page"),
-        SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", name: "OpenAI")
+        SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", tabGroupName: nil, name: "Start Page"),
+        SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", tabGroupName: "Focus", name: "OpenAI")
     ]
 ])
 func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) async throws {
@@ -656,8 +662,33 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
     )
 
     let output = try command.execute(arguments: [])
-    let expected = windows.map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.name)" }.joined(separator: "\n")
+    let expected = windows.map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.tabGroupName ?? "")|\($0.name)" }.joined(separator: "\n")
     #expect(output == expected)
+}
+
+@Test(arguments: [
+    [],
+    [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")],
+    [
+        SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+        SafariTabGroupRecord(identifier: 11, profileName: "Glutexo", name: "Research")
+    ]
+])
+func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async throws {
+    let command = SafariTabGroupListCommand(listTabGroups: { groups })
+    let output = try command.execute(arguments: [])
+    let expected = groups.map { "\($0.identifier)|\($0.profileName)|\($0.name)" }.joined(separator: "\n")
+    #expect(output == expected)
+}
+
+@Test func safariTabGroupListCommandPropagatesFailure() async throws {
+    let command = SafariTabGroupListCommand(
+        listTabGroups: { throw SafariTabGroupCommandError.queryPreparationFailed }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
+        try command.execute(arguments: [])
+    }
 }
 
 @Test func safariWindowListCommandPropagatesListFailure() async throws {
@@ -1136,7 +1167,10 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     let setupSQL = """
     CREATE TABLE bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        subtype INTEGER
     );
     CREATE TABLE windows (
         id INTEGER PRIMARY KEY,
@@ -1145,9 +1179,9 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
         date_closed REAL,
         private_tab_group_id INTEGER
     );
-    INSERT INTO bookmarks (id, title) VALUES
-        (5, 'Glutexo'),
-        (288, 'Twisto');
+    INSERT INTO bookmarks (id, parent, type, title, subtype) VALUES
+        (5, 0, 1, 'Glutexo', 2),
+        (288, 0, 1, 'Twisto', 2);
     INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
         (1, 100, 5, NULL, 101),
         (2, 200, 288, NULL, 201),
@@ -1195,7 +1229,10 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     let setupSQL = """
     CREATE TABLE bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        subtype INTEGER
     );
     CREATE TABLE windows (
         id INTEGER PRIMARY KEY,
@@ -1204,9 +1241,9 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
         date_closed REAL,
         private_tab_group_id INTEGER
     );
-    INSERT INTO bookmarks (id, title) VALUES
-        (5, 'Glutexo'),
-        (6, NULL);
+    INSERT INTO bookmarks (id, parent, type, title, subtype) VALUES
+        (5, 0, 1, 'Glutexo', 2),
+        (6, 0, 1, NULL, 2);
     INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
         (1, 100, 5, NULL, 101),
         (2, 200, 6, NULL, 201),
@@ -1233,7 +1270,10 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     let setupSQL = """
     CREATE TABLE bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        subtype INTEGER
     );
     CREATE TABLE windows (
         id INTEGER PRIMARY KEY,
@@ -1242,9 +1282,9 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
         date_closed REAL,
         private_tab_group_id INTEGER
     );
-    INSERT INTO bookmarks (id, title) VALUES
-        (5, 'Glutexo'),
-        (6, 'Twisto');
+    INSERT INTO bookmarks (id, parent, type, title, subtype) VALUES
+        (5, 0, 1, 'Glutexo', 2),
+        (6, 0, 1, 'Twisto', 2);
     INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
         (1, 100, 5, NULL, 101),
         (2, 202, 6, NULL, 202),
@@ -1257,11 +1297,65 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(
         try SafariWindow.loadWindowStateByWindowIdentifier(databasePath: databasePath) ==
         [
-            1: SafariWindowState(profileName: "Glutexo", isPrivate: false),
-            2: SafariWindowState(profileName: "Twisto", isPrivate: true),
-            3: SafariWindowState(profileName: "Twisto", isPrivate: false)
+            1: SafariWindowState(profileName: "Glutexo", tabGroupName: nil, isPrivate: false),
+            2: SafariWindowState(profileName: "Twisto", tabGroupName: nil, isPrivate: true),
+            3: SafariWindowState(profileName: "Twisto", tabGroupName: nil, isPrivate: false)
         ]
     )
+}
+
+@Test func safariTabGroupListsSavedGroupsOnly() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        external_uuid TEXT,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, external_uuid, subtype) VALUES
+        (5, 0, 1, 'Glutexo', 'profile-a', 2),
+        (288, 0, 1, 'Twisto', 'profile-b', 2),
+        (1000, 288, 1, 'Focus', 'group-1', 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', 'scope-1', 1),
+        (1002, 1000, 0, 'OpenAI', 'page-1', 0),
+        (1003, NULL, 1, 'Local', 'local-1', 0),
+        (1004, NULL, 1, 'Private', 'private-1', 0),
+        (1005, 288, 1, 'No Scope Group', 'group-2', 0),
+        (1006, 999, 1, 'Wrong Parent Group', 'group-3', 0),
+        (1007, 1006, 1, 'TopScopedBookmarkList', 'scope-2', 1);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariTabGroup.list(databasePath: databasePath) ==
+        [
+            SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+        ]
+    )
+}
+
+@Test func safariTabGroupRejectsMissingDatabaseOrSchema() async throws {
+    let missingPath = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+        .appendingPathComponent("Missing.db")
+        .path
+
+    #expect(throws: SafariTabGroupCommandError.databaseOpenFailed(path: missingPath)) {
+        try SafariTabGroup.list(databasePath: missingPath)
+    }
+
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
+        try SafariTabGroup.list(databasePath: databasePath)
+    }
 }
 
 @Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
