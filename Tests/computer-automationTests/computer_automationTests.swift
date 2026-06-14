@@ -676,6 +676,18 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
     }
 }
 
+@Test func safariWindowOpenCommandFallsBackToMenuWhenProfileDatabaseIsUnavailable() async throws {
+    var receivedProfileName: String?
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { throw SafariProfileCommandError.databaseOpenFailed(path: "/protected/SafariTabs.db") },
+        openWindow: { profileName, _ in receivedProfileName = profileName }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.")
+    #expect(receivedProfileName == "Twisto")
+}
+
 @Test func safariWindowOpenCommandFormatsProfileLaunchMessage() async throws {
     var receivedProfileName: String?
     let command = SafariWindowOpenCommand(

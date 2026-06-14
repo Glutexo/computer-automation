@@ -48,9 +48,14 @@ public struct SafariWindowOpenCommand: CommandModel {
     }
 
     private func openWindow(forProfileNamed profileName: String) throws -> String {
-        let profiles = try listProfiles()
-        guard profiles.contains(where: { $0.name == profileName }) else {
-            throw SafariWindowCommandError.profileNotFound(profileName)
+        do {
+            let profiles = try listProfiles()
+            guard profiles.contains(where: { $0.name == profileName }) else {
+                throw SafariWindowCommandError.profileNotFound(profileName)
+            }
+        } catch SafariProfileCommandError.databaseOpenFailed {
+            // Opening by profile ultimately targets Safari's File menu; do not make
+            // that UI path unusable only because Safari's private DB is protected.
         }
 
         do {
