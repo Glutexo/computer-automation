@@ -567,6 +567,30 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
+@Test func safariWindowListFallsBackToAppleScriptFieldsWhenDatabaseIsUnavailable() async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    listDescriptor.insert(NSAppleEventDescriptor(string: "42|Start Page"), at: 1)
+
+    let windows = try SafariWindow.list(
+        executor: MockAppleScriptExecutor(results: [.descriptor(listDescriptor)]),
+        databasePath: "/protected/SafariTabs.db",
+        isRunning: { true }
+    )
+
+    #expect(
+        windows == [
+            SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")
+        ]
+    )
+}
+
+@Test func safariDatabaseOpenErrorsExplainFullDiskAccessRequirement() async throws {
+    let error = SafariTabGroupCommandError.databaseOpenFailed(path: "/protected/SafariTabs.db")
+
+    #expect(error.localizedDescription.contains("Grant Full Disk Access"))
+    #expect(error.localizedDescription.contains("/protected/SafariTabs.db"))
+}
+
 @Test(arguments: [(true, "true"), (false, "false")])
 func safariApplicationRunningCommandReflectsRunningState(input: (Bool, String)) async throws {
     let command = SafariApplicationRunningCommand(isRunning: { input.0 })

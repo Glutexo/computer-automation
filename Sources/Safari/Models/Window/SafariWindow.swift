@@ -40,14 +40,24 @@ public enum SafariWindow: ModelModel {
 
     static func list(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
-        databasePath: String = SafariProfile.databasePath()
+        databasePath: String = SafariProfile.databasePath(),
+        isRunning: () -> Bool = SafariApplication.isRunning
     ) throws -> [SafariWindowRecord] {
-        guard SafariApplication.isRunning() else {
+        guard isRunning() else {
             return []
         }
         let rawWindows = try SafariAppleScriptWindow.list(executor: executor)
-        let statesByWindowIdentifier = try loadWindowStateByWindowIdentifier(databasePath: databasePath)
-        let knownProfileNames = Set(try SafariProfile.listAvailableProfiles(databasePath: databasePath).map(\.name))
+        let databaseContext: ([Int: SafariWindowState], Set<String>)
+        do {
+            databaseContext = (
+                try loadWindowStateByWindowIdentifier(databasePath: databasePath),
+                Set(try SafariProfile.listAvailableProfiles(databasePath: databasePath).map(\.name))
+            )
+        } catch let error where isDatabaseUnavailable(error) {
+            databaseContext = ([:], [])
+        }
+        let statesByWindowIdentifier = databaseContext.0
+        let knownProfileNames = databaseContext.1
 
         return rawWindows.enumerated().map { offset, rawWindow in
             let state = statesByWindowIdentifier[rawWindow.identifier]
@@ -95,9 +105,10 @@ public enum SafariWindow: ModelModel {
     static func loadWindowStateByWindowIdentifier(
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [Int: SafariWindowState] {
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
-            defer { sqlite3_close(database) }
+        let database: OpaquePointer
+        do {
+            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
+        } catch SafariDatabaseError.openFailed {
             throw SafariWindowCommandError.databaseOpenFailed(path: databasePath)
         }
         defer { sqlite3_close(database) }
@@ -140,18 +151,22 @@ public enum SafariWindow: ModelModel {
 
         var stateByWindowIdentifier: [Int: SafariWindowState] = [:]
 
-        while sqlite3_step(statement) == SQLITE_ROW {
-            let identifier = Int(sqlite3_column_int(statement, 0))
-            let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-            let selectedTabGroupIdentifier = sqlite3_column_type(statement, 2) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 2))
-            let tabGroupName = sqlite3_column_text(statement, 3).map { String(cString: $0) }
-            let isPrivate = sqlite3_column_int(statement, 4) == 1
-            stateByWindowIdentifier[identifier] = SafariWindowState(
-                profileName: profileName,
-                selectedTabGroupIdentifier: selectedTabGroupIdentifier,
-                tabGroupName: tabGroupName,
-                isPrivate: isPrivate
-            )
+        do {
+            try SafariDatabase.stepRows(statement) {
+                let identifier = Int(sqlite3_column_int(statement, 0))
+                let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
+                let selectedTabGroupIdentifier = sqlite3_column_type(statement, 2) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 2))
+                let tabGroupName = sqlite3_column_text(statement, 3).map { String(cString: $0) }
+                let isPrivate = sqlite3_column_int(statement, 4) == 1
+                stateByWindowIdentifier[identifier] = SafariWindowState(
+                    profileName: profileName,
+                    selectedTabGroupIdentifier: selectedTabGroupIdentifier,
+                    tabGroupName: tabGroupName,
+                    isPrivate: isPrivate
+                )
+            }
+        } catch SafariDatabaseError.queryExecutionFailed {
+            throw SafariWindowCommandError.queryExecutionFailed
         }
 
         return stateByWindowIdentifier
@@ -171,6 +186,28 @@ public enum SafariWindow: ModelModel {
             title == profileName || title.hasPrefix("\(profileName) —") || title.hasPrefix("\(profileName) -")
         }
     }
+
+    private static func isDatabaseUnavailable(_ error: Error) -> Bool {
+        if let windowError = error as? SafariWindowCommandError {
+            switch windowError {
+            case .databaseOpenFailed, .queryExecutionFailed:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if let profileError = error as? SafariProfileCommandError {
+            switch profileError {
+            case .databaseOpenFailed, .queryExecutionFailed:
+                return true
+            default:
+                return false
+            }
+        }
+
+        return false
+    }
 }
 
 private struct RawSafariWindow {
@@ -185,9 +222,10 @@ struct SafariWindowState: Equatable, Sendable {
     let isPrivate: Bool
 }
 
-enum SafariWindowCommandError: Error, Equatable {
+enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case databaseOpenFailed(path: String)
     case queryPreparationFailed
+    case queryExecutionFailed
     case profileNotFound(String)
     case profileMenuItemNotFound(String)
     case privateWindowMenuItemNotFound
@@ -201,4 +239,17 @@ enum SafariWindowCommandError: Error, Equatable {
     case windowTabGroupProfileMismatch(windowProfileName: String, tabGroupProfileName: String)
     case tabGroupPickerUnavailable
     case tabGroupPickerItemNotFound(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .databaseOpenFailed(let path):
+            "Could not open SafariTabs.db at \(path). Grant Full Disk Access to the terminal or app running computer-automation, make sure the file exists, and retry."
+        case .queryPreparationFailed:
+            "Could not prepare the Safari window query. The Safari database schema may have changed."
+        case .queryExecutionFailed:
+            "Could not finish the Safari window query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        default:
+            nil
+        }
+    }
 }

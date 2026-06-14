@@ -1,4 +1,5 @@
 import Darwin
+import Foundation
 import ComputerAutomationKit
 
 @main
@@ -10,7 +11,8 @@ struct ComputerAutomationApp {
                 print(output)
             }
         } catch {
-            fputs("CLI error: \(error)\n", stderr)
+            let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+            fputs("CLI error: \(message)\n", stderr)
             exit(1)
         }
     }

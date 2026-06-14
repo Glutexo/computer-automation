@@ -2,6 +2,14 @@
 
 ## 2026-06-14
 
+### Safari database access fails fast and windows degrades
+
+- Added a shared Safari database opener for direct `SafariTabs.db` access.
+- The opener preflights file readability and installs a short SQLite busy timeout so unreadable or locked Safari databases fail quickly instead of hanging command execution.
+- Kept saved profile and tab-group list operations DB-backed because there is no equivalent verified non-DB source for those records yet.
+- Allowed `safari windows` to degrade when `SafariTabs.db` is unavailable: it still returns AppleScript window identity, index, and name, while DB-derived private/profile/tab-group fields are left empty or defaulted.
+- Documented Full Disk Access as the current permission requirement for complete DB-backed Safari metadata.
+
 ### Commit and push after every completed change
 
 - Tightened the delivery rule from committing completed change sets to committing and pushing every completed verified change immediately.

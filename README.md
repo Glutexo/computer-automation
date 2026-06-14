@@ -54,6 +54,12 @@ swift run computer-automation safari-ui menu-item-children 3 27
 
 Running the executable launches Safari on macOS.
 
+## Safari database access
+
+Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved tab-group, private-window, and selected tab-group metadata. On recent macOS versions, the terminal or app running `computer-automation` may need Full Disk Access to read that file.
+
+When the database is unavailable, `safari windows` still returns the window fields that Safari exposes through AppleScript: window index, private state as `false`, empty profile and tab-group fields, and window name. Commands that require saved Safari database records fail quickly with an actionable database access error instead of waiting indefinitely.
+
 ## Completion
 
 ```bash

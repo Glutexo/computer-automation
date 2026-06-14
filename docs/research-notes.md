@@ -1,5 +1,14 @@
 # Research Notes
 
+## 2026-06-14
+
+### Safari database access stabilization
+
+- Direct reads from `SafariTabs.db` can fail on macOS when the caller lacks Full Disk Access to Safari's container data.
+- `safari windows` can still provide useful partial data without the database because Safari AppleScript exposes window ids and names.
+- Saved profile and saved tab-group records still require the database in the current model; no verified AppleScript or accessibility source exposes equivalent stable identifiers.
+- A short SQLite busy timeout is enough to keep DB-backed commands from waiting indefinitely when Safari is actively writing or locking the database.
+
 ## 2026-06-08
 
 ### Safari tab-group sidebar findings

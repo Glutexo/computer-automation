@@ -47,9 +47,10 @@ public enum SafariTabGroup: ModelModel {
     static func list(
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariTabGroupRecord] {
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
-            defer { sqlite3_close(database) }
+        let database: OpaquePointer
+        do {
+            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
+        } catch SafariDatabaseError.openFailed {
             throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
         }
         defer { sqlite3_close(database) }
@@ -82,21 +83,25 @@ public enum SafariTabGroup: ModelModel {
 
         var groups: [SafariTabGroupRecord] = []
 
-        while sqlite3_step(statement) == SQLITE_ROW {
-            guard
-                let rawProfileName = sqlite3_column_text(statement, 1),
-                let rawName = sqlite3_column_text(statement, 2)
-            else {
-                continue
-            }
+        do {
+            try SafariDatabase.stepRows(statement) {
+                guard
+                    let rawProfileName = sqlite3_column_text(statement, 1),
+                    let rawName = sqlite3_column_text(statement, 2)
+                else {
+                    return
+                }
 
-            groups.append(
-                SafariTabGroupRecord(
-                    identifier: Int(sqlite3_column_int(statement, 0)),
-                    profileName: String(cString: rawProfileName),
-                    name: String(cString: rawName)
+                groups.append(
+                    SafariTabGroupRecord(
+                        identifier: Int(sqlite3_column_int(statement, 0)),
+                        profileName: String(cString: rawProfileName),
+                        name: String(cString: rawName)
+                    )
                 )
-            )
+            }
+        } catch SafariDatabaseError.queryExecutionFailed {
+            throw SafariTabGroupCommandError.queryExecutionFailed
         }
 
         return groups
@@ -106,9 +111,10 @@ public enum SafariTabGroup: ModelModel {
         tabGroupIdentifier: Int,
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariTabGroupTabRecord] {
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
-            defer { sqlite3_close(database) }
+        let database: OpaquePointer
+        do {
+            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
+        } catch SafariDatabaseError.openFailed {
             throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
         }
         defer { sqlite3_close(database) }
@@ -150,10 +156,14 @@ public enum SafariTabGroup: ModelModel {
 
         var tabs: [SafariTabGroupTabRecord] = []
 
-        while sqlite3_step(statement) == SQLITE_ROW {
-            let index = tabs.count + 1
-            let url = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
-            tabs.append(SafariTabGroupTabRecord(tabGroupIdentifier: tabGroupIdentifier, index: index, url: url))
+        do {
+            try SafariDatabase.stepRows(statement) {
+                let index = tabs.count + 1
+                let url = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
+                tabs.append(SafariTabGroupTabRecord(tabGroupIdentifier: tabGroupIdentifier, index: index, url: url))
+            }
+        } catch SafariDatabaseError.queryExecutionFailed {
+            throw SafariTabGroupCommandError.queryExecutionFailed
         }
 
         return tabs
@@ -168,9 +178,10 @@ public enum SafariTabGroup: ModelModel {
             throw SafariTabGroupCommandError.tabGroupNotFound(tabGroupIdentifier)
         }
 
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
-            defer { sqlite3_close(database) }
+        let database: OpaquePointer
+        do {
+            database = try SafariDatabase.openReadWrite(databasePath: databasePath)
+        } catch SafariDatabaseError.openFailed {
             throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
         }
         defer { sqlite3_close(database) }
@@ -199,16 +210,17 @@ public enum SafariTabGroup: ModelModel {
         sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw SafariTabGroupCommandError.queryPreparationFailed
+            throw SafariTabGroupCommandError.queryExecutionFailed
         }
 
         return group
     }
 }
 
-enum SafariTabGroupCommandError: Error, Equatable {
+enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case databaseOpenFailed(path: String)
     case queryPreparationFailed
+    case queryExecutionFailed
     case missingWindowIndex
     case invalidWindowIndex(String)
     case missingTabGroupIdentifier
@@ -224,4 +236,17 @@ enum SafariTabGroupCommandError: Error, Equatable {
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)
     case sidebarSelectedItemRenameUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .databaseOpenFailed(let path):
+            "Could not open SafariTabs.db at \(path). Grant Full Disk Access to the terminal or app running computer-automation, make sure the file exists, and retry."
+        case .queryPreparationFailed:
+            "Could not prepare the Safari tab-group query. The Safari database schema may have changed."
+        case .queryExecutionFailed:
+            "Could not finish the Safari tab-group query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        default:
+            nil
+        }
+    }
 }
