@@ -23,7 +23,7 @@
 - Attach each command to the model that owns the underlying behavior.
 - Require module and command models to publish the metadata needed for CLI completion.
 - Require every user-facing CLI command to support the global `--json` output mode. Text output may remain the default, but structured JSON must be available without parsing text rows back into records.
-- When a model exposes a command that searches or finds records and can return zero, one, or many matches, expose a matching `resolve-*` read command when callers need a single entity. `find-*` returns a collection of matches and treats zero matches as data; `resolve-*` returns exactly one entity and fails clearly on zero or ambiguous matches.
+- Keep `find-*` and `resolve-*` read commands paired on models that support record lookup. If a model exposes one, it must expose the other with the same lookup criteria. `find-*` returns a collection of matches and treats zero matches as data; `resolve-*` returns exactly one entity and fails clearly on zero or ambiguous matches.
 - Keep generated shell completion scripts driven by shared completion metadata rather than duplicated command lists.
 - Keep shell completion installers as thin filesystem helpers over generated completion scripts.
 - Keep command implementation isolated in its own command directory.
