@@ -7,6 +7,7 @@
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
+- `SafariAppleScriptTab.list()` returns each tab as a structured Apple event list containing window index, tab index, URL, and title.
 - `SafariAppleScriptSidebar` represents AppleScript-level access to the opened Safari sidebar and its structurally addressable rows.
 - `SafariAppleScriptApplicationMenuBar` represents AppleScript-level access to Safari's application menu bar.
 - `SafariAppleScriptToolbar` represents AppleScript-level access to the toolbar of Safari's front window.

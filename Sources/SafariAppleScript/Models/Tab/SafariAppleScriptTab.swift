@@ -5,11 +5,13 @@ public struct SafariAppleScriptTabRecord: Equatable, Sendable {
     public let windowIndex: Int
     public let index: Int
     public let url: String
+    public let title: String
 
-    public init(windowIndex: Int, index: Int, url: String) {
+    public init(windowIndex: Int, index: Int, url: String, title: String = "") {
         self.windowIndex = windowIndex
         self.index = index
         self.url = url
+        self.title = title
     }
 }
 
@@ -38,7 +40,13 @@ public enum SafariAppleScriptTab: ModelModel {
                     on error
                         set tabURL to ""
                     end try
-                    set end of output to ((windowIndex as string) & "|" & (tabIndex as string) & "|" & tabURL)
+                    set tabName to ""
+                    try
+                        set tabName to name of currentTab
+                    on error
+                        set tabName to ""
+                    end try
+                    copy {(windowIndex as text), (tabIndex as text), tabURL, tabName} to end of output
                 end repeat
             end repeat
             return output
@@ -137,14 +145,41 @@ public enum SafariAppleScriptTab: ModelModel {
             return []
         }
 
-        var lines: [String] = []
+        var records: [SafariAppleScriptTabRecord] = []
+        var legacyLines: [String] = []
         for index in 1...descriptor.numberOfItems {
-            if let item = descriptor.atIndex(index)?.stringValue {
-                lines.append(item)
+            guard let item = descriptor.atIndex(index) else {
+                continue
+            }
+
+            if let record = parseTabItem(item) {
+                records.append(record)
+            } else if let line = item.stringValue {
+                legacyLines.append(line)
             }
         }
 
-        return parseTabLines(lines)
+        return records + parseTabLines(legacyLines)
+    }
+
+    private static func parseTabItem(_ descriptor: NSAppleEventDescriptor) -> SafariAppleScriptTabRecord? {
+        guard
+            descriptor.numberOfItems >= 3,
+            let rawWindowIndex = descriptor.atIndex(1)?.stringValue,
+            let windowIndex = Int(rawWindowIndex),
+            let rawTabIndex = descriptor.atIndex(2)?.stringValue,
+            let tabIndex = Int(rawTabIndex),
+            let url = descriptor.atIndex(3)?.stringValue
+        else {
+            return nil
+        }
+
+        return SafariAppleScriptTabRecord(
+            windowIndex: windowIndex,
+            index: tabIndex,
+            url: url,
+            title: descriptor.atIndex(4)?.stringValue ?? ""
+        )
     }
 
     private static func parseTabLines(_ lines: [String]) -> [SafariAppleScriptTabRecord] {

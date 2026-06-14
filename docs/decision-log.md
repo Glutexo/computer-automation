@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### Safari tab lookup by URL
+
+- Added `safari find-tab <url>` as the supported high-level way to locate open Safari tabs by URL instead of duplicating AppleScript loops in callers.
+- Kept exact URL matching as the default and added explicit `--prefix`, `--window-id`, `--window-index`, and `--profile` filters.
+- The command returns stable machine-readable rows as `windowId|windowIndex|tabIndex|url|title`, combining AppleScript tab data with Safari window ids from the window model.
+- `SafariAppleScriptTab.list()` now returns structured Apple event list items so tab titles and URLs containing separators can be parsed without relying on ad hoc string splitting.
+
 ### Open window returns created window id
 
 - Extended `safari open-window` to report the newly created Safari window id as a stable `window-id|<id>` line after the existing human-readable success message.

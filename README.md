@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- The current runnable slice covers Safari application lifecycle commands, profile listing, browser window operations, saved tab-group create/read/delete flows, and window-level tab-group switching.
+- The current runnable slice covers Safari application lifecycle commands, profile listing, browser window operations, saved tab-group create/read/delete flows, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar
@@ -43,6 +43,8 @@ swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
 swift run computer-automation safari open-tab 1 https://example.com
 swift run computer-automation safari tabs
+swift run computer-automation safari find-tab https://example.com
+swift run computer-automation safari find-tab https://example.com --prefix --window-id 42 --profile Twisto
 swift run computer-automation safari window-tabs 1
 swift run computer-automation safari set-tab-url 1 1 https://example.com
 swift run computer-automation safari close-tab 1 1
@@ -59,6 +61,12 @@ Running the executable launches Safari on macOS.
 ```text
 Safari window opened.
 window-id|42
+```
+
+`safari find-tab <url>` searches open Safari tabs by exact URL. Add `--prefix` for prefix matching, `--window-id <id>` or `--window-index <index>` to limit the search to one window, and `--profile <name>` to limit matches to a Safari profile when window profile metadata is available. It prints one machine-readable row per match:
+
+```text
+windowId|windowIndex|tabIndex|url|title
 ```
 
 ## Safari database access
