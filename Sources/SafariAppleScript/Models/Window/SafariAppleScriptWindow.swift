@@ -48,6 +48,20 @@ public enum SafariAppleScriptWindow: ModelModel {
         _ = try executor.execute(script: script)
     }
 
+    public static func focus(
+        windowIndex: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let script = """
+        tell application "Safari"
+            activate
+            set index of window \(windowIndex) to 1
+        end tell
+        """
+
+        _ = try executor.execute(script: script)
+    }
+
     public static func closeFrontWindow(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> String {

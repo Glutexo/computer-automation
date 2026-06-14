@@ -19,10 +19,14 @@
 | `SafariProfile` | `profiles` | `R` | List available Safari profiles. |
 | `SafariWindow` | `open-window` | `C` | Open a new Safari browser window. |
 | `SafariWindow` | `open-private-window` | `C` | Open a new private Safari browser window. |
+| `SafariWindow` | `open-tab-group-window` | `C` | Open a new Safari window for a saved tab group. |
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
+| `SafariWindow` | `set-window-tab-group` | `U` | Switch a Safari window to a saved tab group. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
+| `SafariTabGroup` | `create-tab-group` | `C` | Create a new saved Safari tab group in a specific window. |
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
 | `SafariTabGroup` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
+| `SafariTabGroup` | `delete-tab-group` | `D` | Delete a saved Safari tab group. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
@@ -45,10 +49,14 @@ flowchart TD
     Profiles["SafariProfileListCommand (R)"]
     WindowOpen["SafariWindowOpenCommand (C)"]
     WindowOpenPrivate["SafariWindowOpenPrivateCommand (C)"]
+    WindowOpenTabGroup["SafariWindowOpenTabGroupCommand (C)"]
     Windows["SafariWindowListCommand (R)"]
+    WindowSetTabGroup["SafariWindowSetTabGroupCommand (U)"]
     WindowClose["SafariWindowCloseCommand (D)"]
+    TabGroupCreate["SafariTabGroupCreateCommand (C)"]
     TabGroups["SafariTabGroupListCommand (R)"]
     TabGroupTabs["SafariTabGroupListTabsCommand (R)"]
+    TabGroupDelete["SafariTabGroupDeleteCommand (D)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
     WindowTabs["SafariTabListWindowTabsCommand (R)"]
@@ -66,10 +74,14 @@ flowchart TD
     SafariProfile --> Profiles
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate
+    SafariWindow --> WindowOpenTabGroup
     SafariWindow --> Windows
+    SafariWindow --> WindowSetTabGroup
     SafariWindow --> WindowClose
+    SafariTabGroup --> TabGroupCreate
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupTabs
+    SafariTabGroup --> TabGroupDelete
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> WindowTabs
@@ -85,10 +97,14 @@ flowchart TD
 - `profiles` is the read operation for the profile catalog.
 - `open-window` is the create operation for the browser window model.
 - `open-private-window` is an additional create operation for the browser window model.
+- `open-tab-group-window` is another create operation for the browser window model.
 - `windows` is the read operation for the browser window model.
+- `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
+- `create-tab-group` is the create operation for the saved tab-group model.
 - `tab-groups` is the read operation for the saved tab-group model.
 - `tab-group-tabs` is the structural read operation for the tabs stored inside a saved tab-group model.
+- `delete-tab-group` is the delete operation for the saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
 - `window-tabs` is the window-scoped read operation for the browser tab model.
@@ -129,6 +145,7 @@ ORDER BY id;
 - The `SafariWindow` model delegates user interface work to the `SafariUserInterface` module.
 - `open-window` uses the `SafariFileMenu` model in `SafariUserInterface`.
 - `open-private-window` also uses the `SafariFileMenu` model in `SafariUserInterface`.
+- `open-tab-group-window` and `set-window-tab-group` use reusable toolbar models in `SafariUserInterface`.
 - `open-window` accepts an optional profile name argument.
 - When a profile argument is provided, the command:
   - validates the profile name against the `SafariProfile` model
@@ -145,13 +162,33 @@ ORDER BY id;
   - it should be treated as a special window mode rather than as a persisted user profile
   - window/profile logic must therefore allow profile-like window states that do not map to the persisted profile catalog
 - `open-private-window` is the explicit create operation for that virtual private-window mode.
+- `open-tab-group-window <identifier>`:
+  - resolves the saved tab group structurally from the Safari tab-group catalog
+  - opens a new window for that group's profile
+  - switches the new front window to the requested saved tab group through Safari's toolbar tab-group picker
+- `set-window-tab-group <window-index> <identifier>`:
+  - resolves the target window structurally from the Safari window catalog
+  - rejects private windows because private windows cannot select saved tab groups
+  - requires the target window profile to match the saved tab-group profile
+  - brings the target window to the front
+  - switches that front window through Safari's toolbar tab-group picker
 - `close-window` closes the current front window.
 
 ## Saved tab-group operations
 
-- `SafariTabGroup` currently exposes a read-only surface.
+- `create-tab-group <window-index> <name>`:
+  - focuses the target non-private window
+  - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
+  - writes the requested name into Safari's post-create inline edit field for that selected group
+  - resolves the newly created saved group structurally from `SafariTabs.db`
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
+- `delete-tab-group <identifier>`:
+  - resolves the saved group structurally from the persisted catalog
+  - focuses an existing non-private window for the same profile or opens one if needed
+  - selects the target group in the Safari sidebar
+  - opens the selected group's accessibility context menu
+  - invokes `DeleteTabGroupMenuItem`
 - `tab-group-tabs` returns one line per stored tab as:
   - `index|url`
 - A bookmark is treated as a saved tab group when:
@@ -160,10 +197,29 @@ ORDER BY id;
   - its parent is a Safari profile bookmark
   - it has a child bookmark with `type = 1` and `subtype = 1`
 - This intentionally excludes internal `Local` and `Private` groups.
+- `create-tab-group` rejects duplicate names within the same profile because live Safari selection is still name-based in the toolbar picker.
 - `tab-group-tabs <identifier>` reads child bookmark rows of that saved group:
   - only child rows with `type = 0` are treated as stored tabs
   - rows are ordered by `order_index`, then `id`
   - the current model reads only the URL property, so output is limited to `index|url`
+- Saved tab-group selection in live windows is currently driven by Safari's toolbar UI:
+  - the target toolbar item is resolved structurally through an accessibility identifier that starts with `TabGroupPickerButton`
+  - the child menu of that toolbar item exposes saved groups by their display names, so duplicate group names within the same profile are treated as ambiguous and rejected by the automation layer
+- Saved tab-group create/delete uses a different live UI path:
+  - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group
+  - create uses the File-menu item `NewEmptyTabGroupMenuItem`
+  - delete uses the selected sidebar group's context-menu item `DeleteTabGroupMenuItem`
+  - create then writes the name into the inline text field that Safari exposes immediately after creating a new empty tab group
+- A standalone rename command is intentionally not exposed at the moment:
+  - Safari visibly offers rename in the sidebar UI
+  - but the corresponding trigger has not been found on a stable accessibility surface
+  - the CLI therefore does not promise a rename operation it cannot verify reliably
+- A possible future workaround is a replacement operation:
+  - create a new saved group with the requested name
+  - copy the old group's stored tabs into the new group
+  - delete the old group
+  - this must not be documented or implemented as true rename because it changes the saved group identifier
+  - it may also lose Safari metadata that the current model does not read or reproduce, such as non-URL tab state
 
 ## Tab operations
 
@@ -179,7 +235,7 @@ ORDER BY id;
 - `tabs` returns one line per tab as:
   - `windowIndex|tabIndex|url`
 - `window-tabs <window-index>` returns one line per tab as:
-  - `tabIndex|isFromSelectedTabGroup|selectedTabGroupTabIndex|url`
+  - `tabIndex|selectedTabGroupTabIndex|url`
 - `window-tabs` compares live tabs with the currently selected saved tab group of that window.
 - A live tab is currently treated as coming from the selected saved tab group only when:
   - a selected saved tab group exists for the window
@@ -200,4 +256,6 @@ ORDER BY id;
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.
 - Private-window opening resolves the target File-menu item through shortcut metadata instead of localized menu titles.
 - Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
+- Saved tab-group switching currently routes through reusable toolbar and toolbar-item models in `SafariUserInterface`.
+- Saved tab-group creation currently resolves Safari's built-in "new empty tab group" command through the stable File-menu accessibility identifier `NewEmptyTabGroupMenuItem`.
 - Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.

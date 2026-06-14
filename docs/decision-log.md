@@ -1,6 +1,33 @@
 # Decision Log
 
+## 2026-06-14
+
+### Commit and push after every completed change
+
+- Tightened the delivery rule from committing completed change sets to committing and pushing every completed verified change immediately.
+- Kept verification explicit as part of the rule so commits represent checked work, not just local edits.
+
+### Saved tab-group rename remains unsupported
+
+- Kept standalone saved tab-group rename out of the public CLI surface because Safari's visible sidebar rename affordance is not currently exposed through a verified stable accessibility trigger.
+- Documented create-new-and-delete-old as a possible future replacement workflow rather than a rename implementation.
+- Recorded the replacement tradeoff explicitly: it would change the saved tab-group identifier and may lose Safari-owned metadata that the current model does not read or reproduce.
+- Updated current docs to describe supported saved tab-group operations as create/read/delete instead of full CRUD.
+- This supersedes the earlier full-CRUD direction for tab groups until Safari exposes a verified accessibility path for true rename.
+
 ## 2026-06-08
+
+### Accessibility-first UI scripting
+
+- Added a standing rule that UI automation must use accessibility elements, attributes, and actions rather than synthetic coordinate-based clicking.
+- Synthetic coordinate clicking is explicitly disallowed, including as a fallback.
+- This tightens the Safari tab-group CRUD direction further: the sidebar surface should be automated structurally through accessibility, not by pointer coordinates.
+
+### Consistent automation surface for related operations
+
+- Added a standing rule that related operations should use one primary automation surface whenever the product allows it.
+- Applied that rule explicitly to Safari tab-group CRUD.
+- Safari tab-group create, read, update, and delete should converge on the opened sidebar tab-group surface instead of mixing direct database mutation, File-menu commands, and toolbar pickers.
 
 ### Model testing standard
 
@@ -167,3 +194,16 @@
 - Kept saved-group tab content separate from live `SafariTab`, because stored group tabs come from the bookmark database rather than from current Safari windows.
 - Added `window-tabs` as a second read surface on `SafariTab` for one concrete window.
 - Kept the selected-group relation as window-scoped read metadata instead of treating it as an intrinsic tab property.
+
+### Window-level saved tab-group switching
+
+- Added `open-tab-group-window` as a create command on `SafariWindow`.
+- Added `set-window-tab-group` as an update command on `SafariWindow`.
+- Kept both commands on the window model because the selected saved tab group is a window-scoped state, not a property of an individual tab.
+- Added reusable `SafariToolbar` and `SafariToolbarItem` models in `SafariUserInterface`.
+- Added matching `SafariAppleScriptToolbar` and `SafariAppleScriptToolbarItem` infrastructure models in `SafariAppleScript`.
+- Implemented live switching by composing those reusable toolbar models rather than by keeping a one-off tab-group picker helper.
+- Identified the picker structurally through an accessibility identifier that starts with `TabGroupPickerButton`.
+- Reused existing profile-aware `open-window` behavior for new-window creation, then switched the new front window to the target saved tab group.
+- Rejected private windows for saved tab-group switching because Safari private windows do not own saved tab-group state.
+- Rejected duplicate saved tab-group names within one profile because the picker UI currently exposes only display names, not stable bookmark identifiers.

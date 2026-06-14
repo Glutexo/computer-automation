@@ -30,9 +30,10 @@ This file applies to the whole repository.
 - Keep direct AppleScript access inside `SafariAppleScript`.
 - When automation depends on a Safari accessibility structure, model that structure explicitly in `SafariUserInterface` and add the matching AppleScript transport model in `SafariAppleScript` instead of introducing one-off AX helpers at the command layer.
 - When a feature offers multiple related operations such as CRUD, prefer one consistent automation surface for the whole set instead of mixing database writes, menu commands, toolbar pickers, and other unrelated mechanisms.
-- For Safari tab-group CRUD specifically, drive create, read, update, and delete through the opened sidebar tab-group surface rather than through direct database mutation or unrelated menu surfaces.
+- For supported Safari tab-group create/read/delete operations, use the opened sidebar tab-group surface as the primary targeting surface rather than direct database mutation or unrelated menu surfaces.
 - Never script user interfaces through synthetic coordinate-based clicking; use accessibility structures and actions only.
 - Keep shell completion behavior driven by shared completion metadata.
+- After every completed change, run appropriate verification, commit the verified work, and push it immediately.
 
 ## Documentation upkeep
 
@@ -52,4 +53,4 @@ This file applies to the whole repository.
 
 - Keep code and documentation updates in the same working session.
 - Keep changes small, explicit, and consistent with the existing repository structure.
-- Commit and push every completed, verified change set immediately.
+- Commit and push every completed, verified change immediately.

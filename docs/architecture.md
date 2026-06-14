@@ -105,7 +105,22 @@ flowchart TD
 - Modules typically represent an application or a service boundary.
 - Models represent distinct parts of a module's domain.
 - Prefer general structural UI models before adding specialized models for concrete application areas.
+- Keep related operations on one feature aligned to one primary automation surface whenever the product allows it.
+- Apply YAGNI before expanding the model graph: add a new model only when current behavior needs that surface, not for speculative symmetry.
+- When a feature relies on a Safari accessibility structure, represent that structure as a reusable `SafariUserInterface` model with a matching `SafariAppleScript` infrastructure model before building higher-level orchestration on top.
 - Keep specialized models for behaviors that are genuinely specific to one concrete UI surface.
+- For supported Safari tab-group operations, the primary automation surface is the opened sidebar tab-group structure, not direct database mutation and not a mix of unrelated menu surfaces.
+- When Safari does not expose a concrete mutation directly on that primary structure through accessibility, it is acceptable to:
+  - keep structural targeting on the primary surface
+  - invoke the concrete mutation through a second accessibility surface that acts on the current selection
+- Current supported Safari tab-group operations therefore use:
+  - sidebar selection as the targeting surface for existing saved groups
+  - File-menu action `NewEmptyTabGroupMenuItem` as the create trigger
+  - sidebar context-menu action `DeleteTabGroupMenuItem` for delete
+  - the sidebar inline text field for post-create naming
+- Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.
+- Replacing a tab group by creating a new group and deleting the old group is a possible future workaround, not a rename implementation, because it changes identity and can lose Safari-owned metadata.
+- Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.

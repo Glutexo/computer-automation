@@ -31,7 +31,9 @@ public enum SafariWindow: ModelModel {
         commands: [
             SafariWindowOpenCommand.descriptor,
             SafariWindowOpenPrivateCommand.descriptor,
+            SafariWindowOpenTabGroupCommand.descriptor,
             SafariWindowListCommand.descriptor,
+            SafariWindowSetTabGroupCommand.descriptor,
             SafariWindowCloseCommand.descriptor
         ]
     )
@@ -103,7 +105,7 @@ public enum SafariWindow: ModelModel {
         let query = """
         SELECT
             w.id,
-            COALESCE(b.title, ''),
+            COALESCE(b.title, gp.title, ''),
             g.id,
             g.title,
             CASE
@@ -122,6 +124,10 @@ public enum SafariWindow: ModelModel {
                   AND child.type = 1
                   AND child.subtype = 1
             )
+        LEFT JOIN bookmarks gp ON gp.id = g.parent
+            AND gp.parent = 0
+            AND gp.type = 1
+            AND gp.subtype = 2
         WHERE w.date_closed IS NULL;
         """
 
@@ -185,4 +191,14 @@ enum SafariWindowCommandError: Error, Equatable {
     case profileNotFound(String)
     case profileMenuItemNotFound(String)
     case privateWindowMenuItemNotFound
+    case missingWindowIndex
+    case invalidWindowIndex(String)
+    case missingTabGroupIdentifier
+    case invalidTabGroupIdentifier(String)
+    case tabGroupNotFound(Int)
+    case ambiguousTabGroupName(profileName: String, tabGroupName: String)
+    case privateWindowTabGroupSelectionUnsupported(Int)
+    case windowTabGroupProfileMismatch(windowProfileName: String, tabGroupProfileName: String)
+    case tabGroupPickerUnavailable
+    case tabGroupPickerItemNotFound(String)
 }

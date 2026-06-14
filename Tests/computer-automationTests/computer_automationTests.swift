@@ -41,7 +41,9 @@ import SQLite3
         [
             SafariWindowOpenCommand.descriptor,
             SafariWindowOpenPrivateCommand.descriptor,
+            SafariWindowOpenTabGroupCommand.descriptor,
             SafariWindowListCommand.descriptor,
+            SafariWindowSetTabGroupCommand.descriptor,
             SafariWindowCloseCommand.descriptor
         ]
     )
@@ -53,9 +55,19 @@ import SQLite3
     #expect(SafariWindowListCommand.descriptor.operation == .read)
     #expect(SafariWindowCloseCommand.descriptor.operation == .delete)
     #expect(SafariTabGroup.descriptor.name == "tab-group")
-    #expect(SafariTabGroup.descriptor.commands == [SafariTabGroupListCommand.descriptor, SafariTabGroupListTabsCommand.descriptor])
+    #expect(
+        SafariTabGroup.descriptor.commands ==
+        [
+            SafariTabGroupCreateCommand.descriptor,
+            SafariTabGroupListCommand.descriptor,
+            SafariTabGroupListTabsCommand.descriptor,
+            SafariTabGroupDeleteCommand.descriptor
+        ]
+    )
+    #expect(SafariTabGroupCreateCommand.descriptor.operation == .create)
     #expect(SafariTabGroupListCommand.descriptor.operation == .read)
     #expect(SafariTabGroupListTabsCommand.descriptor.operation == .read)
+    #expect(SafariTabGroupDeleteCommand.descriptor.operation == .delete)
     #expect(SafariTab.descriptor.name == "tab")
     #expect(
         SafariTab.descriptor.commands ==
@@ -73,12 +85,18 @@ import SQLite3
     #expect(SafariTabCloseCommand.descriptor.operation == .delete)
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
+        SafariSidebar.descriptor,
+        SafariToolbar.descriptor,
+        SafariToolbarItem.descriptor,
         SafariMenu.descriptor,
         SafariFileMenu.descriptor,
         SafariMenuItem.descriptor
     ])
     #expect(SafariApplicationMenuBar.descriptor.commands == [SafariApplicationMenuBarListCommand.descriptor])
     #expect(SafariApplicationMenuBarListCommand.descriptor.operation == .read)
+    #expect(SafariSidebar.descriptor.commands.isEmpty)
+    #expect(SafariToolbar.descriptor.commands.isEmpty)
+    #expect(SafariToolbarItem.descriptor.commands.isEmpty)
     #expect(SafariMenu.descriptor.commands == [SafariMenuListItemsCommand.descriptor])
     #expect(SafariMenuListItemsCommand.descriptor.operation == .read)
     #expect(SafariMenuListItemsCommand.descriptor.arguments.count == 1)
@@ -91,7 +109,10 @@ import SQLite3
         SafariAppleScriptApplication.descriptor,
         SafariAppleScriptWindow.descriptor,
         SafariAppleScriptTab.descriptor,
+        SafariAppleScriptSidebar.descriptor,
         SafariAppleScriptApplicationMenuBar.descriptor,
+        SafariAppleScriptToolbar.descriptor,
+        SafariAppleScriptToolbarItem.descriptor,
         SafariAppleScriptMenu.descriptor,
         SafariAppleScriptMenuItem.descriptor
     ])
@@ -117,10 +138,14 @@ import SQLite3
             CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles."),
             CompletionSuggestion(value: "open-window", abstract: "Open a new Safari browser window."),
             CompletionSuggestion(value: "open-private-window", abstract: "Open a new private Safari browser window."),
+            CompletionSuggestion(value: "open-tab-group-window", abstract: "Open a new Safari window for a saved tab group."),
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
+            CompletionSuggestion(value: "set-window-tab-group", abstract: "Switch a Safari window to a saved tab group."),
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "create-tab-group", abstract: "Create a new saved Safari tab group in a specific window."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
             CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
+            CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
@@ -178,6 +203,22 @@ import SQLite3
     #expect(!windowOpen[0].isRequired)
     #expect(windowOpen[0].completionSuggestions.isEmpty)
 
+    let openTabGroupWindow = SafariWindowOpenTabGroupCommand.descriptor.arguments
+    #expect(openTabGroupWindow.count == 1)
+    #expect(openTabGroupWindow[0].name == "tab-group-identifier")
+    #expect(openTabGroupWindow[0].kind == .positional)
+    #expect(openTabGroupWindow[0].isRequired)
+
+    let setWindowTabGroup = SafariWindowSetTabGroupCommand.descriptor.arguments
+    #expect(setWindowTabGroup.count == 2)
+    #expect(setWindowTabGroup[0].name == "window-index")
+    #expect(setWindowTabGroup[1].name == "tab-group-identifier")
+
+    let createTabGroup = SafariTabGroupCreateCommand.descriptor.arguments
+    #expect(createTabGroup.count == 2)
+    #expect(createTabGroup[0].name == "window-index")
+    #expect(createTabGroup[1].name == "name")
+
     let menuItems = SafariMenuListItemsCommand.descriptor.arguments
     #expect(menuItems.count == 1)
     #expect(menuItems[0].name == "menu-bar-item-index")
@@ -226,6 +267,10 @@ import SQLite3
     #expect(tabGroupTabs[0].name == "tab-group-identifier")
     #expect(tabGroupTabs[0].kind == .positional)
     #expect(tabGroupTabs[0].isRequired)
+
+    let deleteTabGroup = SafariTabGroupDeleteCommand.descriptor.arguments
+    #expect(deleteTabGroup.count == 1)
+    #expect(deleteTabGroup[0].name == "tab-group-identifier")
 }
 
 @Test func completionEngineFiltersCommandsUsingSecondTokenForDeeperInput() async throws {
@@ -665,6 +710,185 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
     }
 }
 
+@Test func safariWindowOpenTabGroupCommandOpensProfileWindowAndSelectsGroup() async throws {
+    var receivedProfileName: String?
+    var selectedTabGroupName: String?
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        selectTabGroup: { tabGroupName, _ in selectedTabGroupName = tabGroupName }
+    )
+
+    #expect(try command.execute(arguments: ["1000"]) == "Safari window opened for tab group Focus.")
+    #expect(receivedProfileName == "Twisto")
+    #expect(selectedTabGroupName == "Focus")
+}
+
+@Test func safariWindowOpenTabGroupCommandRejectsMissingOrInvalidTabGroupIdentifier() async throws {
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [] },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.missingTabGroupIdentifier) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariWindowCommandError.invalidTabGroupIdentifier("x")) {
+        try command.execute(arguments: ["x"])
+    }
+}
+
+@Test func safariWindowOpenTabGroupCommandRejectsUnknownOrAmbiguousTabGroup() async throws {
+    let missingCommand = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [] },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.tabGroupNotFound(1000)) {
+        try missingCommand.execute(arguments: ["1000"])
+    }
+
+    let ambiguousCommand = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Focus")
+            ]
+        },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.ambiguousTabGroupName(profileName: "Twisto", tabGroupName: "Focus")) {
+        try ambiguousCommand.execute(arguments: ["1000"])
+    }
+}
+
+@Test func safariWindowOpenTabGroupCommandWrapsProfileWindowOpenFailure() async throws {
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openWindow: { _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.profileMenuItemNotFound("Twisto")) {
+        try command.execute(arguments: ["1000"])
+    }
+}
+
+@Test func safariWindowSetTabGroupCommandFocusesWindowAndSelectsGroup() async throws {
+    var focusedWindowIndex: Int?
+    var selectedTabGroupName: String?
+    let command = SafariWindowSetTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        selectTabGroup: { tabGroupName, _ in selectedTabGroupName = tabGroupName }
+    )
+
+    #expect(try command.execute(arguments: ["2", "1000"]) == "Safari window 2 switched to tab group Focus.")
+    #expect(focusedWindowIndex == 2)
+    #expect(selectedTabGroupName == "Focus")
+}
+
+@Test func safariWindowSetTabGroupCommandRejectsMissingOrInvalidArguments() async throws {
+    let command = SafariWindowSetTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: { [] },
+        listTabGroups: { [] },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariWindowCommandError.invalidWindowIndex("x")) {
+        try command.execute(arguments: ["x", "1000"])
+    }
+
+    #expect(throws: SafariWindowCommandError.missingTabGroupIdentifier) {
+        try command.execute(arguments: ["1"])
+    }
+
+    #expect(throws: SafariWindowCommandError.invalidTabGroupIdentifier("x")) {
+        try command.execute(arguments: ["1", "x"])
+    }
+}
+
+@Test func safariWindowSetTabGroupCommandRejectsPrivateWindowAndProfileMismatch() async throws {
+    let privateWindowCommand = SafariWindowSetTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 1, isPrivate: true, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Private")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.privateWindowTabGroupSelectionUnsupported(1)) {
+        try privateWindowCommand.execute(arguments: ["1", "1000"])
+    }
+
+    let mismatchCommand = SafariWindowSetTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.windowTabGroupProfileMismatch(windowProfileName: "Glutexo", tabGroupProfileName: "Twisto")) {
+        try mismatchCommand.execute(arguments: ["1", "1000"])
+    }
+}
+
+@Test func safariWindowSetTabGroupCommandAllowsUnknownWindowProfile() async throws {
+    var focusedWindowIndex: Int?
+    var selectedTabGroupName: String?
+
+    let command = SafariWindowSetTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 1, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Focus — Start Page")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        selectTabGroup: { tabGroupName, _ in selectedTabGroupName = tabGroupName }
+    )
+
+    #expect(try command.execute(arguments: ["1", "1000"]) == "Safari window 1 switched to tab group Focus.")
+    #expect(focusedWindowIndex == 1)
+    #expect(selectedTabGroupName == "Focus")
+}
+
 @Test(arguments: [
     [],
     [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")],
@@ -707,6 +931,297 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
         try command.execute(arguments: [])
     }
+}
+
+@Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {
+    var focusedWindowIndex: Int?
+    var didCreateEmptyTabGroup = false
+    var renamedSourceName: String?
+    var renamedTargetName: String?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+            if pollCount == 2 {
+                return [
+                    SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                    SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Senza nome")
+                ]
+            }
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+            ]
+        },
+        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        renameTabGroup: { currentName, newName, _ in
+            renamedSourceName = currentName
+            renamedTargetName = newName
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
+    #expect(focusedWindowIndex == 2)
+    #expect(didCreateEmptyTabGroup)
+    #expect(renamedSourceName == "Senza nome")
+    #expect(renamedTargetName == "Inbox")
+}
+
+@Test func safariTabGroupCreateCommandRejectsInvalidArgumentsAndStates() async throws {
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: { [] },
+        listTabGroups: { [] },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        renameTabGroup: { _, _, _ in
+            Issue.record("renameTabGroup should not be called")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.missingWindowIndex) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.invalidWindowIndex("x")) {
+        try command.execute(arguments: ["x", "Inbox"])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupName) {
+        try command.execute(arguments: ["1"])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.emptyTabGroupName) {
+        try command.execute(arguments: ["1", "   "])
+    }
+
+    #expect(throws: SafariTabGroupCommandError.invalidWindowIndex("1")) {
+        try command.execute(arguments: ["1", "Inbox"])
+    }
+
+    let privateWindowCommand = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 1, isPrivate: true, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Private")]
+        },
+        listTabGroups: { [] },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        renameTabGroup: { _, _, _ in
+            Issue.record("renameTabGroup should not be called")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.privateWindowTabGroupMutationUnsupported(1)) {
+        try privateWindowCommand.execute(arguments: ["1", "Inbox"])
+    }
+
+    let duplicateNameCommand = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 1, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+        },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        renameTabGroup: { _, _, _ in
+            Issue.record("renameTabGroup should not be called")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.duplicateTabGroupName(profileName: "Twisto", tabGroupName: "Inbox")) {
+        try duplicateNameCommand.execute(arguments: ["1", "Inbox"])
+    }
+}
+
+@Test func safariTabGroupCreateCommandFailsWhenCreatedGroupDoesNotAppear() async throws {
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in },
+        renameTabGroup: { _, _, _ in Issue.record("renameTabGroup should not be called") },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "Twisto")) {
+        try command.execute(arguments: ["2", "Inbox"])
+    }
+}
+
+@Test func safariTabGroupCreateCommandUsesSelectedTabGroupProfileWhenWindowProfileIsUnknown() async throws {
+    var focusedWindowIndex: Int?
+    var didCreateEmptyTabGroup = false
+    var renamedSourceName: String?
+    var renamedTargetName: String?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", name: "Focus — Start Page")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+            if pollCount == 2 {
+                return [
+                    SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                    SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Senza nome")
+                ]
+            }
+
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+            ]
+        },
+        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        renameTabGroup: { currentName, newName, _ in
+            renamedSourceName = currentName
+            renamedTargetName = newName
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
+    #expect(focusedWindowIndex == 2)
+    #expect(didCreateEmptyTabGroup)
+    #expect(renamedSourceName == "Senza nome")
+    #expect(renamedTargetName == "Inbox")
+}
+
+@Test func safariTabGroupCreateCommandSkipsRenameWhenSafariAlreadyCreatesExpectedName() async throws {
+    var renamedSourceName: String?
+    var renamedTargetName: String?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+            ]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in },
+        renameTabGroup: { currentName, newName, _ in
+            renamedSourceName = currentName
+            renamedTargetName = newName
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
+    #expect(renamedSourceName == nil)
+    #expect(renamedTargetName == nil)
+}
+
+@Test func safariTabGroupDeleteCommandFormatsResolvedGroup() async throws {
+    var focusedWindowIndexes: [Int] = []
+    var openedProfiles: [String?] = []
+    var selectedNames: [String] = []
+
+    var deleted = false
+    var deleteWindowPollCount = 0
+    let deleteCommand = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")] },
+        listWindows: {
+            deleteWindowPollCount += 1
+            if deleteWindowPollCount == 1 {
+                return []
+            }
+            return [SafariWindowRecord(identifier: 12, index: 1, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Twisto")]
+        },
+        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        openWindow: { profile, _ in openedProfiles.append(profile) },
+        selectTabGroup: { name, _ in selectedNames.append(name) },
+        deleteSelectedTabGroup: { _ in deleted = true }
+    )
+    #expect(try deleteCommand.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
+    #expect(openedProfiles == [])
+    #expect(selectedNames.suffix(1).first == "Inbox")
+    #expect(focusedWindowIndexes.suffix(1).first == 1)
+    #expect(deleted)
+}
+
+@Test func safariTabGroupDeleteCommandRejectsMissingOrInvalidArguments() async throws {
+    let deleteCommand = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [] },
+        listWindows: { [] },
+        focusWindow: { _, _ in },
+        openWindow: { _, _ in },
+        selectTabGroup: { _, _ in },
+        deleteSelectedTabGroup: { _ in }
+    )
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupIdentifier) {
+        try deleteCommand.execute(arguments: [])
+    }
+    #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("x")) {
+        try deleteCommand.execute(arguments: ["x"])
+    }
+}
+
+@Test func safariTabGroupDeleteCommandFallsBackToSingleUnscopedWindow() async throws {
+    let executor = MockAppleScriptExecutor()
+    var focusedWindowIndex: Int?
+    var openedProfileName: String?
+    var selectedName: String?
+    var didDelete = false
+
+    let command = SafariTabGroupDeleteCommand(
+        executor: executor,
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+        },
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Front")]
+        },
+        focusWindow: { index, _ in focusedWindowIndex = index },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        selectTabGroup: { name, _ in selectedName = name },
+        deleteSelectedTabGroup: { _ in didDelete = true }
+    )
+
+    #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
+    #expect(focusedWindowIndex == 2)
+    #expect(openedProfileName == nil)
+    #expect(selectedName == "Inbox")
+    #expect(didDelete)
 }
 
 @Test(arguments: [
@@ -859,10 +1374,10 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
 
 @Test(arguments: [
     [],
-    [SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://example.com")],
+    [SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://example.com")],
     [
-        SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
-        SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://openai.com")
+        SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+        SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: nil, url: "https://openai.com")
     ]
 ])
 func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) async throws {
@@ -872,7 +1387,7 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
     )
 
     let output = try command.execute(arguments: ["2"])
-    let expected = tabs.map { "\($0.index)|\($0.isFromSelectedTabGroup)|\($0.selectedTabGroupTabIndex.map(String.init) ?? "")|\($0.url)" }.joined(separator: "\n")
+    let expected = tabs.map { "\($0.index)|\($0.selectedTabGroupTabIndex.map(String.init) ?? "")|\($0.url)" }.joined(separator: "\n")
     #expect(output == expected)
 }
 
@@ -1063,9 +1578,9 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     #expect(
         SafariTab.matchTabs(liveTabs, againstSelectedTabGroupTabs: selectedGroupTabs) ==
         [
-            SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
-            SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://changed.example"),
-            SafariWindowTabRecord(index: 3, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://extra.example")
+            SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+            SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: nil, url: "https://changed.example"),
+            SafariWindowTabRecord(index: 3, selectedTabGroupTabIndex: nil, url: "https://extra.example")
         ]
     )
 }
@@ -1106,9 +1621,38 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     #expect(
         tabs ==
         [
-            SafariWindowTabRecord(index: 1, isFromSelectedTabGroup: true, selectedTabGroupTabIndex: 1, url: "https://example.com"),
-            SafariWindowTabRecord(index: 2, isFromSelectedTabGroup: false, selectedTabGroupTabIndex: nil, url: "https://changed.example")
+            SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+            SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: nil, url: "https://changed.example")
         ]
+    )
+}
+
+@Test func safariTabListWindowTabsSkipsSelectedTabGroupMatchingForPrivateWindow() async throws {
+    let tabs = try SafariTab.listWindowTabs(
+        windowIndex: 1,
+        executor: MockAppleScriptExecutor(),
+        databasePath: "/tmp/ignored",
+        isRunning: { true },
+        listWindows: { _ in
+            [SafariAppleScriptWindowRecord(identifier: 10, name: "Private")]
+        },
+        listTabs: { _ in
+            [SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com")]
+        },
+        loadWindowStates: { _ in
+            [
+                10: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", isPrivate: true)
+            ]
+        },
+        loadTabGroupTabs: { _, _ in
+            Issue.record("Private windows should not load selected tab group tabs")
+            return []
+        }
+    )
+
+    #expect(
+        tabs ==
+        [SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://example.com")]
     )
 }
 
@@ -1170,6 +1714,13 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     #expect(executor.executedScripts[0].contains("make new document"))
 }
 
+@Test func safariAppleScriptWindowFocusExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptWindow.focus(windowIndex: 2, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("set index of window 2 to 1"))
+}
+
 @Test func safariAppleScriptWindowCloseFrontWindowReturnsScriptResult() async throws {
     let executor = MockAppleScriptExecutor(results: [.string("Safari front window closed.")])
     #expect(try SafariAppleScriptWindow.closeFrontWindow(executor: executor) == "Safari front window closed.")
@@ -1219,6 +1770,49 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(items == expected)
 }
 
+@Test(arguments: [
+    [(1, "AXButton", "", "", "Toggle sidebar"), (2, "AXMenuButton", "TabGroupPickerButton?TabGroup=Focus", "", "")],
+    []
+])
+func safariAppleScriptToolbarListsItems(rows: [(Int, String, String, String, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeToolbarList(rows))])
+    let items = try SafariAppleScriptToolbar.listItems(executor: executor)
+    let expected = rows.map {
+        SafariAppleScriptToolbarItemRecord(
+            index: $0.0,
+            role: $0.1,
+            identifier: emptyToNil($0.2),
+            title: emptyToNil($0.3),
+            description: emptyToNil($0.4)
+        )
+    }
+    #expect(items == expected)
+    #expect(executor.executedScripts[0].contains("toolbar 1 of front window"))
+}
+
+@Test(arguments: [
+    [(1, "Twisto", "", ""), (2, "Focus", "", "")],
+    []
+])
+func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, String)]) async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList(rows))])
+    let items = try SafariAppleScriptToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
+    let expected = rows.map {
+        SafariAppleScriptMenuItemRecord(index: $0.0, title: $0.1, commandCharacter: emptyToNil($0.2), commandModifiers: emptyToNil($0.3))
+    }
+    #expect(items == expected)
+    #expect(executor.executedScripts[0].contains("UI element 2 of toolbar 1"))
+    #expect(executor.executedScripts[0].contains("AXShowMenu"))
+}
+
+@Test func safariAppleScriptToolbarItemClickChildItemExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptToolbarItem.clickChildItem(toolbarItemIndex: 2, childItemIndex: 7, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("UI element 2 of toolbar 1"))
+    #expect(executor.executedScripts[0].contains("click menu item 7"))
+}
+
 @Test func safariApplicationMenuBarMapsAppleScriptItemsIntoUiModel() async throws {
     let executor = MockAppleScriptExecutor(results: [.descriptor(makeIndexTitleList([(1, "Apple"), (2, "Safari")]))])
     let items = try SafariApplicationMenuBar.listItems(executor: executor)
@@ -1251,6 +1845,39 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
     #expect(throws: SafariUserInterfaceError.menuItemChildrenUnavailable(menuBarItemIndex: 3, menuItemIndex: 27)) {
         try SafariMenuItem.listChildItems(menuBarItemIndex: 3, menuItemIndex: 27, executor: executor)
+    }
+}
+
+@Test func safariToolbarMapsAppleScriptItemsIntoUiModel() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeToolbarList([(1, "AXMenuButton", "TabGroupPickerButton?TabGroup=Focus", "", "")]))])
+    let items = try SafariToolbar.listItems(executor: executor)
+    #expect(items == [SafariToolbarItemRecord(index: 1, role: "AXMenuButton", identifier: "TabGroupPickerButton?TabGroup=Focus")])
+}
+
+@Test func safariToolbarWrapsAppleScriptFailure() async throws {
+    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
+    #expect(throws: SafariUserInterfaceError.toolbarUnavailable) {
+        try SafariToolbar.listItems(executor: executor)
+    }
+}
+
+@Test func safariToolbarItemMapsAppleScriptChildItemsIntoUiModel() async throws {
+    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Focus", "", "")]))])
+    let items = try SafariToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
+    #expect(items == [SafariMenuItemRecord(index: 1, title: "Focus")])
+}
+
+@Test func safariToolbarItemWrapsAppleScriptFailure() async throws {
+    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
+    #expect(throws: SafariUserInterfaceError.toolbarItemChildrenUnavailable(toolbarItemIndex: 2)) {
+        try SafariToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
+    }
+}
+
+@Test func safariSidebarWrapsLookupFailures() async throws {
+    let missingExecutor = MockAppleScriptExecutor(error: SafariAppleScriptError.executionFailed("not found"))
+    #expect(throws: SafariUserInterfaceError.sidebarTabGroupNotFound("Focus")) {
+        try SafariSidebar.selectTabGroup(named: "Focus", executor: missingExecutor)
     }
 }
 
@@ -1318,6 +1945,18 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(throws: SafariUserInterfaceError.privateWindowMenuItemNotFound) {
         try SafariFileMenu.openPrivateWindow(executor: executor)
     }
+}
+
+@Test func safariFileMenuCreateAndDeleteTabGroupUseExpectedMenuIndexes() async throws {
+    let executor = MockAppleScriptExecutor(results: [.none, .none])
+
+    try SafariFileMenu.createEmptyTabGroup(executor: executor)
+    try SafariFileMenu.deleteCurrentTabGroup(executor: executor)
+
+    #expect(executor.executedScripts.count == 2)
+    #expect(executor.executedScripts[0].contains("AXIdentifier"))
+    #expect(executor.executedScripts[0].contains("NewEmptyTabGroupMenuItem"))
+    #expect(executor.executedScripts[1].contains("DeleteTabGroupMenuItem"))
 }
 
 @Test func safariMenuItemListChildItemsCommandRejectsMissingAddress() async throws {
@@ -1454,6 +2093,43 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
             1: "Glutexo",
             2: "",
             3: ""
+        ]
+    )
+}
+
+@Test func safariWindowLoadProfilesFallsBackToSelectedTabGroupParentProfile() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        subtype INTEGER
+    );
+    CREATE TABLE windows (
+        id INTEGER PRIMARY KEY,
+        active_tab_group_id INTEGER,
+        active_profile_id INTEGER,
+        date_closed REAL,
+        private_tab_group_id INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, subtype) VALUES
+        (288, 0, 1, 'Twisto', 2),
+        (1000, 288, 1, 'Focus', 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', 1);
+    INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
+        (1, 1000, NULL, NULL, NULL);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
+        [
+            1: "Twisto"
         ]
     )
 }
@@ -1624,6 +2300,48 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath).isEmpty)
 }
 
+@Test func safariTabGroupDeleteRemovesGroupAndDescendants() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        url TEXT,
+        order_index INTEGER NOT NULL,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
+        (288, 0, 1, 'Twisto', NULL, 0, 2),
+        (1000, 288, 1, 'Focus', NULL, 0, 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (1002, 1000, 0, 'OpenAI', 'https://openai.com', 1, 0),
+        (2000, 288, 1, 'Inbox', NULL, 1, 0),
+        (2001, 2000, 1, 'TopScopedBookmarkList', NULL, 0, 1);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariTabGroup.delete(tabGroupIdentifier: 1000, databasePath: databasePath) ==
+        SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+    )
+    #expect(try SafariTabGroup.list(databasePath: databasePath) == [
+        SafariTabGroupRecord(identifier: 2000, profileName: "Twisto", name: "Inbox")
+    ])
+
+    let database = try #require(openDatabase(at: databasePath))
+    defer { sqlite3_close(database) }
+    var statement: OpaquePointer?
+    #expect(sqlite3_prepare_v2(database, "SELECT count(*) FROM bookmarks WHERE id IN (1000, 1001, 1002);", -1, &statement, nil) == SQLITE_OK)
+    defer { sqlite3_finalize(statement) }
+    #expect(sqlite3_step(statement) == SQLITE_ROW)
+    #expect(sqlite3_column_int(statement, 0) == 0)
+}
+
 @Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
     let temporaryDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -1770,6 +2488,38 @@ private func makeShortcutList(_ rows: [(Int, String, String, String)]) -> NSAppl
         item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
         item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
         item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
+        listDescriptor.insert(item, at: offset + 1)
+    }
+
+    return listDescriptor
+}
+
+private func makeToolbarList(_ rows: [(Int, String, String, String, String)]) -> NSAppleEventDescriptor {
+    let listDescriptor = NSAppleEventDescriptor.list()
+
+    for (offset, row) in rows.enumerated() {
+        let item = NSAppleEventDescriptor.list()
+        item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
+        item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
+        item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
+        item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
+        item.insert(NSAppleEventDescriptor(string: row.4), at: 5)
+        listDescriptor.insert(item, at: offset + 1)
+    }
+
+    return listDescriptor
+}
+
+private func makeSidebarList(_ rows: [(Int, String, String, String, Bool)]) -> NSAppleEventDescriptor {
+    let listDescriptor = NSAppleEventDescriptor.list()
+
+    for (offset, row) in rows.enumerated() {
+        let item = NSAppleEventDescriptor.list()
+        item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
+        item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
+        item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
+        item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
+        item.insert(NSAppleEventDescriptor(string: row.4 ? "true" : "false"), at: 5)
         listDescriptor.insert(item, at: offset + 1)
     }
 

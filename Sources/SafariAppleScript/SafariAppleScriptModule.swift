@@ -8,7 +8,10 @@ public enum SafariAppleScriptModule: ModuleModel {
             SafariAppleScriptApplication.descriptor,
             SafariAppleScriptWindow.descriptor,
             SafariAppleScriptTab.descriptor,
+            SafariAppleScriptSidebar.descriptor,
             SafariAppleScriptApplicationMenuBar.descriptor,
+            SafariAppleScriptToolbar.descriptor,
+            SafariAppleScriptToolbarItem.descriptor,
             SafariAppleScriptMenu.descriptor,
             SafariAppleScriptMenuItem.descriptor
         ]

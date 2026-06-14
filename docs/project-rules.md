@@ -26,16 +26,24 @@
 - Keep shell completion installers as thin filesystem helpers over generated completion scripts.
 - Keep command implementation isolated in its own command directory.
 - Share code across modules or commands only through an explicit shared library, type, or module.
+- Keep related operations on the same product feature as similar as practical at the automation level.
 - Keep automation independent of the macOS and Safari language setting.
 - Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
 - Build new features primarily on general models before introducing specialized convenience models.
 - Keep specialized models when an operation truly belongs to a specific UI surface rather than to the general structure.
+- When an automation flow depends on a Safari accessibility surface such as a toolbar, sidebar, menu, or child menu, add that surface as an explicit reusable model in `SafariUserInterface` and add the matching low-level AppleScript model in `SafariAppleScript`.
+- Do not introduce one-off AX helpers that bypass those module models from `Safari` commands or other high-level orchestration code.
+- For related operations such as CRUD, avoid mixing fundamentally different automation surfaces unless the product itself forces that split.
+- For supported Safari tab-group create/read/delete operations, use the opened sidebar tab-group surface consistently as the primary targeting surface rather than combining database writes with unrelated menu or toolbar paths.
+- Do not script UI by synthetic coordinate clicks. Use accessibility elements, attributes, and actions only.
 - Cover every model with robust parameterized tests, including UI and AppleScript models.
 - Test not only concrete user-story cases but also general behavior, invariants, and edge conditions.
 - Use mocks freely when they improve coverage, isolation, or reproducibility without weakening the contract being tested.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
+- Apply YAGNI consistently: do not add new models, commands, or AX surfaces until a concrete current workflow needs them.
 - Keep code and documentation changes aligned in the same working session.
+- After every completed change, run appropriate verification, commit the verified work, and push it immediately.
 
 ## Knowledge capture
 

@@ -27,14 +27,22 @@ public enum SafariModule: ModuleModel {
             return try SafariWindowOpenCommand().execute(arguments: arguments)
         case SafariWindowOpenPrivateCommand.descriptor.name:
             return try SafariWindowOpenPrivateCommand().execute(arguments: arguments)
+        case SafariWindowOpenTabGroupCommand.descriptor.name:
+            return try SafariWindowOpenTabGroupCommand().execute(arguments: arguments)
         case SafariWindowListCommand.descriptor.name:
             return try SafariWindowListCommand().execute(arguments: arguments)
+        case SafariWindowSetTabGroupCommand.descriptor.name:
+            return try SafariWindowSetTabGroupCommand().execute(arguments: arguments)
         case SafariWindowCloseCommand.descriptor.name:
             return try SafariWindowCloseCommand().execute(arguments: arguments)
         case SafariTabGroupListCommand.descriptor.name:
             return try SafariTabGroupListCommand().execute(arguments: arguments)
         case SafariTabGroupListTabsCommand.descriptor.name:
             return try SafariTabGroupListTabsCommand().execute(arguments: arguments)
+        case SafariTabGroupCreateCommand.descriptor.name:
+            return try SafariTabGroupCreateCommand().execute(arguments: arguments)
+        case SafariTabGroupDeleteCommand.descriptor.name:
+            return try SafariTabGroupDeleteCommand().execute(arguments: arguments)
         case SafariTabOpenCommand.descriptor.name:
             return try SafariTabOpenCommand().execute(arguments: arguments)
         case SafariTabListCommand.descriptor.name:

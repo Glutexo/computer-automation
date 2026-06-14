@@ -3,11 +3,14 @@
 ## Overview
 
 - The `SafariAppleScript` module owns direct AppleScript access to Safari.
-- It currently exposes six models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
+- It currently exposes nine models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptSidebar`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptToolbar`, `SafariAppleScriptToolbarItem`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
+- `SafariAppleScriptSidebar` represents AppleScript-level access to the opened Safari sidebar and its structurally addressable rows.
 - `SafariAppleScriptApplicationMenuBar` represents AppleScript-level access to Safari's application menu bar.
+- `SafariAppleScriptToolbar` represents AppleScript-level access to the toolbar of Safari's front window.
+- `SafariAppleScriptToolbarItem` represents AppleScript-level access to a Safari toolbar item and its child menu items.
 - `SafariAppleScriptMenu` represents AppleScript-level access to a top-level Safari menu.
 - `SafariAppleScriptMenuItem` represents AppleScript-level access to a Safari menu item and its child items.
 
@@ -18,7 +21,10 @@
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
 | `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()` | Read and mutate Safari window state through AppleScript. |
 | `SafariAppleScriptTab` | `list()`, `open()`, `setURL()`, `close()` | Read and mutate Safari tab state through AppleScript. |
+| `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
+| `SafariAppleScriptToolbar` | `listItems()` | Read front-window Safari toolbar items. |
+| `SafariAppleScriptToolbarItem` | `listChildItems()`, `clickChildItem()` | Read and invoke child items of a Safari toolbar item. |
 | `SafariAppleScriptMenu` | `listItems()`, `clickItem()` | Read and invoke items of a top-level Safari menu. |
 | `SafariAppleScriptMenuItem` | `listChildItems()` | Read submenu items for a specific Safari menu item. |
 
@@ -30,7 +36,10 @@ flowchart TD
     ScriptApp["SafariAppleScriptApplication model"]
     ScriptWindow["SafariAppleScriptWindow model"]
     ScriptTab["SafariAppleScriptTab model"]
+    ScriptSidebar["SafariAppleScriptSidebar model"]
     ScriptMenuBar["SafariAppleScriptApplicationMenuBar model"]
+    ScriptToolbar["SafariAppleScriptToolbar model"]
+    ScriptToolbarItem["SafariAppleScriptToolbarItem model"]
     ScriptMenu["SafariAppleScriptMenu model"]
     ScriptMenuItem["SafariAppleScriptMenuItem model"]
     Activate["activate()"]
@@ -41,7 +50,13 @@ flowchart TD
     OpenTab["open()"]
     SetTabURL["setURL()"]
     CloseTab["close()"]
+    SelectSidebar["selectItem()"]
+    SelectTabGroup["selectTabGroup()"]
+    RenameTabGroup["renameTabGroup()"]
     ListMenuBar["listItems()"]
+    ListToolbar["listItems()"]
+    ListToolbarChildren["listChildItems()"]
+    ClickToolbarChild["clickChildItem()"]
     ListMenu["listItems()"]
     ClickMenuItem["clickItem()"]
     ListChildren["listChildItems()"]
@@ -49,7 +64,10 @@ flowchart TD
     SafariAppleScript --> ScriptApp
     SafariAppleScript --> ScriptWindow
     SafariAppleScript --> ScriptTab
+    SafariAppleScript --> ScriptSidebar
     SafariAppleScript --> ScriptMenuBar
+    SafariAppleScript --> ScriptToolbar
+    SafariAppleScript --> ScriptToolbarItem
     SafariAppleScript --> ScriptMenu
     SafariAppleScript --> ScriptMenuItem
     ScriptApp --> Activate
@@ -60,7 +78,13 @@ flowchart TD
     ScriptTab --> OpenTab
     ScriptTab --> SetTabURL
     ScriptTab --> CloseTab
+    ScriptSidebar --> SelectSidebar
+    ScriptSidebar --> SelectTabGroup
+    ScriptSidebar --> RenameTabGroup
     ScriptMenuBar --> ListMenuBar
+    ScriptToolbar --> ListToolbar
+    ScriptToolbarItem --> ListToolbarChildren
+    ScriptToolbarItem --> ClickToolbarChild
     ScriptMenu --> ListMenu
     ScriptMenu --> ClickMenuItem
     ScriptMenuItem --> ListChildren
@@ -72,3 +96,8 @@ flowchart TD
 - `Safari` and `SafariUserInterface` depend on it through explicit model APIs.
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
+- `SafariAppleScriptSidebar` includes the low-level bootstrap needed to ensure the Safari sidebar is open before structural row access.
+- The higher-level `SafariSidebar` model uses direct Swift accessibility for live sidebar targeting and delete, with AppleScript retained only where it is still needed as a fallback transport.
+- `SafariAppleScriptSidebar` remains valuable as:
+  - the script transport behind scripted sidebar selection helpers
+  - the fallback implementation for the internal post-create tab-group naming path

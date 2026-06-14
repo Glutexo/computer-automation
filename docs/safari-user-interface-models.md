@@ -4,8 +4,10 @@
 
 - The `SafariUserInterface` module owns Safari GUI scripting and menu-level automation.
 - Direct AppleScript access is delegated to the separate `SafariAppleScript` module.
-- It currently exposes four models: `SafariApplicationMenuBar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
+- It currently exposes seven models: `SafariApplicationMenuBar`, `SafariSidebar`, `SafariToolbar`, `SafariToolbarItem`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
 - `SafariApplicationMenuBar` represents Safari's top-level application menu bar.
+- `SafariSidebar` represents the opened front-window Safari sidebar as a reusable structural targeting surface.
+- `SafariToolbar` and `SafariToolbarItem` represent reusable toolbar structures used by higher-level Safari commands.
 - `SafariMenu` represents an arbitrary top-level Safari application menu addressed by structure.
 - `SafariFileMenu` represents a thin specialization of `SafariMenu` for Safari's `File` menu.
 - `SafariMenuItem` represents an individual menu item addressable through GUI scripting.
@@ -15,10 +17,15 @@
 | Model | Command | CRUD | Description |
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
+| `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row in the Safari sidebar by display name. |
+| `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
+| `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |
 | `SafariMenu` | `menu-items` | `R` | List items for a top-level Safari menu chosen by menu bar item index. |
 | `SafariFileMenu` | `file-menu-items` | `R` | List items currently exposed by Safari's `File` menu. |
 | `SafariFileMenu` | Internal `openWindow` API | `C` | Open a new Safari window, optionally for a specific profile. |
 | `SafariFileMenu` | Internal `openPrivateWindow` API | `C` | Open a new Safari private window. |
+| `SafariFileMenu` | Internal `createEmptyTabGroup` API | `C` | Trigger Safari's File-menu create action for a new empty tab group. |
+| `SafariFileMenu` | Internal `deleteCurrentTabGroup` API | `D` | Trigger Safari's File-menu delete action for the currently selected tab group when that surface is explicitly needed. |
 | `SafariMenuItem` | `menu-item-children` | `R` | List the child items of a specific Safari menu item. |
 
 ## Model architecture
@@ -27,6 +34,9 @@
 flowchart TD
     SafariUI["SafariUserInterface module"]
     SafariMenuBar["SafariApplicationMenuBar model"]
+    SafariSidebar["SafariSidebar model"]
+    SafariToolbar["SafariToolbar model"]
+    SafariToolbarItem["SafariToolbarItem model"]
     SafariMenu["SafariMenu model"]
     SafariFileMenu["SafariFileMenu model"]
     SafariMenuItem["SafariMenuItem model"]
@@ -38,6 +48,9 @@ flowchart TD
     OpenPrivateWindow["openPrivateWindow() API (C)"]
 
     SafariUI --> SafariMenuBar
+    SafariUI --> SafariSidebar
+    SafariUI --> SafariToolbar
+    SafariUI --> SafariToolbarItem
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
     SafariUI --> SafariMenuItem
@@ -57,10 +70,19 @@ flowchart TD
 
 - `SafariUserInterface` is a separate module so GUI scripting does not mix with Safari domain models.
 - `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
-- `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` through an explicit module boundary.
+- `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` and reusable toolbar models through explicit module boundaries.
+- `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
 - `SafariFileMenu.openPrivateWindow()` is the explicit create operation for Safari's private-window mode.
+- Supported Safari tab-group operations are intentionally split into:
+  - sidebar-driven targeting
+  - File-menu create only where Safari exposes no equivalent sidebar mutation trigger for new empty groups
+- Current verified tab-group flows are:
+  - create: File-menu `NewEmptyTabGroupMenuItem`, then inline sidebar text field
+  - delete: sidebar group context-menu `DeleteTabGroupMenuItem`
+- Safari also shows a visual rename affordance for saved tab groups, but the trigger for that affordance is not currently available through a stable accessibility surface, so no standalone rename command is exposed.
+- A create-new-and-delete-old fallback would be a replacement workflow, not a UI rename workflow, because it would create a different saved tab-group identity.
 - UI automation must remain independent of the macOS and Safari language setting.
 - The module identifies Safari's `File` menu by menu bar position instead of by localized title text.
 - `SafariFileMenu` is intentionally a thin specialization rather than the primary abstraction for menu automation.
@@ -78,4 +100,9 @@ flowchart TD
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - `SafariFileMenu.openPrivateWindow()` first reads the File menu structure and then identifies the private-window entry through shortcut metadata (`N` with modifier value `1`) instead of localized title text.
+- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
+- `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.
+- The currently verified uses of the sidebar inline text field are:
+  - the post-create flow for a newly created empty tab group
+- Toolbar models remain in the module because live tab-group switching composes them from the `Safari` window layer, but they are not exposed as standalone CLI surfaces.

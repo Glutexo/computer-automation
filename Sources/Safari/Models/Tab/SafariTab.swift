@@ -16,13 +16,11 @@ public struct SafariTabRecord: Equatable, Sendable {
 
 public struct SafariWindowTabRecord: Equatable, Sendable {
     public let index: Int
-    public let isFromSelectedTabGroup: Bool
     public let selectedTabGroupTabIndex: Int?
     public let url: String
 
-    public init(index: Int, isFromSelectedTabGroup: Bool, selectedTabGroupTabIndex: Int?, url: String) {
+    public init(index: Int, selectedTabGroupTabIndex: Int?, url: String) {
         self.index = index
-        self.isFromSelectedTabGroup = isFromSelectedTabGroup
         self.selectedTabGroupTabIndex = selectedTabGroupTabIndex
         self.url = url
     }
@@ -91,7 +89,8 @@ public enum SafariTab: ModelModel {
             .filter { $0.windowIndex == windowIndex }
             .map { SafariTabRecord(windowIndex: $0.windowIndex, index: $0.index, url: $0.url) }
 
-        let selectedTabGroupIdentifier = try loadWindowStates(databasePath)[windowIdentifier]?.selectedTabGroupIdentifier
+        let windowState = try loadWindowStates(databasePath)[windowIdentifier]
+        let selectedTabGroupIdentifier = windowState?.isPrivate == true ? nil : windowState?.selectedTabGroupIdentifier
         let selectedTabGroupTabs: [SafariTabGroupTabRecord]
         if let selectedTabGroupIdentifier {
             selectedTabGroupTabs = try loadTabGroupTabs(selectedTabGroupIdentifier, databasePath)
@@ -110,12 +109,10 @@ public enum SafariTab: ModelModel {
 
         return liveTabs.map { liveTab in
             let matchedTab = selectedTabGroupTabsByIndex[liveTab.index]
-            let isFromSelectedTabGroup = matchedTab?.url == liveTab.url
 
             return SafariWindowTabRecord(
                 index: liveTab.index,
-                isFromSelectedTabGroup: isFromSelectedTabGroup,
-                selectedTabGroupTabIndex: isFromSelectedTabGroup ? matchedTab?.index : nil,
+                selectedTabGroupTabIndex: matchedTab?.url == liveTab.url ? matchedTab?.index : nil,
                 url: liveTab.url
             )
         }

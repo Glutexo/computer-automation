@@ -1,5 +1,34 @@
 # Research Notes
 
+## 2026-06-08
+
+### Safari tab-group sidebar findings
+
+- With Safari's sidebar open, the browser window exposes the sidebar as:
+  - `AXSplitGroup`
+  - child `AXScrollArea`
+  - child `AXOutline` with identifier `Sidebar`
+- The tab-group section header appears as an `AXRow` whose cell description is `Gruppi di pannelli di <profile>`.
+- Saved tab groups appear as `AXRow` items with inner cell descriptions like `<name>, gruppo con <n> pannelli`.
+- The currently open group's live tabs appear immediately after the selected group row in the same outline, so a tab-group sidebar model must distinguish group rows from live tab rows structurally.
+- `System Events` can select sidebar rows structurally with `select row <index> of outline`.
+- The row and cell accessibility attributes are readable enough to identify group rows, disclosure state, and selection state.
+- The outline itself exposes the `AXShowMenu` action and rows expose `AXShowDefaultUI` and `AXShowAlternateUI`.
+- Direct AppleScript inspection did not surface a contextual menu tree for the selected row after `AXShowMenu`.
+- Native AX inspection also did not reveal a popup menu as a simple extra `AXMenu` child of the Safari window or application tree after a sidebar right click.
+- Native AX inspection does provide accurate row frames, but pointer-event automation is outside project rules.
+- The next implementation step must continue through accessibility only, not through coordinate clicks.
+- The File-menu `Save As` action is not a reliable rename entrypoint for saved tab groups:
+  - for the currently open group it opens the normal page-save sheet
+  - for another selected group it did not produce a verified rename state
+- The verified inline text-field path is narrower:
+  - Safari exposes an editable inline field immediately after `NewEmptyTabGroupMenuItem`
+  - that field can be written and confirmed through accessibility
+- A create-new-and-delete-old workaround could approximate rename only as a replacement operation:
+  - it would change the saved tab-group identifier
+  - it could lose Safari metadata beyond the URLs currently exposed by `tab-group-tabs`
+  - it should therefore remain documentation-only unless the product explicitly accepts those semantics
+
 ## 2026-06-07
 
 ### Initial observations
@@ -29,6 +58,9 @@
 - Open window profile names can be resolved from `SafariTabs.db` by joining `windows.active_profile_id` to `bookmarks.title`.
 - Safari GUI scripting should live outside the `Safari` domain module in a dedicated `SafariUserInterface` module.
 - Safari private windows appear to represent a virtual window profile rather than a normal persisted Safari profile, so profile-mapping logic must not assume every window profile has a `SafariTabs.db` bookmark row.
+- Safari's active tab-group picker appears in the front-window toolbar as an `AXMenuButton` with an accessibility identifier that starts with `TabGroupPickerButton`.
+- The picker menu lists saved tab groups by display name, includes a mark character on the current group, and does not expose the saved-group bookmark identifier directly.
+- Because the picker menu is name-based, duplicate saved tab-group names inside one profile are not safely distinguishable through the current accessibility surface.
 
 ### Open questions
 

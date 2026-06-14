@@ -1,5 +1,8 @@
 import AutomationFoundation
+import Foundation
 import SQLite3
+
+private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 public struct SafariTabGroupRecord: Equatable, Sendable {
     public let identifier: Int
@@ -30,10 +33,16 @@ public enum SafariTabGroup: ModelModel {
         name: "tab-group",
         abstract: "Saved Safari tab groups.",
         commands: [
+            SafariTabGroupCreateCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
-            SafariTabGroupListTabsCommand.descriptor
+            SafariTabGroupListTabsCommand.descriptor,
+            SafariTabGroupDeleteCommand.descriptor
         ]
     )
+
+    static func format(_ group: SafariTabGroupRecord) -> String {
+        "\(group.identifier)|\(group.profileName)|\(group.name)"
+    }
 
     static func list(
         databasePath: String = SafariProfile.databasePath()
@@ -149,11 +158,70 @@ public enum SafariTabGroup: ModelModel {
 
         return tabs
     }
+
+    static func delete(
+        tabGroupIdentifier: Int,
+        databasePath: String = SafariProfile.databasePath()
+    ) throws -> SafariTabGroupRecord {
+        let groups = try list(databasePath: databasePath)
+        guard let group = groups.first(where: { $0.identifier == tabGroupIdentifier }) else {
+            throw SafariTabGroupCommandError.tabGroupNotFound(tabGroupIdentifier)
+        }
+
+        var database: OpaquePointer?
+        guard sqlite3_open_v2(databasePath, &database, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
+            defer { sqlite3_close(database) }
+            throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
+        }
+        defer { sqlite3_close(database) }
+
+        let query = """
+        WITH RECURSIVE descendants(id) AS (
+            SELECT id
+            FROM bookmarks
+            WHERE id = ?
+            UNION ALL
+            SELECT child.id
+            FROM bookmarks child
+            JOIN descendants parentDescendant ON child.parent = parentDescendant.id
+        )
+        DELETE FROM bookmarks
+        WHERE id IN descendants;
+        """
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
+            defer { sqlite3_finalize(statement) }
+            throw SafariTabGroupCommandError.queryPreparationFailed
+        }
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw SafariTabGroupCommandError.queryPreparationFailed
+        }
+
+        return group
+    }
 }
 
 enum SafariTabGroupCommandError: Error, Equatable {
     case databaseOpenFailed(path: String)
     case queryPreparationFailed
+    case missingWindowIndex
+    case invalidWindowIndex(String)
     case missingTabGroupIdentifier
     case invalidTabGroupIdentifier(String)
+    case missingTabGroupName
+    case emptyTabGroupName
+    case tabGroupNotFound(Int)
+    case ambiguousTabGroupName(profileName: String, tabGroupName: String)
+    case duplicateTabGroupName(profileName: String, tabGroupName: String)
+    case privateWindowTabGroupMutationUnsupported(Int)
+    case createdTabGroupNotFound(profileName: String)
+    case windowForProfileNotFound(String)
+    case sidebarUnavailable
+    case sidebarTabGroupNotFound(String)
+    case sidebarSelectedItemRenameUnavailable
 }

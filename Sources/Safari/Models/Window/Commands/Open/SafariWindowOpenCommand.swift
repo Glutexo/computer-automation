@@ -23,7 +23,9 @@ public struct SafariWindowOpenCommand: CommandModel {
     public init() {
         self.executor = SafariAppleScriptExecutor()
         self.listProfiles = { try SafariProfile.listAvailableProfiles() }
-        self.openWindow = SafariFileMenu.openWindow
+        self.openWindow = { profileName, _ in
+            try SafariFileMenu.openWindow(profileName: profileName)
+        }
     }
 
     init(

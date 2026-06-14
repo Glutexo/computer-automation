@@ -42,7 +42,7 @@ public struct SafariTabListWindowTabsCommand: CommandModel {
 
         let tabs = try listWindowTabs(windowIndex, executor)
         return tabs
-            .map { "\($0.index)|\($0.isFromSelectedTabGroup)|\($0.selectedTabGroupTabIndex.map(String.init) ?? "")|\($0.url)" }
+            .map { "\($0.index)|\($0.selectedTabGroupTabIndex.map(String.init) ?? "")|\($0.url)" }
             .joined(separator: "\n")
     }
 }
