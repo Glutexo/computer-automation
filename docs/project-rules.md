@@ -22,6 +22,7 @@
 - Model each command as its own Swift type.
 - Attach each command to the model that owns the underlying behavior.
 - Require module and command models to publish the metadata needed for CLI completion.
+- Require every user-facing CLI command to support the global `--json` output mode. Text output may remain the default, but structured JSON must be available without parsing text rows back into records.
 - Keep generated shell completion scripts driven by shared completion metadata rather than duplicated command lists.
 - Keep shell completion installers as thin filesystem helpers over generated completion scripts.
 - Keep command implementation isolated in its own command directory.
