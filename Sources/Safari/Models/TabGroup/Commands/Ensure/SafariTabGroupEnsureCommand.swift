@@ -66,13 +66,17 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
 
     private func ensure(arguments: [String]) throws -> SafariTabGroupEnsureSummary {
         let request = try SafariTabGroupLookupRequest.parse(arguments)
-        let matches = try findTabGroups(request.profileName, request.name)
+        return try ensure(profileName: request.profileName, name: request.name)
+    }
+
+    func ensure(profileName: String, name: String) throws -> SafariTabGroupEnsureSummary {
+        let matches = try findTabGroups(profileName, name)
 
         if let match = matches.first {
             guard matches.count == 1 else {
                 throw SafariTabGroupCommandError.tabGroupLookupAmbiguous(
-                    profileName: request.profileName,
-                    tabGroupName: request.name,
+                    profileName: profileName,
+                    tabGroupName: name,
                     count: matches.count
                 )
             }
@@ -81,13 +85,13 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         }
 
         let window = try SafariTabGroupSidebarAccess.focusWindowForProfile(
-            profileName: request.profileName,
+            profileName: profileName,
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
             openWindow: openWindow
         )
-        let createdGroup = try createTabGroup(window.index, request.name)
+        let createdGroup = try createTabGroup(window.index, name)
         return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
     }
 }

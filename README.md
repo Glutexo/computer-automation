@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
+- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads and URL reconciliation for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar
@@ -47,6 +47,9 @@ swift run computer-automation safari find-tab-group Twisto Focus
 swift run computer-automation safari resolve-tab-group Twisto Focus
 swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
+swift run computer-automation safari ensure-tab-list-urls --window-index 1 https://example.com https://openai.com
+swift run computer-automation safari ensure-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://example.com
+swift run computer-automation --json safari ensure-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://example.com
 swift run computer-automation safari open-tab 1 https://example.com
 swift run computer-automation safari tabs
 swift run computer-automation safari find-tab https://example.com
@@ -85,6 +88,8 @@ windowId|windowIndex|tabIndex|url|title
 `safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
 
 `safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`.
+
+`safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-index <index>` for a live window, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group and reports that status in text and JSON output.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

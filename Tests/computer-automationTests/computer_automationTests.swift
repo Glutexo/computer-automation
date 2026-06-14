@@ -100,10 +100,12 @@ import SQLite3
     #expect(
         SafariTabList.descriptor.commands ==
         [
+            SafariTabListEnsureURLsCommand.descriptor,
             SafariTabListTabGroupTabsCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor
         ]
     )
+    #expect(SafariTabListEnsureURLsCommand.descriptor.operation == .update)
     #expect(SafariTabListTabGroupTabsCommand.descriptor.operation == .read)
     #expect(SafariTabListWindowTabsCommand.descriptor.operation == .read)
     #expect(SafariTab.descriptor.name == "tab")
@@ -190,6 +192,7 @@ import SQLite3
             CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
+            CompletionSuggestion(value: "ensure-tab-list-urls", abstract: "Ensure requested URLs exist in a Safari tab list."),
             CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
@@ -361,6 +364,21 @@ import SQLite3
     #expect(windowTabs[0].name == "window-index")
     #expect(windowTabs[0].kind == .positional)
     #expect(windowTabs[0].isRequired)
+
+    let ensureTabListURLs = SafariTabListEnsureURLsCommand.descriptor.arguments
+    #expect(ensureTabListURLs.count == 4)
+    #expect(ensureTabListURLs[0].name == "window-index")
+    #expect(ensureTabListURLs[0].kind == .option)
+    #expect(!ensureTabListURLs[0].isRequired)
+    #expect(ensureTabListURLs[1].name == "tab-group-profile")
+    #expect(ensureTabListURLs[1].kind == .option)
+    #expect(!ensureTabListURLs[1].isRequired)
+    #expect(ensureTabListURLs[2].name == "tab-group-name")
+    #expect(ensureTabListURLs[2].kind == .option)
+    #expect(!ensureTabListURLs[2].isRequired)
+    #expect(ensureTabListURLs[3].name == "url")
+    #expect(ensureTabListURLs[3].kind == .positional)
+    #expect(ensureTabListURLs[3].isRequired)
 
     let tabGroupTabs = SafariTabListTabGroupTabsCommand.descriptor.arguments
     #expect(tabGroupTabs.count == 1)
@@ -1791,6 +1809,240 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 
     #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
         try command.execute(arguments: ["10"])
+    }
+}
+
+@Test func safariTabListEnsureURLsCommandAddsOnlyMissingWindowURLs() async throws {
+    var openedURLs: [String?] = []
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { windowIndex, _ in
+            #expect(windowIndex == 2)
+            return [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://example.com")
+            ]
+        },
+        listTabGroupTabs: { _ in [] },
+        openTab: { windowIndex, url, _ in
+            #expect(windowIndex == 2)
+            openedURLs.append(url)
+        }
+    )
+
+    let output = try command.execute(arguments: [
+        "--window-index", "2",
+        "https://example.com",
+        "https://openai.com",
+        "https://openai.com",
+        "https://swift.org"
+    ])
+
+    #expect(
+        output ==
+        """
+        Safari tab list URLs ensured.
+        context|window|2
+        added|https://openai.com
+        added|https://swift.org
+        skipped|https://example.com
+        skipped|https://openai.com
+        """
+    )
+    #expect(openedURLs == ["https://openai.com", "https://swift.org"])
+}
+
+@Test func safariTabListEnsureURLsCommandReturnsStructuredJSONForWindowContext() async throws {
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { _, _ in
+            [SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://example.com")]
+        },
+        listTabGroupTabs: { _ in [] },
+        openTab: { _, _, _ in }
+    )
+
+    let output = try command.executeJSON(arguments: [
+        "--window-index=1",
+        "https://example.com",
+        "https://openai.com"
+    ])
+    let object = try jsonObject(output)
+    let context = try #require(object["context"] as? [String: Any])
+
+    #expect(context["kind"] as? String == "window")
+    #expect(context["windowIndex"] as? Int == 1)
+    #expect(object["addedURLs"] as? [String] == ["https://openai.com"])
+    #expect(object["skippedURLs"] as? [String] == ["https://example.com"])
+}
+
+@Test func safariTabListEnsureURLsCommandEnsuresAndSelectsTabGroupBeforeAddingURLs() async throws {
+    var focusedWindowIndexes: [Int] = []
+    var openedProfiles: [String?] = []
+    var selectedNames: [String] = []
+    var openedTabs: [(Int, String?)] = []
+
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { profileName, name in
+            #expect(profileName == "Twisto")
+            #expect(name == "Focus")
+            return SafariTabGroupEnsureSummary(
+                status: .reused,
+                tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
+            )
+        },
+        listWindowTabs: { _, _ in [] },
+        listTabGroupTabs: { identifier in
+            #expect(identifier == 1000)
+            return [
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 1, url: "https://example.com")
+            ]
+        },
+        listWindows: {
+            [
+                SafariWindowRecord(
+                    identifier: 42,
+                    index: 3,
+                    isPrivate: false,
+                    profileName: "Twisto",
+                    selectedTabGroupIdentifier: 1000,
+                    tabGroupName: "Focus",
+                    name: "Focus"
+                )
+            ]
+        },
+        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        openWindow: { profileName, _ in openedProfiles.append(profileName) },
+        selectTabGroup: { name, _ in selectedNames.append(name) },
+        openTab: { windowIndex, url, _ in openedTabs.append((windowIndex, url)) }
+    )
+
+    let output = try command.execute(arguments: [
+        "--tab-group-profile", "Twisto",
+        "--tab-group-name", "Focus",
+        "https://example.com",
+        "https://openai.com"
+    ])
+
+    #expect(
+        output ==
+        """
+        Safari tab list URLs ensured.
+        context|tab-group|1000|Twisto|Focus|3
+        tab-group|reused|1000|Twisto|Focus
+        added|https://openai.com
+        skipped|https://example.com
+        """
+    )
+    #expect(focusedWindowIndexes == [3])
+    #expect(openedProfiles.isEmpty)
+    #expect(selectedNames == ["Focus"])
+    #expect(openedTabs.map(\.0) == [3])
+    #expect(openedTabs.map(\.1) == ["https://openai.com"])
+}
+
+@Test func safariTabListEnsureURLsCommandReturnsStructuredJSONForTabGroupContext() async throws {
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { profileName, name in
+            SafariTabGroupEnsureSummary(
+                status: .created,
+                tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
+            )
+        },
+        listWindowTabs: { _, _ in [] },
+        listTabGroupTabs: { _ in [] },
+        listWindows: {
+            [SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto")]
+        },
+        focusWindow: { _, _ in },
+        selectTabGroup: { _, _ in },
+        openTab: { _, _, _ in }
+    )
+
+    let output = try command.executeJSON(arguments: [
+        "--tab-group-profile=Twisto",
+        "--tab-group-name=Focus",
+        "https://example.com"
+    ])
+    let object = try jsonObject(output)
+    let context = try #require(object["context"] as? [String: Any])
+    let tabGroupSummary = try #require(object["tabGroup"] as? [String: Any])
+    let tabGroup = try #require(tabGroupSummary["tabGroup"] as? [String: Any])
+
+    #expect(context["kind"] as? String == "tabGroup")
+    #expect(context["windowIndex"] as? Int == 1)
+    #expect(context["tabGroupIdentifier"] as? Int == 1000)
+    #expect(context["profileName"] as? String == "Twisto")
+    #expect(context["name"] as? String == "Focus")
+    #expect(tabGroupSummary["status"] as? String == "created")
+    #expect(tabGroup["identifier"] as? Int == 1000)
+    #expect(object["addedURLs"] as? [String] == ["https://example.com"])
+    #expect(object["skippedURLs"] as? [String] == [])
+}
+
+@Test func safariTabListEnsureURLsCommandRejectsInvalidArguments() async throws {
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { _, _ in [] },
+        listTabGroupTabs: { _ in [] },
+        openTab: { _, _, _ in Issue.record("openTab should not be called") }
+    )
+
+    #expect(throws: SafariTabListCommandError.missingURL) {
+        try command.execute(arguments: ["--window-index", "1"])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingContext) {
+        try command.execute(arguments: ["https://example.com"])
+    }
+
+    #expect(throws: SafariTabListCommandError.multipleContexts) {
+        try command.execute(arguments: [
+            "--window-index", "1",
+            "--tab-group-profile", "Twisto",
+            "--tab-group-name", "Focus",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingTabGroupName) {
+        try command.execute(arguments: [
+            "--tab-group-profile", "Twisto",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingTabGroupProfile) {
+        try command.execute(arguments: [
+            "--tab-group-name", "Focus",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("0")) {
+        try command.execute(arguments: [
+            "--window-index=0",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingOptionValue("--window-index")) {
+        try command.execute(arguments: [
+            "--window-index",
+            "--tab-group-name",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.unknownOption("--unknown")) {
+        try command.execute(arguments: [
+            "--unknown",
+            "https://example.com"
+        ])
     }
 }
 

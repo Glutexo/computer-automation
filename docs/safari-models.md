@@ -33,6 +33,7 @@
 | `SafariTabGroup` | `find-tab-group` | `R` | Find saved Safari tab groups by profile and name. |
 | `SafariTabGroup` | `resolve-tab-group` | `R` | Resolve exactly one saved Safari tab group by profile and name. |
 | `SafariTabGroup` | `delete-tab-group` | `D` | Delete a saved Safari tab group. |
+| `SafariTabList` | `ensure-tab-list-urls` | `U` | Add missing requested URLs to a window-backed or saved-tab-group-backed tab list. |
 | `SafariTabList` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
 | `SafariTabList` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
@@ -75,6 +76,7 @@ flowchart TD
     TabGroups["SafariTabGroupListCommand (R)"]
     TabGroupFind["SafariTabGroupFindCommand (R)"]
     TabGroupResolve["SafariTabGroupResolveCommand (R)"]
+    EnsureTabListURLs["SafariTabListEnsureURLsCommand (U)"]
     TabGroupTabs["SafariTabListTabGroupTabsCommand (R)"]
     WindowTabs["SafariTabListWindowTabsCommand (R)"]
     TabGroupDelete["SafariTabGroupDeleteCommand (D)"]
@@ -119,6 +121,7 @@ flowchart TD
     SafariTabGroup --> DBTabGroup
     SafariWindow --> SafariTabList
     SafariTabGroup --> SafariTabList
+    SafariTabList --> EnsureTabListURLs
     SafariTabList --> TabGroupTabs
     SafariTabList --> WindowTabs
     SafariTab --> TabOpen
@@ -150,6 +153,7 @@ flowchart TD
 - `find-tab-group` is a read operation that returns zero, one, or many saved tab-group matches.
 - `resolve-tab-group` is a read operation that returns exactly one saved tab-group match and treats zero or multiple matches as errors.
 - `delete-tab-group` is the delete operation for the saved tab-group model.
+- `ensure-tab-list-urls` is an update operation for the virtual tab-list model because it reconciles the requested URL set against an existing ordered list.
 - `tab-group-tabs` is a structural read operation on the virtual tab-list model for a saved tab-group-backed ordered list.
 - `window-tabs` is a structural read operation on the virtual tab-list model for a window-backed ordered list.
 - `open-tab` is the create operation for the browser tab model.
@@ -295,6 +299,19 @@ ORDER BY id;
   - a saved Safari tab group
 - `SafariWindow` and `SafariTabGroup` provide addressable contexts for tab lists, but URL-oriented collection operations belong to the tab-list surface.
 - Individual URL values remain properties of `SafariTab` or stored tab records; `SafariTabList` owns collection-level operations over those ordered items.
+- `ensure-tab-list-urls --window-index <index> <url>...` reconciles requested URLs against a live window-backed tab list:
+  - existing URLs are skipped
+  - missing URLs are opened as new tabs in requested order
+  - duplicate requested URLs are skipped after the first add or existing match
+  - text output reports the window context and one `added|url` or `skipped|url` row per requested URL outcome
+  - JSON output returns `context`, `addedURLs`, and `skippedURLs`
+- `ensure-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` reconciles requested URLs against a saved-tab-group-backed tab list:
+  - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
+  - focuses or opens a compatible non-private Safari window
+  - selects the saved tab group in that window before opening missing URLs
+  - existing stored tab URLs are skipped
+  - missing URLs are opened as new tabs in requested order
+  - the command does not reorder existing tabs and does not remove extra tabs
 - `tab-group-tabs <identifier>` reads child bookmark rows of a saved group as a saved tab-group-backed tab list:
   - only child rows with `type = 0` are treated as stored tabs
   - rows are ordered by `order_index`, then `id`

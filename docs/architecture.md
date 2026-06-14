@@ -49,6 +49,7 @@ flowchart TD
     TabGroups["tab-groups command"]
     TabGroupFind["find-tab-group command"]
     TabGroupResolve["resolve-tab-group command"]
+    EnsureTabListURLs["ensure-tab-list-urls command"]
     TabGroupTabs["tab-group-tabs command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
@@ -117,6 +118,7 @@ flowchart TD
     SafariTabGroup --> DBTabGroup
     SafariWindow --> SafariTabList
     SafariTabGroup --> SafariTabList
+    SafariTabList --> EnsureTabListURLs
     SafariTabList --> TabGroupTabs
     SafariTabList --> WindowTabs
     SafariTab --> TabOpen

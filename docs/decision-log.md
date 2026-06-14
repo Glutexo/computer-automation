@@ -9,6 +9,13 @@
 - Kept URL values as properties of individual tabs or stored tab records, with `SafariTabList` owning collection-level operations over ordered tab items.
 - This supersedes the earlier split where `tab-group-tabs` was owned by `SafariTabGroup` and `window-tabs` was owned by `SafariTab`.
 
+### Safari tab-list URL reconciliation
+
+- Added `safari ensure-tab-list-urls` as an update operation on the virtual `SafariTabList` model.
+- The command works for both window-backed and saved-tab-group-backed tab lists, adding only missing requested URLs and skipping URLs that already exist in the target list.
+- Saved-tab-group reconciliation first delegates to `ensure-tab-group`, preserves the created/reused status in its summary, then focuses/selects the ensured group before opening missing URLs.
+- The operation intentionally does not reorder existing tabs, delete extra tabs, or move URL ownership away from individual tab records.
+
 ### Saved tab-group ensure summary
 
 - Added `safari ensure-tab-group <profile> <name>` as the first high-level slice of the saved tab-group create/reuse workflow.
