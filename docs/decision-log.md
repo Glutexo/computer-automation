@@ -2,6 +2,14 @@
 
 ## 2026-06-14
 
+### Concrete Safari tab JavaScript execution
+
+- Added `safari execute-tab-javascript <window-id> <tab-index> <javascript>` as the supported high-level way to evaluate JavaScript in a concrete live Safari tab.
+- Targeting uses Safari's stable AppleScript window id plus the tab index within that window, avoiding front-document-only execution.
+- Kept the public CLI command in the `SafariTab` model and the direct `do JavaScript` transport in `SafariAppleScriptTab`, matching the existing rule that direct AppleScript access stays inside `SafariAppleScript`.
+- Missing target windows and tabs are mapped to explicit command errors, while JavaScript/runtime failures are sanitized so browser state and page details are not emitted in CLI errors.
+- JSON output returns the target address and result as `windowId`, `tabIndex`, and `result`.
+
 ### CLI JSON output mode
 
 - Added a global `--json` command output mode before module commands, for example `computer-automation --json safari find-tab https://example.com`.

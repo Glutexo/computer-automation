@@ -91,6 +91,7 @@ import SQLite3
             SafariTabOpenCommand.descriptor,
             SafariTabListCommand.descriptor,
             SafariTabFindCommand.descriptor,
+            SafariTabExecuteJavaScriptCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
             SafariTabCloseCommand.descriptor
@@ -166,6 +167,7 @@ import SQLite3
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "find-tab", abstract: "Find Safari tabs by URL."),
+            CompletionSuggestion(value: "execute-tab-javascript", abstract: "Execute JavaScript in a concrete Safari tab."),
             CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
             CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
@@ -280,6 +282,12 @@ import SQLite3
     #expect(findTab[2].name == "window-id")
     #expect(findTab[3].name == "window-index")
     #expect(findTab[4].name == "profile")
+
+    let executeJavaScript = SafariTabExecuteJavaScriptCommand.descriptor.arguments
+    #expect(executeJavaScript.count == 3)
+    #expect(executeJavaScript[0].name == "window-id")
+    #expect(executeJavaScript[1].name == "tab-index")
+    #expect(executeJavaScript[2].name == "javascript")
 
     let closeTab = SafariTabCloseCommand.descriptor.arguments
     #expect(closeTab.count == 2)
@@ -1628,6 +1636,99 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     )
 }
 
+@Test func safariTabExecuteJavaScriptCommandReturnsScriptResult() async throws {
+    var received: (Int, Int, String)?
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { windowIdentifier, tabIndex, javaScript, _ in
+            received = (windowIdentifier, tabIndex, javaScript)
+            return "ready"
+        }
+    )
+
+    #expect(try command.execute(arguments: ["42", "2", "document.readyState"]) == "ready")
+    #expect(received?.0 == 42)
+    #expect(received?.1 == 2)
+    #expect(received?.2 == "document.readyState")
+}
+
+@Test func safariTabExecuteJavaScriptCommandReturnsJSONResult() async throws {
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in "Example | Home" }
+    )
+
+    let output = try command.executeJSON(arguments: ["42", "2", "document.title"])
+    let object = try jsonObject(output)
+
+    #expect(object["windowId"] as? Int == 42)
+    #expect(object["tabIndex"] as? Int == 2)
+    #expect(object["result"] as? String == "Example | Home")
+}
+
+@Test func safariTabExecuteJavaScriptCommandRejectsInvalidArguments() async throws {
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in Issue.record("executeJavaScript should not be called"); return "" }
+    )
+
+    #expect(throws: SafariTabCommandError.missingWindowIdentifier) {
+        try command.execute(arguments: [])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidWindowIdentifier("x")) {
+        try command.execute(arguments: ["x"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingTabAddress) {
+        try command.execute(arguments: ["42"])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidTabAddress("42", "0")) {
+        try command.execute(arguments: ["42", "0"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingJavaScript) {
+        try command.execute(arguments: ["42", "2"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingJavaScript) {
+        try command.execute(arguments: ["42", "2", ""])
+    }
+}
+
+@Test func safariTabExecuteJavaScriptCommandWrapsTransportFailures() async throws {
+    let missingWindow = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in
+            throw SafariAppleScriptTabJavaScriptError.windowNotFound(42)
+        }
+    )
+    #expect(throws: SafariTabCommandError.javaScriptTargetWindowNotFound(42)) {
+        try missingWindow.execute(arguments: ["42", "2", "document.title"])
+    }
+
+    let missingTab = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in
+            throw SafariAppleScriptTabJavaScriptError.tabNotFound(windowIdentifier: 42, tabIndex: 2)
+        }
+    )
+    #expect(throws: SafariTabCommandError.javaScriptTargetTabNotFound(windowIdentifier: 42, tabIndex: 2)) {
+        try missingTab.execute(arguments: ["42", "2", "document.title"])
+    }
+
+    let failedScript = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in
+            throw SafariAppleScriptTabJavaScriptError.executionFailed(windowIdentifier: 42, tabIndex: 2)
+        }
+    )
+    #expect(throws: SafariTabCommandError.javaScriptExecutionFailed(windowIdentifier: 42, tabIndex: 2)) {
+        try failedScript.execute(arguments: ["42", "2", "document.title"])
+    }
+}
+
 @Test(arguments: [
     [],
     [SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://example.com")],
@@ -1780,6 +1881,62 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
 @Test func safariAppleScriptTabCloseReturnsScriptResult() async throws {
     let executor = MockAppleScriptExecutor(results: [.string("Safari tab closed.")])
     #expect(try SafariAppleScriptTab.close(windowIndex: 1, tabIndex: 2, executor: executor) == "Safari tab closed.")
+}
+
+@Test func safariAppleScriptTabExecuteJavaScriptTargetsWindowIdentifierAndTab() async throws {
+    let executor = MockAppleScriptExecutor(results: [.string("ready")])
+
+    #expect(
+        try SafariAppleScriptTab.executeJavaScript(
+            windowIdentifier: 42,
+            tabIndex: 2,
+            javaScript: "document.querySelector(\"main\").textContent",
+            executor: executor
+        ) == "ready"
+    )
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(executor.executedScripts[0].contains("do JavaScript"))
+    #expect(executor.executedScripts[0].contains("in tab 2 of targetWindow"))
+    #expect(executor.executedScripts[0].contains("document.querySelector(\\\"main\\\")"))
+}
+
+@Test func safariAppleScriptTabExecuteJavaScriptMapsTargetAndExecutionFailures() async throws {
+    let missingWindow = MockAppleScriptExecutor(
+        error: SafariAppleScriptError.executionFailed("COMPUTER_AUTOMATION_WINDOW_NOT_FOUND")
+    )
+    #expect(throws: SafariAppleScriptTabJavaScriptError.windowNotFound(42)) {
+        try SafariAppleScriptTab.executeJavaScript(
+            windowIdentifier: 42,
+            tabIndex: 2,
+            javaScript: "document.title",
+            executor: missingWindow
+        )
+    }
+
+    let missingTab = MockAppleScriptExecutor(
+        error: SafariAppleScriptError.executionFailed("COMPUTER_AUTOMATION_TAB_NOT_FOUND")
+    )
+    #expect(throws: SafariAppleScriptTabJavaScriptError.tabNotFound(windowIdentifier: 42, tabIndex: 2)) {
+        try SafariAppleScriptTab.executeJavaScript(
+            windowIdentifier: 42,
+            tabIndex: 2,
+            javaScript: "document.title",
+            executor: missingTab
+        )
+    }
+
+    let failedJavaScript = MockAppleScriptExecutor(
+        error: SafariAppleScriptError.executionFailed("ReferenceError: sensitive page detail")
+    )
+    #expect(throws: SafariAppleScriptTabJavaScriptError.executionFailed(windowIdentifier: 42, tabIndex: 2)) {
+        try SafariAppleScriptTab.executeJavaScript(
+            windowIdentifier: 42,
+            tabIndex: 2,
+            javaScript: "window.secret.token",
+            executor: failedJavaScript
+        )
+    }
 }
 
 @Test(arguments: [

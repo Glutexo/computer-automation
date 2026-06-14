@@ -47,6 +47,8 @@ swift run computer-automation safari find-tab https://example.com
 swift run computer-automation safari find-tab https://example.com --prefix --window-id 42 --profile Twisto
 swift run computer-automation --json safari find-tab https://example.com --prefix
 swift run computer-automation safari window-tabs 1
+swift run computer-automation safari execute-tab-javascript 42 2 'document.title'
+swift run computer-automation --json safari execute-tab-javascript 42 2 'document.readyState'
 swift run computer-automation safari set-tab-url 1 1 https://example.com
 swift run computer-automation safari close-tab 1 1
 swift run computer-automation safari-ui menu-bar-items
@@ -74,6 +76,12 @@ Prefix a module command with `--json` to get structured JSON instead of line-ori
 
 ```bash
 swift run computer-automation --json safari find-tab https://example.com --prefix
+```
+
+`safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
+
+```json
+{"windowId":42,"tabIndex":2,"result":"complete"}
 ```
 
 ## Safari database access

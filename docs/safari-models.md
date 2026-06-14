@@ -31,6 +31,7 @@
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `find-tab` | `R` | Find open Safari tabs by URL. |
+| `SafariTab` | `execute-tab-javascript` | `R` | Execute JavaScript in a concrete Safari tab. |
 | `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
 | `SafariTab` | `close-tab` | `D` | Close a Safari tab. |
@@ -66,6 +67,7 @@ flowchart TD
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
     WindowTabs["SafariTabListWindowTabsCommand (R)"]
+    TabExecuteJavaScript["SafariTabExecuteJavaScriptCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
     TabClose["SafariTabCloseCommand (D)"]
 
@@ -98,6 +100,7 @@ flowchart TD
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> WindowTabs
+    SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
     SafariTab --> TabClose
 ```
@@ -121,6 +124,7 @@ flowchart TD
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
 - `window-tabs` is the window-scoped read operation for the browser tab model.
+- `execute-tab-javascript` is a read operation because Safari evaluates page JavaScript and returns the result without changing the modeled tab address.
 - `set-tab-url` is the update operation for the browser tab model.
 - `close-tab` is the delete operation for the browser tab model.
 - No update operation is currently defined for the application lifecycle or window lifecycle at this level.
@@ -267,6 +271,10 @@ ORDER BY id;
   - a selected saved tab group exists for the window
   - the saved-group tab exists at the same tab index
   - the saved-group tab URL equals the live tab URL
+- `execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete live tab addressed by stable Safari window id and tab index.
+- `execute-tab-javascript` prints the JavaScript result directly in text mode.
+- `--json safari execute-tab-javascript <window-id> <tab-index> <javascript>` returns `windowId`, `tabIndex`, and `result`.
+- If the target window or tab no longer exists, `execute-tab-javascript` fails with a target-specific error that does not include browser page state or JavaScript error details.
 - `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`.
 - `close-tab` closes a specific tab identified by `window-index` and `tab-index`.
 - `find-tab` combines AppleScript tab data with Safari window ids and profile metadata from the `SafariWindow` model.

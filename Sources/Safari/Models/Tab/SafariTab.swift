@@ -57,6 +57,7 @@ public enum SafariTab: ModelModel {
             SafariTabOpenCommand.descriptor,
             SafariTabListCommand.descriptor,
             SafariTabFindCommand.descriptor,
+            SafariTabExecuteJavaScriptCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
             SafariTabCloseCommand.descriptor
@@ -197,12 +198,32 @@ private extension SafariTabRecord {
 
 enum SafariTabCommandError: Error, Equatable {
     case missingWindowIndex
+    case missingWindowIdentifier
     case invalidWindowIndex(String)
     case invalidWindowIdentifier(String)
     case missingTabAddress
     case invalidTabAddress(String, String)
     case missingURL
+    case missingJavaScript
+    case javaScriptTargetWindowNotFound(Int)
+    case javaScriptTargetTabNotFound(windowIdentifier: Int, tabIndex: Int)
+    case javaScriptExecutionFailed(windowIdentifier: Int, tabIndex: Int)
     case unknownOption(String)
     case missingOptionValue(String)
     case unexpectedArgument(String)
+}
+
+extension SafariTabCommandError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .javaScriptTargetWindowNotFound(let windowIdentifier):
+            "Safari window \(windowIdentifier) does not exist."
+        case .javaScriptTargetTabNotFound(let windowIdentifier, let tabIndex):
+            "Safari window \(windowIdentifier) does not contain tab \(tabIndex)."
+        case .javaScriptExecutionFailed(let windowIdentifier, let tabIndex):
+            "Could not execute JavaScript in Safari window \(windowIdentifier) tab \(tabIndex)."
+        default:
+            nil
+        }
+    }
 }

@@ -15,6 +15,12 @@ public struct SafariAppleScriptTabRecord: Equatable, Sendable {
     }
 }
 
+public enum SafariAppleScriptTabJavaScriptError: Error, Equatable {
+    case windowNotFound(Int)
+    case tabNotFound(windowIdentifier: Int, tabIndex: Int)
+    case executionFailed(windowIdentifier: Int, tabIndex: Int)
+}
+
 public enum SafariAppleScriptTab: ModelModel {
     public static let descriptor = ModelDescriptor(
         name: "tab",
@@ -129,6 +135,43 @@ public enum SafariAppleScriptTab: ModelModel {
         """
 
         return try executor.execute(script: script)?.stringValue ?? "Safari tab closed."
+    }
+
+    public static func executeJavaScript(
+        windowIdentifier: Int,
+        tabIndex: Int,
+        javaScript: String,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> String {
+        let script = """
+        tell application "Safari"
+            set matchingWindows to every window whose id is \(windowIdentifier)
+            if (count of matchingWindows) is 0 then error "COMPUTER_AUTOMATION_WINDOW_NOT_FOUND"
+            set targetWindow to item 1 of matchingWindows
+            if (count of tabs of targetWindow) < \(tabIndex) then error "COMPUTER_AUTOMATION_TAB_NOT_FOUND"
+            set javaScriptResult to do JavaScript \(appleScriptStringLiteral(javaScript)) in tab \(tabIndex) of targetWindow
+            if javaScriptResult is missing value then return ""
+            return javaScriptResult as text
+        end tell
+        """
+
+        do {
+            return try executor.execute(script: script)?.stringValue ?? ""
+        } catch SafariAppleScriptError.executionFailed(let message) {
+            if message.contains("COMPUTER_AUTOMATION_WINDOW_NOT_FOUND") {
+                throw SafariAppleScriptTabJavaScriptError.windowNotFound(windowIdentifier)
+            }
+            if message.contains("COMPUTER_AUTOMATION_TAB_NOT_FOUND") {
+                throw SafariAppleScriptTabJavaScriptError.tabNotFound(
+                    windowIdentifier: windowIdentifier,
+                    tabIndex: tabIndex
+                )
+            }
+            throw SafariAppleScriptTabJavaScriptError.executionFailed(
+                windowIdentifier: windowIdentifier,
+                tabIndex: tabIndex
+            )
+        }
     }
 
     public static func parseTabList(_ descriptor: NSAppleEventDescriptor?) -> [SafariAppleScriptTabRecord] {

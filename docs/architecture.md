@@ -48,6 +48,7 @@ flowchart TD
     Tabs["tabs command"]
     TabFind["find-tab command"]
     WindowTabs["window-tabs command"]
+    TabExecuteJavaScript["execute-tab-javascript command"]
     TabSetURL["set-tab-url command"]
     TabClose["close-tab command"]
 
@@ -106,6 +107,7 @@ flowchart TD
     SafariTab --> Tabs
     SafariTab --> TabFind
     SafariTab --> WindowTabs
+    SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
@@ -145,7 +147,7 @@ flowchart TD
 - Persisted Safari database entities are modeled separately as `SafariDatabaseProfile`, `SafariDatabaseWindow`, and `SafariDatabaseTabGroup`.
 - The `Safari` module maps database records into domain records and keeps command ownership, CLI formatting, and higher-level automation behavior.
 - Saved tab-group metadata currently comes from Safari's local database through `SafariDatabase` rather than AppleScript.
-- Direct tab CRUD currently lives across `SafariTab` and `SafariAppleScriptTab` because Safari exposes tab URL state directly in AppleScript.
+- Direct tab operations currently live across `SafariTab` and `SafariAppleScriptTab` because Safari exposes tab URL state and concrete-tab JavaScript evaluation directly in AppleScript.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.

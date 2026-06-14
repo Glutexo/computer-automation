@@ -57,6 +57,8 @@ public enum SafariModule: ModuleModel {
             return try CommandOutputRenderer.execute(SafariTabListCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabFindCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabFindCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariTabExecuteJavaScriptCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariTabExecuteJavaScriptCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabListWindowTabsCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabListWindowTabsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabSetURLCommand.descriptor.name:
