@@ -9,6 +9,7 @@
 - Kept the public CLI command in the `SafariTab` model and the direct `do JavaScript` transport in `SafariAppleScriptTab`, matching the existing rule that direct AppleScript access stays inside `SafariAppleScript`.
 - Missing target windows and tabs are mapped to explicit command errors, while JavaScript/runtime failures are sanitized so browser state and page details are not emitted in CLI errors.
 - JSON output returns the target address and result as `windowId`, `tabIndex`, and `result`.
+- JavaScript source can be supplied as an inline argument, from standard input with `--stdin`, or from a UTF-8 file with `--file`; the command rejects multiple simultaneous script sources.
 
 ### CLI JSON output mode
 

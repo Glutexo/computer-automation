@@ -271,7 +271,10 @@ ORDER BY id;
   - a selected saved tab group exists for the window
   - the saved-group tab exists at the same tab index
   - the saved-group tab URL equals the live tab URL
-- `execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete live tab addressed by stable Safari window id and tab index.
+- `execute-tab-javascript <window-id> <tab-index> <javascript>` runs inline JavaScript in a concrete live tab addressed by stable Safari window id and tab index.
+- `execute-tab-javascript <window-id> <tab-index> --stdin` reads the JavaScript source from standard input.
+- `execute-tab-javascript <window-id> <tab-index> --file <path>` and `--file=<path>` read the JavaScript source from a UTF-8 file.
+- `execute-tab-javascript` requires exactly one JavaScript source: inline argument, `--stdin`, or `--file`.
 - `execute-tab-javascript` prints the JavaScript result directly in text mode.
 - `--json safari execute-tab-javascript <window-id> <tab-index> <javascript>` returns `windowId`, `tabIndex`, and `result`.
 - If the target window or tab no longer exists, `execute-tab-javascript` fails with a target-specific error that does not include browser page state or JavaScript error details.

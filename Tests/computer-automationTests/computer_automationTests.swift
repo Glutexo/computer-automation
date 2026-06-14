@@ -284,10 +284,17 @@ import SQLite3
     #expect(findTab[4].name == "profile")
 
     let executeJavaScript = SafariTabExecuteJavaScriptCommand.descriptor.arguments
-    #expect(executeJavaScript.count == 3)
+    #expect(executeJavaScript.count == 5)
     #expect(executeJavaScript[0].name == "window-id")
     #expect(executeJavaScript[1].name == "tab-index")
     #expect(executeJavaScript[2].name == "javascript")
+    #expect(!executeJavaScript[2].isRequired)
+    #expect(executeJavaScript[3].name == "stdin")
+    #expect(executeJavaScript[3].kind == .option)
+    #expect(!executeJavaScript[3].isRequired)
+    #expect(executeJavaScript[4].name == "file")
+    #expect(executeJavaScript[4].kind == .option)
+    #expect(!executeJavaScript[4].isRequired)
 
     let closeTab = SafariTabCloseCommand.descriptor.arguments
     #expect(closeTab.count == 2)
@@ -1652,6 +1659,66 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     #expect(received?.2 == "document.readyState")
 }
 
+@Test func safariTabExecuteJavaScriptCommandReadsScriptFromStandardInput() async throws {
+    var receivedJavaScript: String?
+    var didReadStandardInput = false
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, javaScript, _ in
+            receivedJavaScript = javaScript
+            return "ok"
+        },
+        readStandardInput: {
+            didReadStandardInput = true
+            return "document.body.dataset.state"
+        }
+    )
+
+    #expect(try command.execute(arguments: ["42", "2", "--stdin"]) == "ok")
+    #expect(didReadStandardInput)
+    #expect(receivedJavaScript == "document.body.dataset.state")
+}
+
+@Test func safariTabExecuteJavaScriptCommandReadsScriptFromFile() async throws {
+    var receivedPath: String?
+    var receivedJavaScript: String?
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, javaScript, _ in
+            receivedJavaScript = javaScript
+            return "loaded"
+        },
+        readFile: { path in
+            receivedPath = path
+            return "document.querySelector('main').textContent"
+        }
+    )
+
+    #expect(try command.execute(arguments: ["42", "2", "--file", "script.js"]) == "loaded")
+    #expect(receivedPath == "script.js")
+    #expect(receivedJavaScript == "document.querySelector('main').textContent")
+}
+
+@Test func safariTabExecuteJavaScriptCommandReadsScriptFromEqualsFileOption() async throws {
+    var receivedPath: String?
+    var receivedJavaScript: String?
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, javaScript, _ in
+            receivedJavaScript = javaScript
+            return "loaded"
+        },
+        readFile: { path in
+            receivedPath = path
+            return "document.title"
+        }
+    )
+
+    #expect(try command.execute(arguments: ["42", "2", "--file=script.js"]) == "loaded")
+    #expect(receivedPath == "script.js")
+    #expect(receivedJavaScript == "document.title")
+}
+
 @Test func safariTabExecuteJavaScriptCommandReturnsJSONResult() async throws {
     let command = SafariTabExecuteJavaScriptCommand(
         executor: MockAppleScriptExecutor(),
@@ -1694,6 +1761,38 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
 
     #expect(throws: SafariTabCommandError.missingJavaScript) {
         try command.execute(arguments: ["42", "2", ""])
+    }
+
+    #expect(throws: SafariTabCommandError.multipleJavaScriptSources) {
+        try command.execute(arguments: ["42", "2", "document.title", "--stdin"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingOptionValue("--file")) {
+        try command.execute(arguments: ["42", "2", "--file"])
+    }
+
+    #expect(throws: SafariTabCommandError.missingOptionValue("--file")) {
+        try command.execute(arguments: ["42", "2", "--file="])
+    }
+
+    #expect(throws: SafariTabCommandError.unexpectedArgument("extra")) {
+        try command.execute(arguments: ["42", "2", "document.title", "extra"])
+    }
+
+    #expect(throws: SafariTabCommandError.unknownOption("--unknown")) {
+        try command.execute(arguments: ["42", "2", "--unknown"])
+    }
+}
+
+@Test func safariTabExecuteJavaScriptCommandWrapsFileReadFailures() async throws {
+    let command = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in Issue.record("executeJavaScript should not be called"); return "" },
+        readFile: { _ in throw SafariAppleScriptError.scriptCompilationFailed }
+    )
+
+    #expect(throws: SafariTabCommandError.javaScriptFileReadFailed("missing.js")) {
+        try command.execute(arguments: ["42", "2", "--file", "missing.js"])
     }
 }
 

@@ -205,6 +205,8 @@ enum SafariTabCommandError: Error, Equatable {
     case invalidTabAddress(String, String)
     case missingURL
     case missingJavaScript
+    case multipleJavaScriptSources
+    case javaScriptFileReadFailed(String)
     case javaScriptTargetWindowNotFound(Int)
     case javaScriptTargetTabNotFound(windowIdentifier: Int, tabIndex: Int)
     case javaScriptExecutionFailed(windowIdentifier: Int, tabIndex: Int)
@@ -216,6 +218,10 @@ enum SafariTabCommandError: Error, Equatable {
 extension SafariTabCommandError: LocalizedError {
     var errorDescription: String? {
         switch self {
+        case .multipleJavaScriptSources:
+            "Provide JavaScript from exactly one source: inline argument, --stdin, or --file."
+        case .javaScriptFileReadFailed(let path):
+            "Could not read JavaScript file \(path)."
         case .javaScriptTargetWindowNotFound(let windowIdentifier):
             "Safari window \(windowIdentifier) does not exist."
         case .javaScriptTargetTabNotFound(let windowIdentifier, let tabIndex):

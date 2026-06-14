@@ -48,6 +48,8 @@ swift run computer-automation safari find-tab https://example.com --prefix --win
 swift run computer-automation --json safari find-tab https://example.com --prefix
 swift run computer-automation safari window-tabs 1
 swift run computer-automation safari execute-tab-javascript 42 2 'document.title'
+printf 'document.readyState' | swift run computer-automation safari execute-tab-javascript 42 2 --stdin
+swift run computer-automation safari execute-tab-javascript 42 2 --file script.js
 swift run computer-automation --json safari execute-tab-javascript 42 2 'document.readyState'
 swift run computer-automation safari set-tab-url 1 1 https://example.com
 swift run computer-automation safari close-tab 1 1
@@ -78,7 +80,7 @@ Prefix a module command with `--json` to get structured JSON instead of line-ori
 swift run computer-automation --json safari find-tab https://example.com --prefix
 ```
 
-`safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
+`safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. The JavaScript source can be an inline argument, `--stdin`, or `--file <path>` / `--file=<path>`. Provide exactly one source. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
 
 ```json
 {"windowId":42,"tabIndex":2,"result":"complete"}
