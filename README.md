@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- The current runnable slice covers Safari application lifecycle commands, profile listing, browser window operations, saved tab-group create/read/delete flows, window-level tab-group switching, and tab lookup by URL.
+- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/read/delete flows, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar
@@ -31,6 +31,8 @@ swift run computer-automation safari launch
 swift run computer-automation safari running
 swift run computer-automation safari quit
 swift run computer-automation safari profiles
+swift run computer-automation safari find-profile Twisto
+swift run computer-automation safari resolve-profile Twisto
 swift run computer-automation safari windows
 swift run computer-automation safari open-window
 swift run computer-automation safari open-window Twisto

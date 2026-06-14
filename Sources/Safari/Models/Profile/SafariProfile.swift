@@ -17,9 +17,15 @@ public enum SafariProfile: ModelModel {
         name: "profile",
         abstract: "Safari profiles available to the application.",
         commands: [
-            SafariProfileListCommand.descriptor
+            SafariProfileListCommand.descriptor,
+            SafariProfileFindCommand.descriptor,
+            SafariProfileResolveCommand.descriptor
         ]
     )
+
+    static func format(_ profile: SafariProfileRecord) -> String {
+        "\(profile.identifier)|\(profile.name)"
+    }
 
     static func databasePath(
         homeDirectory: String = NSHomeDirectory()
@@ -36,6 +42,13 @@ public enum SafariProfile: ModelModel {
             throw SafariProfileCommandError(error)
         }
     }
+
+    static func find(
+        name: String,
+        listProfiles: () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() }
+    ) throws -> [SafariProfileRecord] {
+        try listProfiles().filter { $0.name == name }
+    }
 }
 
 extension SafariProfileRecord {
@@ -48,6 +61,11 @@ public enum SafariProfileCommandError: Error, Equatable, LocalizedError {
     case databaseOpenFailed(path: String)
     case queryPreparationFailed
     case queryExecutionFailed
+    case missingProfileName
+    case emptyProfileName
+    case profileLookupNotFound(name: String)
+    case profileLookupAmbiguous(name: String, count: Int)
+    case unexpectedArgument(String)
 
     public var errorDescription: String? {
         switch self {
@@ -57,6 +75,16 @@ public enum SafariProfileCommandError: Error, Equatable, LocalizedError {
             "Could not prepare the Safari profile query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari profile query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        case .missingProfileName:
+            "Missing Safari profile name."
+        case .emptyProfileName:
+            "Safari profile name must not be empty."
+        case .profileLookupNotFound(let name):
+            "No Safari profile named \(name) exists."
+        case .profileLookupAmbiguous(let name, let count):
+            "Safari profile lookup for \(name) matched \(count) profiles."
+        case .unexpectedArgument(let argument):
+            "Unexpected argument: \(argument)"
         }
     }
 

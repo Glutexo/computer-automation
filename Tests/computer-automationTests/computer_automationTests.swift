@@ -49,8 +49,17 @@ import SQLite3
     #expect(SafariApplicationRunningCommand.descriptor.operation == .read)
     #expect(SafariApplicationQuitCommand.descriptor.operation == .delete)
     #expect(SafariProfile.descriptor.name == "profile")
-    #expect(SafariProfile.descriptor.commands == [SafariProfileListCommand.descriptor])
+    #expect(
+        SafariProfile.descriptor.commands ==
+        [
+            SafariProfileListCommand.descriptor,
+            SafariProfileFindCommand.descriptor,
+            SafariProfileResolveCommand.descriptor
+        ]
+    )
     #expect(SafariProfileListCommand.descriptor.operation == .read)
+    #expect(SafariProfileFindCommand.descriptor.operation == .read)
+    #expect(SafariProfileResolveCommand.descriptor.operation == .read)
     #expect(SafariWindow.descriptor.name == "window")
     #expect(
         SafariWindow.descriptor.commands ==
@@ -157,6 +166,8 @@ import SQLite3
             CompletionSuggestion(value: "running", abstract: "Report whether Safari is currently running."),
             CompletionSuggestion(value: "quit", abstract: "Quit Safari if it is running."),
             CompletionSuggestion(value: "profiles", abstract: "List available Safari profiles."),
+            CompletionSuggestion(value: "find-profile", abstract: "Find Safari profiles by name."),
+            CompletionSuggestion(value: "resolve-profile", abstract: "Resolve exactly one Safari profile by name."),
             CompletionSuggestion(value: "open-window", abstract: "Open a new Safari browser window."),
             CompletionSuggestion(value: "open-private-window", abstract: "Open a new private Safari browser window."),
             CompletionSuggestion(value: "open-tab-group-window", abstract: "Open a new Safari window for a saved tab group."),
@@ -244,6 +255,15 @@ import SQLite3
     #expect(createTabGroup.count == 2)
     #expect(createTabGroup[0].name == "window-index")
     #expect(createTabGroup[1].name == "name")
+
+    let findProfile = SafariProfileFindCommand.descriptor.arguments
+    #expect(findProfile.count == 1)
+    #expect(findProfile[0].name == "name")
+    #expect(findProfile[0].kind == .positional)
+    #expect(findProfile[0].isRequired)
+
+    let resolveProfile = SafariProfileResolveCommand.descriptor.arguments
+    #expect(resolveProfile == findProfile)
 
     let findTabGroup = SafariTabGroupFindCommand.descriptor.arguments
     #expect(findTabGroup.count == 2)
@@ -400,6 +420,8 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
 @Test func cliReturnsModuleCompletionSuggestions() async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["--complete", "safari"])
     #expect(output.contains("open-window"))
+    #expect(output.contains("find-profile"))
+    #expect(output.contains("resolve-profile"))
     #expect(output.contains("open-private-window"))
     #expect(output.contains("tab-groups"))
     #expect(output.contains("find-tab-group"))
@@ -738,6 +760,124 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
     let command = SafariProfileListCommand(listProfiles: { profiles })
     let output = try command.execute(arguments: [])
     #expect(output == profiles.map(\.name).joined(separator: "\n"))
+}
+
+@Test func safariProfileFindCommandFormatsMatchingRows() async throws {
+    let command = SafariProfileFindCommand(
+        findProfiles: { name in
+            #expect(name == "Twisto")
+            return [
+                SafariProfileRecord(name: "Twisto", identifier: "33782F17-8AAD-41EA-BCB5-71A1A8348C55")
+            ]
+        }
+    )
+
+    #expect(
+        try command.execute(arguments: ["Twisto"]) ==
+        "33782F17-8AAD-41EA-BCB5-71A1A8348C55|Twisto"
+    )
+}
+
+@Test func safariProfileFindCommandReturnsJSONMatches() async throws {
+    let command = SafariProfileFindCommand(
+        findProfiles: { _ in
+            [
+                SafariProfileRecord(name: "Twisto", identifier: "profile-1"),
+                SafariProfileRecord(name: "Twisto", identifier: "profile-2")
+            ]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["Twisto"])
+    let object = try jsonObject(output)
+    let matches = try #require(object["matches"] as? [[String: Any]])
+
+    #expect(object["name"] as? String == "Twisto")
+    #expect(matches.count == 2)
+    #expect(matches[0]["identifier"] as? String == "profile-1")
+    #expect(matches[0]["name"] as? String == "Twisto")
+}
+
+@Test func safariProfileFindCommandRejectsInvalidArguments() async throws {
+    let command = SafariProfileFindCommand(
+        findProfiles: { _ in Issue.record("findProfiles should not be called"); return [] }
+    )
+
+    #expect(throws: SafariProfileCommandError.missingProfileName) {
+        try command.execute(arguments: [])
+    }
+    #expect(throws: SafariProfileCommandError.emptyProfileName) {
+        try command.execute(arguments: [""])
+    }
+    #expect(throws: SafariProfileCommandError.unexpectedArgument("extra")) {
+        try command.execute(arguments: ["Twisto", "extra"])
+    }
+}
+
+@Test func safariProfileResolveCommandFormatsSingleMatch() async throws {
+    let command = SafariProfileResolveCommand(
+        findProfiles: { name in
+            #expect(name == "Twisto")
+            return [
+                SafariProfileRecord(name: "Twisto", identifier: "33782F17-8AAD-41EA-BCB5-71A1A8348C55")
+            ]
+        }
+    )
+
+    #expect(
+        try command.execute(arguments: ["Twisto"]) ==
+        "33782F17-8AAD-41EA-BCB5-71A1A8348C55|Twisto"
+    )
+}
+
+@Test func safariProfileResolveCommandReturnsJSONMatch() async throws {
+    let command = SafariProfileResolveCommand(
+        findProfiles: { _ in
+            [SafariProfileRecord(name: "Twisto", identifier: "profile-1")]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["Twisto"])
+    let object = try jsonObject(output)
+    let match = try #require(object["match"] as? [String: Any])
+
+    #expect(object["name"] as? String == "Twisto")
+    #expect(match["identifier"] as? String == "profile-1")
+    #expect(match["name"] as? String == "Twisto")
+}
+
+@Test func safariProfileResolveCommandRequiresExactlyOneMatch() async throws {
+    let noMatches = SafariProfileResolveCommand(findProfiles: { _ in [] })
+    #expect(throws: SafariProfileCommandError.profileLookupNotFound(name: "Twisto")) {
+        try noMatches.execute(arguments: ["Twisto"])
+    }
+
+    let multipleMatches = SafariProfileResolveCommand(
+        findProfiles: { _ in
+            [
+                SafariProfileRecord(name: "Twisto", identifier: "profile-1"),
+                SafariProfileRecord(name: "Twisto", identifier: "profile-2")
+            ]
+        }
+    )
+    #expect(throws: SafariProfileCommandError.profileLookupAmbiguous(name: "Twisto", count: 2)) {
+        try multipleMatches.execute(arguments: ["Twisto"])
+    }
+}
+
+@Test func safariProfileFindMatchesNameExactly() async throws {
+    let profiles = try SafariProfile.find(
+        name: "Twisto",
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Twisto", identifier: "profile-1"),
+                SafariProfileRecord(name: "Twisto later", identifier: "profile-2"),
+                SafariProfileRecord(name: "Glutexo", identifier: "profile-3")
+            ]
+        }
+    )
+
+    #expect(profiles == [SafariProfileRecord(name: "Twisto", identifier: "profile-1")])
 }
 
 @Test func safariWindowOpenCommandOpensUnprofiledWindow() async throws {

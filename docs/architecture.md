@@ -38,6 +38,8 @@ flowchart TD
     Running["running command"]
     Quit["quit command"]
     Profiles["profiles command"]
+    ProfileFind["find-profile command"]
+    ProfileResolve["resolve-profile command"]
     WindowOpen["open-window command"]
     WindowOpenPrivate["open-private-window command"]
     Windows["windows command"]
@@ -97,6 +99,8 @@ flowchart TD
     SafariApplication --> Running
     SafariApplication --> Quit
     SafariProfile --> Profiles
+    SafariProfile --> ProfileFind
+    SafariProfile --> ProfileResolve
     SafariProfile --> DBProfile
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate

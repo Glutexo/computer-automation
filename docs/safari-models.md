@@ -18,6 +18,8 @@
 | `SafariApplication` | `running` | `R` | Report whether Safari is currently running. |
 | `SafariApplication` | `quit` | `D` | Request Safari to terminate. |
 | `SafariProfile` | `profiles` | `R` | List available Safari profiles. |
+| `SafariProfile` | `find-profile` | `R` | Find Safari profiles by name. |
+| `SafariProfile` | `resolve-profile` | `R` | Resolve exactly one Safari profile by name. |
 | `SafariWindow` | `open-window` | `C` | Open a new Safari browser window. |
 | `SafariWindow` | `open-private-window` | `C` | Open a new private Safari browser window. |
 | `SafariWindow` | `open-tab-group-window` | `C` | Open a new Safari window for a saved tab group. |
@@ -57,6 +59,8 @@ flowchart TD
     Running["SafariApplicationRunningCommand (R)"]
     Quit["SafariApplicationQuitCommand (D)"]
     Profiles["SafariProfileListCommand (R)"]
+    ProfileFind["SafariProfileFindCommand (R)"]
+    ProfileResolve["SafariProfileResolveCommand (R)"]
     WindowOpen["SafariWindowOpenCommand (C)"]
     WindowOpenPrivate["SafariWindowOpenPrivateCommand (C)"]
     WindowOpenTabGroup["SafariWindowOpenTabGroupCommand (C)"]
@@ -91,6 +95,8 @@ flowchart TD
     SafariApplication --> Running
     SafariApplication --> Quit
     SafariProfile --> Profiles
+    SafariProfile --> ProfileFind
+    SafariProfile --> ProfileResolve
     SafariProfile --> DBProfile
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate
@@ -122,6 +128,8 @@ flowchart TD
 - `running` is the read operation for the application lifecycle.
 - `quit` is the delete operation for the application lifecycle.
 - `profiles` is the read operation for the profile catalog.
+- `find-profile` is a read operation that returns zero, one, or many profile matches.
+- `resolve-profile` is a read operation that returns exactly one profile match and treats zero or multiple matches as errors.
 - `open-window` is the create operation for the browser window model.
 - `open-private-window` is an additional create operation for the browser window model.
 - `open-tab-group-window` is another create operation for the browser window model.
@@ -169,6 +177,11 @@ ORDER BY id;
 ### Output shape
 
 - The CLI currently prints one profile name per line.
+- `find-profile <name>` returns matching profiles as:
+  - `identifier|name`
+- `resolve-profile <name>` returns the same single row shape and fails unless exactly one profile matches.
+- `--json safari find-profile <name>` returns `name` and a `matches` array.
+- `--json safari resolve-profile <name>` returns `name` and a single `match` object.
 - Internally the model keeps both:
   - `name`
   - `identifier`

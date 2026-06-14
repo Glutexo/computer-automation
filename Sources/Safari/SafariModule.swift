@@ -31,6 +31,10 @@ public enum SafariModule: ModuleModel {
             return try CommandOutputRenderer.execute(SafariApplicationQuitCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariProfileListCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariProfileListCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariProfileFindCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariProfileFindCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariProfileResolveCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariProfileResolveCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariWindowOpenCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariWindowOpenCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariWindowOpenPrivateCommand.descriptor.name:

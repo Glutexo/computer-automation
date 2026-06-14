@@ -10,6 +10,7 @@
 - Models that support public record lookup must expose `find-*` and `resolve-*` as a pair so callers do not see divergent lookup semantics across models.
 - Added `safari resolve-tab` as the single-entity counterpart to `safari find-tab`.
 - Added `safari find-tab-group` and `safari resolve-tab-group` as the paired lookup surface for saved Safari tab groups by profile and name.
+- Added `safari find-profile` and `safari resolve-profile` as the paired lookup surface for Safari profiles by name.
 
 ### Concrete Safari tab JavaScript execution
 
