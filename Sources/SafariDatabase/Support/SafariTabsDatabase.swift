@@ -1,8 +1,14 @@
 import Foundation
 import SQLite3
 
-enum SafariDatabase {
+public enum SafariTabsDatabase {
     static let busyTimeoutMilliseconds: Int32 = 250
+
+    public static func databasePath(
+        homeDirectory: String = NSHomeDirectory()
+    ) -> String {
+        "\(homeDirectory)/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db"
+    }
 
     static func openReadOnly(databasePath: String) throws -> OpaquePointer {
         try open(databasePath: databasePath, flags: SQLITE_OPEN_READONLY)
@@ -14,6 +20,7 @@ enum SafariDatabase {
 
     static func stepRows(
         _ statement: OpaquePointer?,
+        modelName: String,
         rowHandler: () -> Void
     ) throws {
         var result = sqlite3_step(statement)
@@ -23,7 +30,7 @@ enum SafariDatabase {
         }
 
         guard result == SQLITE_DONE else {
-            throw SafariDatabaseError.queryExecutionFailed
+            throw SafariDatabaseError.queryExecutionFailed(modelName: modelName)
         }
     }
 
@@ -47,16 +54,19 @@ enum SafariDatabase {
     }
 }
 
-enum SafariDatabaseError: Error, Equatable, CustomStringConvertible {
+public enum SafariDatabaseError: Error, Equatable, LocalizedError {
     case openFailed(path: String)
-    case queryExecutionFailed
+    case queryPreparationFailed(modelName: String)
+    case queryExecutionFailed(modelName: String)
 
-    var description: String {
+    public var errorDescription: String? {
         switch self {
         case .openFailed(let path):
             "Could not open SafariTabs.db at \(path). Grant Full Disk Access to the terminal or app running computer-automation, make sure the file exists, and retry."
-        case .queryExecutionFailed:
-            "Could not finish a SafariTabs.db query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        case .queryPreparationFailed(let modelName):
+            "Could not prepare the Safari database \(modelName) query. The Safari database schema may have changed."
+        case .queryExecutionFailed(let modelName):
+            "Could not finish the Safari database \(modelName) query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
         }
     }
 }

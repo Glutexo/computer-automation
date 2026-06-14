@@ -1,6 +1,6 @@
-import Foundation
 import AutomationFoundation
-import SQLite3
+import Foundation
+import SafariDatabase
 
 public struct SafariProfileRecord: Equatable, Sendable {
     public let name: String
@@ -24,57 +24,23 @@ public enum SafariProfile: ModelModel {
     static func databasePath(
         homeDirectory: String = NSHomeDirectory()
     ) -> String {
-        "\(homeDirectory)/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db"
+        SafariTabsDatabase.databasePath(homeDirectory: homeDirectory)
     }
 
     static func listAvailableProfiles(
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariProfileRecord] {
-        let database: OpaquePointer
         do {
-            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
-        } catch SafariDatabaseError.openFailed {
-            throw SafariProfileCommandError.databaseOpenFailed(path: databasePath)
+            return try SafariDatabaseProfile.list(databasePath: databasePath).map(SafariProfileRecord.init)
+        } catch let error as SafariDatabaseError {
+            throw SafariProfileCommandError(error)
         }
-        defer { sqlite3_close(database) }
+    }
+}
 
-        let query = """
-        SELECT title, external_uuid
-        FROM bookmarks
-        WHERE parent = 0 AND type = 1 AND subtype = 2
-        ORDER BY id;
-        """
-
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
-            defer { sqlite3_finalize(statement) }
-            throw SafariProfileCommandError.queryPreparationFailed
-        }
-        defer { sqlite3_finalize(statement) }
-
-        var profiles: [SafariProfileRecord] = []
-
-        do {
-            try SafariDatabase.stepRows(statement) {
-                guard
-                    let titlePointer = sqlite3_column_text(statement, 0),
-                    let identifierPointer = sqlite3_column_text(statement, 1)
-                else {
-                    return
-                }
-
-                profiles.append(
-                    SafariProfileRecord(
-                        name: String(cString: titlePointer),
-                        identifier: String(cString: identifierPointer)
-                    )
-                )
-            }
-        } catch SafariDatabaseError.queryExecutionFailed {
-            throw SafariProfileCommandError.queryExecutionFailed
-        }
-
-        return profiles
+extension SafariProfileRecord {
+    init(_ record: SafariDatabaseProfileRecord) {
+        self.init(name: record.name, identifier: record.identifier)
     }
 }
 
@@ -86,11 +52,22 @@ public enum SafariProfileCommandError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .databaseOpenFailed(let path):
-            "Could not open SafariTabs.db at \(path). Grant Full Disk Access to the terminal or app running computer-automation, make sure the file exists, and retry."
+            SafariDatabaseError.openFailed(path: path).localizedDescription
         case .queryPreparationFailed:
             "Could not prepare the Safari profile query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari profile query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        }
+    }
+
+    init(_ error: SafariDatabaseError) {
+        switch error {
+        case .openFailed(let path):
+            self = .databaseOpenFailed(path: path)
+        case .queryPreparationFailed:
+            self = .queryPreparationFailed
+        case .queryExecutionFailed:
+            self = .queryExecutionFailed
         }
     }
 }

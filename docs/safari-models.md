@@ -8,6 +8,7 @@
 - `SafariWindow` represents browser windows managed by Safari.
 - `SafariTabGroup` represents saved Safari tab groups.
 - `SafariTab` represents browser tabs managed inside Safari windows.
+- Persisted Safari database rows are modeled in the separate `SafariDatabase` module and mapped into these Safari domain models.
 
 ## CRUD matrix
 
@@ -38,11 +39,15 @@
 ```mermaid
 flowchart TD
     SafariModule["Safari module"]
+    SafariDatabase["SafariDatabase module"]
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
     SafariTabGroup["SafariTabGroup model"]
     SafariTab["SafariTab model"]
+    DBProfile["SafariDatabaseProfile model"]
+    DBWindow["SafariDatabaseWindow model"]
+    DBTabGroup["SafariDatabaseTabGroup model"]
     Launch["SafariApplicationLaunchCommand (C)"]
     Running["SafariApplicationRunningCommand (R)"]
     Quit["SafariApplicationQuitCommand (D)"]
@@ -68,20 +73,27 @@ flowchart TD
     SafariModule --> SafariWindow
     SafariModule --> SafariTabGroup
     SafariModule --> SafariTab
+    SafariModule --> SafariDatabase
+    SafariDatabase --> DBProfile
+    SafariDatabase --> DBWindow
+    SafariDatabase --> DBTabGroup
     SafariApplication --> Launch
     SafariApplication --> Running
     SafariApplication --> Quit
     SafariProfile --> Profiles
+    SafariProfile --> DBProfile
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate
     SafariWindow --> WindowOpenTabGroup
     SafariWindow --> Windows
     SafariWindow --> WindowSetTabGroup
     SafariWindow --> WindowClose
+    SafariWindow --> DBWindow
     SafariTabGroup --> TabGroupCreate
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupTabs
     SafariTabGroup --> TabGroupDelete
+    SafariTabGroup --> DBTabGroup
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> WindowTabs
@@ -114,7 +126,8 @@ flowchart TD
 
 ## Profile loading
 
-- The `SafariProfile` model reads profiles from Safari's local tabs database:
+- The `SafariProfile` model delegates persisted profile loading to `SafariDatabaseProfile` in the `SafariDatabase` module.
+- `SafariDatabaseProfile` reads profiles from Safari's local tabs database:
   - `~/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db`
 - The `profiles` command queries the `bookmarks` table.
 - A row is treated as a Safari profile when all of these conditions hold:
@@ -139,6 +152,7 @@ ORDER BY id;
 - Internally the model keeps both:
   - `name`
   - `identifier`
+- The Safari domain record is `SafariProfileRecord`; the database entity record is `SafariDatabaseProfileRecord`.
 
 ## Window operations
 
@@ -153,10 +167,12 @@ ORDER BY id;
   - clicks the matching profile-specific "new window" menu item
 - `windows` enumerates `every window` and returns one line per window as:
   - `index|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name`
-- The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id`.
+- `SafariWindow` delegates persisted window metadata to `SafariDatabaseWindow`.
+- The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id` in `SafariDatabaseWindow`.
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
 - The `selectedTabGroupIdentifier` column is the saved tab-group bookmark identifier when the current `active_tab_group_id` points to a saved group.
 - The `tabGroup` column is populated only when the current `active_tab_group_id` points to a saved tab group.
+- When `SafariTabs.db` cannot be opened, `windows` degrades to AppleScript-visible fields and leaves database-derived fields empty or defaulted.
 - Safari also has a virtual private-window profile:
   - it is not a normal profile row in `SafariTabs.db`
   - it should be treated as a special window mode rather than as a persisted user profile
@@ -180,7 +196,7 @@ ORDER BY id;
   - focuses the target non-private window
   - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
   - writes the requested name into Safari's post-create inline edit field for that selected group
-  - resolves the newly created saved group structurally from `SafariTabs.db`
+  - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
 - `delete-tab-group <identifier>`:
@@ -191,6 +207,7 @@ ORDER BY id;
   - invokes `DeleteTabGroupMenuItem`
 - `tab-group-tabs` returns one line per stored tab as:
   - `index|url`
+- `SafariTabGroup` delegates persisted saved-group records and stored group tabs to `SafariDatabaseTabGroup`.
 - A bookmark is treated as a saved tab group when:
   - `type = 1`
   - `subtype = 0`
@@ -259,3 +276,4 @@ ORDER BY id;
 - Saved tab-group switching currently routes through reusable toolbar and toolbar-item models in `SafariUserInterface`.
 - Saved tab-group creation currently resolves Safari's built-in "new empty tab group" command through the stable File-menu accessibility identifier `NewEmptyTabGroupMenuItem`.
 - Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.
+- Direct `SafariTabs.db` reads and writes live in the separate `SafariDatabase` module.

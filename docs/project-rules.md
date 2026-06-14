@@ -31,6 +31,7 @@
 - Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
 - Build new features primarily on general models before introducing specialized convenience models.
 - Keep specialized models when an operation truly belongs to a specific UI surface rather than to the general structure.
+- Keep direct `SafariTabs.db` access inside the `SafariDatabase` module and represent persisted database entities with `SafariDatabase` models.
 - When an automation flow depends on a Safari accessibility surface such as a toolbar, sidebar, menu, or child menu, add that surface as an explicit reusable model in `SafariUserInterface` and add the matching low-level AppleScript model in `SafariAppleScript`.
 - Do not introduce one-off AX helpers that bypass those module models from `Safari` commands or other high-level orchestration code.
 - For related operations such as CRUD, avoid mixing fundamentally different automation surfaces unless the product itself forces that split.

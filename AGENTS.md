@@ -7,7 +7,7 @@ This file applies to the whole repository.
 ## Project summary
 
 - Swift Package Manager project for macOS computer automation experiments.
-- Current top-level modules: `AutomationFoundation`, `Safari`, `SafariUserInterface`, and `SafariAppleScript`.
+- Current top-level modules: `AutomationFoundation`, `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
 - Main executable target: `computer-automation`.
 
 ## Start here
@@ -28,6 +28,7 @@ This file applies to the whole repository.
 - Keep UI automation independent of the macOS and Safari language setting.
 - Prefer structural identifiers and explicit data sources over localized UI labels.
 - Keep direct AppleScript access inside `SafariAppleScript`.
+- Keep direct `SafariTabs.db` access inside `SafariDatabase`.
 - When automation depends on a Safari accessibility structure, model that structure explicitly in `SafariUserInterface` and add the matching AppleScript transport model in `SafariAppleScript` instead of introducing one-off AX helpers at the command layer.
 - When a feature offers multiple related operations such as CRUD, prefer one consistent automation surface for the whole set instead of mixing database writes, menu commands, toolbar pickers, and other unrelated mechanisms.
 - For supported Safari tab-group create/read/delete operations, use the opened sidebar tab-group surface as the primary targeting surface rather than direct database mutation or unrelated menu surfaces.

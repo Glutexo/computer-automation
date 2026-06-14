@@ -1,8 +1,6 @@
 import AutomationFoundation
 import Foundation
-import SQLite3
-
-private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+import SafariDatabase
 
 public struct SafariTabGroupRecord: Equatable, Sendable {
     public let identifier: Int
@@ -47,173 +45,56 @@ public enum SafariTabGroup: ModelModel {
     static func list(
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariTabGroupRecord] {
-        let database: OpaquePointer
         do {
-            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
-        } catch SafariDatabaseError.openFailed {
-            throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
+            return try SafariDatabaseTabGroup.list(databasePath: databasePath).map(SafariTabGroupRecord.init)
+        } catch let error as SafariDatabaseError {
+            throw SafariTabGroupCommandError(error)
         }
-        defer { sqlite3_close(database) }
-
-        let query = """
-        SELECT g.id, p.title, g.title
-        FROM bookmarks g
-        JOIN bookmarks p ON p.id = g.parent
-        WHERE g.type = 1
-          AND g.subtype = 0
-          AND p.parent = 0
-          AND p.type = 1
-          AND p.subtype = 2
-          AND EXISTS (
-              SELECT 1
-              FROM bookmarks child
-              WHERE child.parent = g.id
-                AND child.type = 1
-                AND child.subtype = 1
-          )
-        ORDER BY g.id;
-        """
-
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
-            defer { sqlite3_finalize(statement) }
-            throw SafariTabGroupCommandError.queryPreparationFailed
-        }
-        defer { sqlite3_finalize(statement) }
-
-        var groups: [SafariTabGroupRecord] = []
-
-        do {
-            try SafariDatabase.stepRows(statement) {
-                guard
-                    let rawProfileName = sqlite3_column_text(statement, 1),
-                    let rawName = sqlite3_column_text(statement, 2)
-                else {
-                    return
-                }
-
-                groups.append(
-                    SafariTabGroupRecord(
-                        identifier: Int(sqlite3_column_int(statement, 0)),
-                        profileName: String(cString: rawProfileName),
-                        name: String(cString: rawName)
-                    )
-                )
-            }
-        } catch SafariDatabaseError.queryExecutionFailed {
-            throw SafariTabGroupCommandError.queryExecutionFailed
-        }
-
-        return groups
     }
 
     static func listTabs(
         tabGroupIdentifier: Int,
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariTabGroupTabRecord] {
-        let database: OpaquePointer
         do {
-            database = try SafariDatabase.openReadOnly(databasePath: databasePath)
-        } catch SafariDatabaseError.openFailed {
-            throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
+            return try SafariDatabaseTabGroup.listTabs(
+                tabGroupIdentifier: tabGroupIdentifier,
+                databasePath: databasePath
+            )
+            .map(SafariTabGroupTabRecord.init)
+        } catch let error as SafariDatabaseError {
+            throw SafariTabGroupCommandError(error)
         }
-        defer { sqlite3_close(database) }
-
-        let query = """
-        SELECT COALESCE(child.url, '')
-        FROM bookmarks g
-        JOIN bookmarks child ON child.parent = g.id
-        WHERE g.id = ?
-          AND g.type = 1
-          AND g.subtype = 0
-          AND EXISTS (
-              SELECT 1
-              FROM bookmarks p
-              WHERE p.id = g.parent
-                AND p.parent = 0
-                AND p.type = 1
-                AND p.subtype = 2
-          )
-          AND EXISTS (
-              SELECT 1
-              FROM bookmarks scope
-              WHERE scope.parent = g.id
-                AND scope.type = 1
-                AND scope.subtype = 1
-          )
-          AND child.type = 0
-        ORDER BY child.order_index, child.id;
-        """
-
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
-            defer { sqlite3_finalize(statement) }
-            throw SafariTabGroupCommandError.queryPreparationFailed
-        }
-        defer { sqlite3_finalize(statement) }
-
-        sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
-
-        var tabs: [SafariTabGroupTabRecord] = []
-
-        do {
-            try SafariDatabase.stepRows(statement) {
-                let index = tabs.count + 1
-                let url = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
-                tabs.append(SafariTabGroupTabRecord(tabGroupIdentifier: tabGroupIdentifier, index: index, url: url))
-            }
-        } catch SafariDatabaseError.queryExecutionFailed {
-            throw SafariTabGroupCommandError.queryExecutionFailed
-        }
-
-        return tabs
     }
 
     static func delete(
         tabGroupIdentifier: Int,
         databasePath: String = SafariProfile.databasePath()
     ) throws -> SafariTabGroupRecord {
-        let groups = try list(databasePath: databasePath)
-        guard let group = groups.first(where: { $0.identifier == tabGroupIdentifier }) else {
-            throw SafariTabGroupCommandError.tabGroupNotFound(tabGroupIdentifier)
-        }
-
-        let database: OpaquePointer
         do {
-            database = try SafariDatabase.openReadWrite(databasePath: databasePath)
-        } catch SafariDatabaseError.openFailed {
-            throw SafariTabGroupCommandError.databaseOpenFailed(path: databasePath)
+            return SafariTabGroupRecord(
+                try SafariDatabaseTabGroup.delete(
+                    tabGroupIdentifier: tabGroupIdentifier,
+                    databasePath: databasePath
+                )
+            )
+        } catch let error as SafariDatabaseError {
+            throw SafariTabGroupCommandError(error)
+        } catch SafariDatabaseTabGroupError.tabGroupNotFound(let identifier) {
+            throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
         }
-        defer { sqlite3_close(database) }
+    }
+}
 
-        let query = """
-        WITH RECURSIVE descendants(id) AS (
-            SELECT id
-            FROM bookmarks
-            WHERE id = ?
-            UNION ALL
-            SELECT child.id
-            FROM bookmarks child
-            JOIN descendants parentDescendant ON child.parent = parentDescendant.id
-        )
-        DELETE FROM bookmarks
-        WHERE id IN descendants;
-        """
+extension SafariTabGroupRecord {
+    init(_ record: SafariDatabaseTabGroupRecord) {
+        self.init(identifier: record.identifier, profileName: record.profileName, name: record.name)
+    }
+}
 
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
-            defer { sqlite3_finalize(statement) }
-            throw SafariTabGroupCommandError.queryPreparationFailed
-        }
-        defer { sqlite3_finalize(statement) }
-
-        sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
-
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw SafariTabGroupCommandError.queryExecutionFailed
-        }
-
-        return group
+extension SafariTabGroupTabRecord {
+    init(_ record: SafariDatabaseTabGroupTabRecord) {
+        self.init(tabGroupIdentifier: record.tabGroupIdentifier, index: record.index, url: record.url)
     }
 }
 
@@ -240,13 +121,24 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .databaseOpenFailed(let path):
-            "Could not open SafariTabs.db at \(path). Grant Full Disk Access to the terminal or app running computer-automation, make sure the file exists, and retry."
+            SafariDatabaseError.openFailed(path: path).localizedDescription
         case .queryPreparationFailed:
             "Could not prepare the Safari tab-group query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari tab-group query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
         default:
             nil
+        }
+    }
+
+    init(_ error: SafariDatabaseError) {
+        switch error {
+        case .openFailed(let path):
+            self = .databaseOpenFailed(path: path)
+        case .queryPreparationFailed:
+            self = .queryPreparationFailed
+        case .queryExecutionFailed:
+            self = .queryExecutionFailed
         }
     }
 }

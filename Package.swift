@@ -13,6 +13,10 @@ let package = Package(
             name: "AutomationFoundation"
         ),
         .target(
+            name: "SafariDatabase",
+            dependencies: ["AutomationFoundation"]
+        ),
+        .target(
             name: "SafariAppleScript",
             dependencies: ["AutomationFoundation"]
         ),
@@ -22,7 +26,7 @@ let package = Package(
         ),
         .target(
             name: "Safari",
-            dependencies: ["AutomationFoundation", "SafariAppleScript", "SafariUserInterface"]
+            dependencies: ["AutomationFoundation", "SafariAppleScript", "SafariDatabase", "SafariUserInterface"]
         ),
         .target(
             name: "ComputerAutomationKit",
@@ -34,7 +38,7 @@ let package = Package(
         ),
         .testTarget(
             name: "computer-automationTests",
-            dependencies: ["AutomationFoundation", "SafariAppleScript", "Safari", "SafariUserInterface", "ComputerAutomationKit"]
+            dependencies: ["AutomationFoundation", "SafariAppleScript", "SafariDatabase", "Safari", "SafariUserInterface", "ComputerAutomationKit"]
         ),
     ],
     swiftLanguageModes: [.v6]

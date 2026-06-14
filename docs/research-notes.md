@@ -8,6 +8,7 @@
 - `safari windows` can still provide useful partial data without the database because Safari AppleScript exposes window ids and names.
 - Saved profile and saved tab-group records still require the database in the current model; no verified AppleScript or accessibility source exposes equivalent stable identifiers.
 - A short SQLite busy timeout is enough to keep DB-backed commands from waiting indefinitely when Safari is actively writing or locking the database.
+- The database stabilization code now belongs in `SafariDatabase`, because the tables represent persisted Safari entities rather than command-level Safari behavior.
 
 ## 2026-06-08
 

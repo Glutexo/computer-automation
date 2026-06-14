@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### Safari database access moved to its own module
+
+- Split direct `SafariTabs.db` access out of the `Safari` domain module into a dedicated `SafariDatabase` module.
+- Modeled persisted database entities separately as `SafariDatabaseProfile`, `SafariDatabaseWindow`, and `SafariDatabaseTabGroup`.
+- Kept CLI command ownership and user-facing records in `Safari`; that module now maps database records into Safari domain records.
+- Preserved the existing database access behavior: readability preflight, short SQLite busy timeout, `safari windows` degradation when the database is unavailable, and actionable Full Disk Access errors.
+
 ### Safari database access fails fast and windows degrades
 
 - Added a shared Safari database opener for direct `SafariTabs.db` access.

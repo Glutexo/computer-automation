@@ -5,7 +5,7 @@ Minimal Swift application for computer automation experiments.
 ## Overview
 
 - The repository is organized by top-level modules.
-- The current modules are `Safari`, `SafariUserInterface`, and `SafariAppleScript`.
+- The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
 - The current runnable slice covers Safari application lifecycle commands, profile listing, browser window operations, saved tab-group create/read/delete flows, and window-level tab-group switching.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
@@ -20,7 +20,7 @@ Minimal Swift application for computer automation experiments.
 ## Current app
 
 - Built with Swift Package Manager.
-- The executable currently depends on the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.
+- The runnable stack currently includes the `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript` modules.
 - The `Safari` module exposes application, profile, window, saved tab-group, and tab commands.
 - Requires macOS with Safari installed.
 
@@ -56,7 +56,7 @@ Running the executable launches Safari on macOS.
 
 ## Safari database access
 
-Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved tab-group, private-window, and selected tab-group metadata. On recent macOS versions, the terminal or app running `computer-automation` may need Full Disk Access to read that file.
+Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved tab-group, private-window, and selected tab-group metadata. Direct access to that database is isolated in the `SafariDatabase` module. On recent macOS versions, the terminal or app running `computer-automation` may need Full Disk Access to read that file.
 
 When the database is unavailable, `safari windows` still returns the window fields that Safari exposes through AppleScript: window index, private state as `false`, empty profile and tab-group fields, and window name. Commands that require saved Safari database records fail quickly with an actionable database access error instead of waiting indefinitely.
 

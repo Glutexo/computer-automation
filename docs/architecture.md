@@ -11,11 +11,15 @@ flowchart TD
     Safari["Safari module"]
     SafariUI["SafariUserInterface module"]
     SafariScript["SafariAppleScript module"]
+    SafariDB["SafariDatabase module"]
     SafariApplication["SafariApplication model"]
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
     SafariTabGroup["SafariTabGroup model"]
     SafariTab["SafariTab model"]
+    DBProfile["SafariDatabaseProfile model"]
+    DBWindow["SafariDatabaseWindow model"]
+    DBTabGroup["SafariDatabaseTabGroup model"]
     ScriptApplication["script application model"]
     ScriptWindow["script window model"]
     ScriptTab["script tab model"]
@@ -54,7 +58,9 @@ flowchart TD
     App --> SafariScript
     Safari --> Foundation
     Safari --> SafariScript
+    Safari --> SafariDB
     Safari --> SafariUI
+    SafariDB --> Foundation
     SafariUI --> Foundation
     SafariUI --> SafariScript
     SafariScript --> Foundation
@@ -63,6 +69,9 @@ flowchart TD
     Safari --> SafariWindow
     Safari --> SafariTabGroup
     Safari --> SafariTab
+    SafariDB --> DBProfile
+    SafariDB --> DBWindow
+    SafariDB --> DBTabGroup
     SafariScript --> ScriptApplication
     SafariScript --> ScriptWindow
     SafariScript --> ScriptTab
@@ -83,12 +92,15 @@ flowchart TD
     SafariApplication --> Running
     SafariApplication --> Quit
     SafariProfile --> Profiles
+    SafariProfile --> DBProfile
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate
     SafariWindow --> Windows
     SafariWindow --> WindowClose
+    SafariWindow --> DBWindow
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupTabs
+    SafariTabGroup --> DBTabGroup
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> WindowTabs
@@ -126,9 +138,12 @@ flowchart TD
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - UI automation must remain independent of the macOS and Safari language setting.
 - Direct AppleScript access should live in `SafariAppleScript`, not inside `Safari` or `SafariUserInterface`.
-- Saved tab-group metadata currently comes from Safari's local database rather than AppleScript.
+- Direct `SafariTabs.db` access should live in `SafariDatabase`, not inside `Safari`.
+- Persisted Safari database entities are modeled separately as `SafariDatabaseProfile`, `SafariDatabaseWindow`, and `SafariDatabaseTabGroup`.
+- The `Safari` module maps database records into domain records and keeps command ownership, CLI formatting, and higher-level automation behavior.
+- Saved tab-group metadata currently comes from Safari's local database through `SafariDatabase` rather than AppleScript.
 - Direct tab CRUD currently lives across `SafariTab` and `SafariAppleScriptTab` because Safari exposes tab URL state directly in AppleScript.
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.
-- The current executable is a thin entry point over the `Safari`, `SafariUserInterface`, and `SafariAppleScript` modules.
+- The current executable is a thin entry point over the `Safari`, `SafariUserInterface`, `SafariAppleScript`, and `SafariDatabase` modules.

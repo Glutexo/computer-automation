@@ -3,9 +3,25 @@ import Foundation
 import SQLite3
 @testable import AutomationFoundation
 @testable import SafariAppleScript
+@testable import SafariDatabase
 @testable import Safari
 @testable import SafariUserInterface
 @testable import ComputerAutomationKit
+
+@Test func safariDatabaseModuleExposesDatabaseEntityMetadata() async throws {
+    #expect(SafariDatabaseModule.descriptor.name == "safari-database")
+    #expect(
+        SafariDatabaseModule.descriptor.models ==
+        [
+            SafariDatabaseProfile.descriptor,
+            SafariDatabaseWindow.descriptor,
+            SafariDatabaseTabGroup.descriptor
+        ]
+    )
+    #expect(SafariDatabaseProfile.descriptor.name == "profile")
+    #expect(SafariDatabaseWindow.descriptor.name == "window")
+    #expect(SafariDatabaseTabGroup.descriptor.name == "tab-group")
+}
 
 @Test func safariModuleExposesApplicationModelMetadata() async throws {
     #expect(SafariModule.descriptor.name == "safari")
@@ -2062,7 +2078,7 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     defer { sqlite3_close(database) }
     #expect(sqlite3_exec(database, setupSQL, nil, nil, nil) == SQLITE_OK)
 
-    let profiles = try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
+    let profiles = try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
     #expect(
         profiles ==
         [
@@ -2078,8 +2094,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
         .appendingPathComponent("Missing.db")
         .path
 
-    #expect(throws: SafariWindowCommandError.databaseOpenFailed(path: missingPath)) {
-        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: missingPath)
+    #expect(throws: SafariDatabaseError.openFailed(path: missingPath)) {
+        try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: missingPath)
     }
 }
 
@@ -2087,8 +2103,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     let databasePath = try makeTemporaryDatabase()
     defer { try? FileManager.default.removeItem(atPath: databasePath) }
 
-    #expect(throws: SafariWindowCommandError.queryPreparationFailed) {
-        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
+    #expect(throws: SafariDatabaseError.queryPreparationFailed(modelName: "window")) {
+        try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: databasePath)
     }
 }
 
@@ -2124,7 +2140,7 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
+        try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
         [
             1: "Glutexo",
             2: "",
@@ -2163,7 +2179,7 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
+        try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) ==
         [
             1: "Twisto"
         ]
@@ -2204,11 +2220,11 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariWindow.loadWindowStateByWindowIdentifier(databasePath: databasePath) ==
+        try SafariDatabaseWindow.loadStateByWindowIdentifier(databasePath: databasePath) ==
         [
-            1: SafariWindowState(profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: false),
-            2: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: true),
-            3: SafariWindowState(profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", isPrivate: false)
+            1: SafariDatabaseWindowStateRecord(profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: false),
+            2: SafariDatabaseWindowStateRecord(profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, isPrivate: true),
+            3: SafariDatabaseWindowStateRecord(profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", isPrivate: false)
         ]
     )
 }
@@ -2242,9 +2258,9 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariTabGroup.list(databasePath: databasePath) ==
+        try SafariDatabaseTabGroup.list(databasePath: databasePath) ==
         [
-            SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+            SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
         ]
     )
 }
@@ -2255,19 +2271,19 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
         .appendingPathComponent("Missing.db")
         .path
 
-    #expect(throws: SafariTabGroupCommandError.databaseOpenFailed(path: missingPath)) {
-        try SafariTabGroup.list(databasePath: missingPath)
+    #expect(throws: SafariDatabaseError.openFailed(path: missingPath)) {
+        try SafariDatabaseTabGroup.list(databasePath: missingPath)
     }
 
     let databasePath = try makeTemporaryDatabase()
     defer { try? FileManager.default.removeItem(atPath: databasePath) }
 
-    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
-        try SafariTabGroup.list(databasePath: databasePath)
+    #expect(throws: SafariDatabaseError.queryPreparationFailed(modelName: "tab-group")) {
+        try SafariDatabaseTabGroup.list(databasePath: databasePath)
     }
 
-    #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
-        try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath)
+    #expect(throws: SafariDatabaseError.queryPreparationFailed(modelName: "tab-group")) {
+        try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath)
     }
 }
 
@@ -2300,11 +2316,11 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath) ==
+        try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath) ==
         [
-            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),
-            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 2, url: "https://openai.com"),
-            SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 3, url: "")
+            SafariDatabaseTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),
+            SafariDatabaseTabGroupTabRecord(tabGroupIdentifier: 1000, index: 2, url: "https://openai.com"),
+            SafariDatabaseTabGroupTabRecord(tabGroupIdentifier: 1000, index: 3, url: "")
         ]
     )
 }
@@ -2332,8 +2348,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
 
     try executeSQL(setupSQL, at: databasePath)
 
-    #expect(try SafariTabGroup.listTabs(tabGroupIdentifier: 9999, databasePath: databasePath).isEmpty)
-    #expect(try SafariTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath).isEmpty)
+    #expect(try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 9999, databasePath: databasePath).isEmpty)
+    #expect(try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath).isEmpty)
 }
 
 @Test func safariTabGroupDeleteRemovesGroupAndDescendants() async throws {
@@ -2362,11 +2378,11 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariTabGroup.delete(tabGroupIdentifier: 1000, databasePath: databasePath) ==
-        SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+        try SafariDatabaseTabGroup.delete(tabGroupIdentifier: 1000, databasePath: databasePath) ==
+        SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
     )
-    #expect(try SafariTabGroup.list(databasePath: databasePath) == [
-        SafariTabGroupRecord(identifier: 2000, profileName: "Twisto", name: "Inbox")
+    #expect(try SafariDatabaseTabGroup.list(databasePath: databasePath) == [
+        SafariDatabaseTabGroupRecord(identifier: 2000, profileName: "Twisto", name: "Inbox")
     ])
 
     let database = try #require(openDatabase(at: databasePath))
@@ -2407,19 +2423,19 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     let createResult = sqlite3_exec(database, setupSQL, nil, nil, nil)
     #expect(createResult == SQLITE_OK)
 
-    let profiles = try SafariProfile.listAvailableProfiles(databasePath: databasePath)
+    let profiles = try SafariDatabaseProfile.list(databasePath: databasePath)
     #expect(
         profiles ==
         [
-            SafariProfileRecord(name: "Glutexo", identifier: "DefaultProfile"),
-            SafariProfileRecord(name: "Twisto", identifier: "33782F17-8AAD-41EA-BCB5-71A1A8348C55")
+            SafariDatabaseProfileRecord(name: "Glutexo", identifier: "DefaultProfile"),
+            SafariDatabaseProfileRecord(name: "Twisto", identifier: "33782F17-8AAD-41EA-BCB5-71A1A8348C55")
         ]
     )
 }
 
 @Test func safariProfileDatabasePathUsesProvidedHomeDirectory() async throws {
     #expect(
-        SafariProfile.databasePath(homeDirectory: "/tmp/example-home") ==
+        SafariTabsDatabase.databasePath(homeDirectory: "/tmp/example-home") ==
         "/tmp/example-home/Library/Containers/com.apple.Safari/Data/Library/Safari/SafariTabs.db"
     )
 }
@@ -2430,8 +2446,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
         .appendingPathComponent("Missing.db")
         .path
 
-    #expect(throws: SafariProfileCommandError.databaseOpenFailed(path: missingPath)) {
-        try SafariProfile.listAvailableProfiles(databasePath: missingPath)
+    #expect(throws: SafariDatabaseError.openFailed(path: missingPath)) {
+        try SafariDatabaseProfile.list(databasePath: missingPath)
     }
 }
 
@@ -2439,8 +2455,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     let databasePath = try makeTemporaryDatabase()
     defer { try? FileManager.default.removeItem(atPath: databasePath) }
 
-    #expect(throws: SafariProfileCommandError.queryPreparationFailed) {
-        try SafariProfile.listAvailableProfiles(databasePath: databasePath)
+    #expect(throws: SafariDatabaseError.queryPreparationFailed(modelName: "profile")) {
+        try SafariDatabaseProfile.list(databasePath: databasePath)
     }
 }
 
@@ -2468,10 +2484,10 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     try executeSQL(setupSQL, at: databasePath)
 
     #expect(
-        try SafariProfile.listAvailableProfiles(databasePath: databasePath) ==
+        try SafariDatabaseProfile.list(databasePath: databasePath) ==
         [
-            SafariProfileRecord(name: "Beta", identifier: "beta-id"),
-            SafariProfileRecord(name: "Alpha", identifier: "alpha-id")
+            SafariDatabaseProfileRecord(name: "Beta", identifier: "beta-id"),
+            SafariDatabaseProfileRecord(name: "Alpha", identifier: "alpha-id")
         ]
     )
 }
