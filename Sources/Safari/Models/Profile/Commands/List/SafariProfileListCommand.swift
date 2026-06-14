@@ -1,6 +1,6 @@
 import AutomationFoundation
 
-public struct SafariProfileListCommand: CommandModel {
+public struct SafariProfileListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "profiles",
         abstract: "List available Safari profiles.",
@@ -23,4 +23,12 @@ public struct SafariProfileListCommand: CommandModel {
         let profiles = try listProfiles()
         return profiles.map(\.name).joined(separator: "\n")
     }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        try CommandJSONEncoder.encode(SafariProfileListJSONOutput(profiles: listProfiles()))
+    }
+}
+
+private struct SafariProfileListJSONOutput: Encodable {
+    let profiles: [SafariProfileRecord]
 }

@@ -2,7 +2,7 @@ import AutomationFoundation
 import Foundation
 import SafariDatabase
 
-public struct SafariProfileRecord: Equatable, Sendable {
+public struct SafariProfileRecord: Equatable, Sendable, Encodable {
     public let name: String
     public let identifier: String
 

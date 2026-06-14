@@ -392,6 +392,13 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output == "true" || output == "false")
 }
 
+@Test func cliDispatchesSafariCommandInJSONMode() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["--json", "safari", "running"])
+    let object = try jsonObject(output)
+
+    #expect(object["running"] is Bool)
+}
+
 @Test func cliSurfacesUnknownSafariUiCommand() async throws {
     #expect(throws: CLIError.unknownCommand(moduleName: "safari-ui", commandName: "unknown")) {
         try ComputerAutomationCLI.run(arguments: ["safari-ui", "unknown"])
@@ -1496,6 +1503,36 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     )
 
     #expect(try command.execute(arguments: ["https://example.com"]) == "42|1|2|https://example.com|Example")
+}
+
+@Test func safariTabFindCommandFormatsJSONWithoutEscapedDelimiterAmbiguity() async throws {
+    let command = SafariTabFindCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabs: { _, _, _, _, _, _ in
+            [
+                SafariTabMatchRecord(
+                    windowIdentifier: 42,
+                    windowIndex: 1,
+                    tabIndex: 2,
+                    url: "https://example.com/a|b",
+                    title: "Example | Home"
+                )
+            ]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["https://example.com", "--prefix"])
+    let object = try jsonObject(output)
+    let matches = try #require(object["matches"] as? [[String: Any]])
+    let match = try #require(matches.first)
+
+    #expect(object["query"] as? String == "https://example.com")
+    #expect(object["matchMode"] as? String == "prefix")
+    #expect(match["windowId"] as? Int == 42)
+    #expect(match["windowIndex"] as? Int == 1)
+    #expect(match["tabIndex"] as? Int == 2)
+    #expect(match["url"] as? String == "https://example.com/a|b")
+    #expect(match["title"] as? String == "Example | Home")
 }
 
 @Test func safariTabFindCommandParsesPrefixWindowAndProfileFilters() async throws {
@@ -2792,6 +2829,11 @@ private func makeStructuredTabList(_ rows: [(Int, Int, String, String)]) -> NSAp
     }
 
     return listDescriptor
+}
+
+private func jsonObject(_ value: String) throws -> [String: Any] {
+    let data = Data(value.utf8)
+    return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 }
 
 private func emptyToNil(_ value: String) -> String? {

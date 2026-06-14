@@ -30,6 +30,7 @@
 | `SafariTabGroup` | `delete-tab-group` | `D` | Delete a saved Safari tab group. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
+| `SafariTab` | `find-tab` | `R` | Find open Safari tabs by URL. |
 | `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
 | `SafariTab` | `close-tab` | `D` | Close a Safari tab. |
@@ -258,6 +259,7 @@ ORDER BY id;
 - `find-tab --prefix` matches tabs whose URL starts with the requested URL.
 - `find-tab --window-id <id>` and `find-tab --window-index <index>` narrow matches to one Safari window.
 - `find-tab --profile <name>` narrows matches to windows whose profile metadata is available through `SafariWindow`.
+- `--json safari find-tab <url>` returns structured JSON with the search query, match mode, optional filters, and a `matches` array.
 - `window-tabs <window-index>` returns one line per tab as:
   - `tabIndex|selectedTabGroupTabIndex|url`
 - `window-tabs` compares live tabs with the currently selected saved tab group of that window.

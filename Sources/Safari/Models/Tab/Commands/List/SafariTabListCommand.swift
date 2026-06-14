@@ -1,7 +1,7 @@
 import AutomationFoundation
 import SafariAppleScript
 
-public struct SafariTabListCommand: CommandModel {
+public struct SafariTabListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "tabs",
         abstract: "List Safari browser tabs across all open windows.",
@@ -32,5 +32,27 @@ public struct SafariTabListCommand: CommandModel {
         return tabs
             .map { "\($0.windowIndex)|\($0.index)|\($0.url)" }
             .joined(separator: "\n")
+    }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        try CommandJSONEncoder.encode(SafariTabListJSONOutput(tabs: listTabs(executor).map(SafariTabJSONRecord.init)))
+    }
+}
+
+private struct SafariTabListJSONOutput: Encodable {
+    let tabs: [SafariTabJSONRecord]
+}
+
+private struct SafariTabJSONRecord: Encodable {
+    let windowIndex: Int
+    let tabIndex: Int
+    let url: String
+    let title: String
+
+    init(_ record: SafariTabRecord) {
+        self.windowIndex = record.windowIndex
+        self.tabIndex = record.index
+        self.url = record.url
+        self.title = record.title
     }
 }

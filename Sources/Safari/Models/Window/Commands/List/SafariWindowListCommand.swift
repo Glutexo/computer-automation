@@ -2,7 +2,7 @@ import AutomationFoundation
 import SafariAppleScript
 import SafariUserInterface
 
-public struct SafariWindowListCommand: CommandModel {
+public struct SafariWindowListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "windows",
         abstract: "List open Safari browser windows.",
@@ -35,4 +35,12 @@ public struct SafariWindowListCommand: CommandModel {
             .map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)" }
             .joined(separator: "\n")
     }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        try CommandJSONEncoder.encode(SafariWindowListJSONOutput(windows: listWindows(executor)))
+    }
+}
+
+private struct SafariWindowListJSONOutput: Encodable {
+    let windows: [SafariWindowRecord]
 }

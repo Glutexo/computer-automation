@@ -4,7 +4,7 @@ import SafariAppleScript
 import SafariDatabase
 import SafariUserInterface
 
-public struct SafariWindowRecord: Equatable, Sendable {
+public struct SafariWindowRecord: Equatable, Sendable, Encodable {
     public let identifier: Int
     public let index: Int
     public let isPrivate: Bool

@@ -16,15 +16,23 @@ public enum SafariUserInterfaceModule: ModuleModel {
     )
 
     public static func execute(commandName: String, arguments: [String]) throws -> String {
+        try execute(commandName: commandName, arguments: arguments, outputFormat: .text)
+    }
+
+    public static func execute(
+        commandName: String,
+        arguments: [String],
+        outputFormat: CommandOutputFormat = .text
+    ) throws -> String {
         switch commandName {
         case SafariApplicationMenuBarListCommand.descriptor.name:
-            return try SafariApplicationMenuBarListCommand().execute(arguments: arguments)
+            return try CommandOutputRenderer.execute(SafariApplicationMenuBarListCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariMenuListItemsCommand.descriptor.name:
-            return try SafariMenuListItemsCommand().execute(arguments: arguments)
+            return try CommandOutputRenderer.execute(SafariMenuListItemsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariFileMenuListCommand.descriptor.name:
-            return try SafariFileMenuListCommand().execute(arguments: arguments)
+            return try CommandOutputRenderer.execute(SafariFileMenuListCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariMenuItemListChildItemsCommand.descriptor.name:
-            return try SafariMenuItemListChildItemsCommand().execute(arguments: arguments)
+            return try CommandOutputRenderer.execute(SafariMenuItemListChildItemsCommand(), arguments: arguments, outputFormat: outputFormat)
         default:
             throw CLIError.unknownCommand(moduleName: descriptor.name, commandName: commandName)
         }

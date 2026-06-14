@@ -2,7 +2,7 @@ import AppKit
 import AutomationFoundation
 import SafariAppleScript
 
-public struct SafariTabRecord: Equatable, Sendable {
+public struct SafariTabRecord: Equatable, Sendable, Encodable {
     public let windowIndex: Int
     public let index: Int
     public let url: String
@@ -16,7 +16,7 @@ public struct SafariTabRecord: Equatable, Sendable {
     }
 }
 
-public struct SafariWindowTabRecord: Equatable, Sendable {
+public struct SafariWindowTabRecord: Equatable, Sendable, Encodable {
     public let index: Int
     public let selectedTabGroupTabIndex: Int?
     public let url: String
@@ -28,7 +28,7 @@ public struct SafariWindowTabRecord: Equatable, Sendable {
     }
 }
 
-public struct SafariTabMatchRecord: Equatable, Sendable {
+public struct SafariTabMatchRecord: Equatable, Sendable, Encodable {
     public let windowIdentifier: Int
     public let windowIndex: Int
     public let tabIndex: Int
@@ -44,7 +44,7 @@ public struct SafariTabMatchRecord: Equatable, Sendable {
     }
 }
 
-enum SafariTabURLMatchMode: Equatable {
+enum SafariTabURLMatchMode: String, Equatable {
     case exact
     case prefix
 }

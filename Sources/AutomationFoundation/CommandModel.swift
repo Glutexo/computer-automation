@@ -1,7 +1,59 @@
+import Foundation
+
 public protocol CommandModel {
     static var descriptor: CommandDescriptor { get }
 
     func execute(arguments: [String]) throws -> String
+}
+
+public enum CommandOutputFormat: Sendable, Equatable {
+    case text
+    case json
+}
+
+public protocol JSONCommandModel: CommandModel {
+    func executeJSON(arguments: [String]) throws -> String
+}
+
+public struct JSONMessageOutput: Encodable, Sendable {
+    public let message: String
+
+    public init(message: String) {
+        self.message = message
+    }
+}
+
+public enum CommandJSONEncoder {
+    public static func encode<T: Encodable>(_ value: T) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(value)
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+public enum CommandOutputRenderer {
+    public static func execute(
+        _ command: some CommandModel,
+        arguments: [String],
+        outputFormat: CommandOutputFormat
+    ) throws -> String {
+        switch outputFormat {
+        case .text:
+            return try command.execute(arguments: arguments)
+        case .json:
+            if let jsonCommand = command as? any JSONCommandModel {
+                return try jsonCommand.executeJSON(arguments: arguments)
+            }
+            return try CommandJSONEncoder.encode(JSONMessageOutput(message: command.execute(arguments: arguments)))
+        }
+    }
+}
+
+public extension JSONCommandModel {
+    func executeJSON(arguments: [String]) throws -> String {
+        try CommandJSONEncoder.encode(JSONMessageOutput(message: execute(arguments: arguments)))
+    }
 }
 
 public enum CRUDOperation: String, Sendable {

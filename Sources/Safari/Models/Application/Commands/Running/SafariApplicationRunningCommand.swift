@@ -1,6 +1,6 @@
 import AutomationFoundation
 
-public struct SafariApplicationRunningCommand: CommandModel {
+public struct SafariApplicationRunningCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "running",
         abstract: "Report whether Safari is currently running.",
@@ -22,4 +22,12 @@ public struct SafariApplicationRunningCommand: CommandModel {
     public func execute(arguments: [String] = []) throws -> String {
         isRunning() ? "true" : "false"
     }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        try CommandJSONEncoder.encode(SafariApplicationRunningJSONOutput(running: isRunning()))
+    }
+}
+
+private struct SafariApplicationRunningJSONOutput: Encodable {
+    let running: Bool
 }

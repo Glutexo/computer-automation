@@ -3,7 +3,7 @@ import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
-public struct SafariWindowOpenCommand: CommandModel {
+public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "open-window",
         abstract: "Open a new Safari browser window.",
@@ -45,14 +45,30 @@ public struct SafariWindowOpenCommand: CommandModel {
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
+        let result = try openWindowResult(arguments: arguments)
+        return formatSuccessMessage(result.message, windowIdentifier: result.windowIdentifier)
+    }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        let result = try openWindowResult(arguments: arguments)
+        return try CommandJSONEncoder.encode(
+            SafariWindowOpenJSONOutput(
+                message: result.message,
+                windowId: result.windowIdentifier,
+                profileName: result.profileName
+            )
+        )
+    }
+
+    private func openWindowResult(arguments: [String]) throws -> SafariWindowOpenResult {
         if let requestedProfile = arguments.first, !requestedProfile.isEmpty {
             return try openWindow(forProfileNamed: requestedProfile)
         }
         let windowIdentifier = try openWindowAndResolveIdentifier(profileName: nil)
-        return formatSuccessMessage("Safari window opened.", windowIdentifier: windowIdentifier)
+        return SafariWindowOpenResult(message: "Safari window opened.", windowIdentifier: windowIdentifier, profileName: nil)
     }
 
-    private func openWindow(forProfileNamed profileName: String) throws -> String {
+    private func openWindow(forProfileNamed profileName: String) throws -> SafariWindowOpenResult {
         do {
             let profiles = try listProfiles()
             guard profiles.contains(where: { $0.name == profileName }) else {
@@ -71,7 +87,11 @@ public struct SafariWindowOpenCommand: CommandModel {
         }
         let windowIdentifier = try resolveNewWindowIdentifier(excluding: knownWindowIdentifiers)
 
-        return formatSuccessMessage("Safari window opened for profile \(profileName).", windowIdentifier: windowIdentifier)
+        return SafariWindowOpenResult(
+            message: "Safari window opened for profile \(profileName).",
+            windowIdentifier: windowIdentifier,
+            profileName: profileName
+        )
     }
 
     private func openWindowAndResolveIdentifier(profileName: String?) throws -> Int {
@@ -102,4 +122,16 @@ public struct SafariWindowOpenCommand: CommandModel {
     private func formatSuccessMessage(_ message: String, windowIdentifier: Int) -> String {
         "\(message)\nwindow-id|\(windowIdentifier)"
     }
+}
+
+private struct SafariWindowOpenResult {
+    let message: String
+    let windowIdentifier: Int
+    let profileName: String?
+}
+
+private struct SafariWindowOpenJSONOutput: Encodable {
+    let message: String
+    let windowId: Int
+    let profileName: String?
 }

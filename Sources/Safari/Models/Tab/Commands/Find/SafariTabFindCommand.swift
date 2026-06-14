@@ -1,7 +1,7 @@
 import AutomationFoundation
 import SafariAppleScript
 
-public struct SafariTabFindCommand: CommandModel {
+public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "find-tab",
         abstract: "Find Safari tabs by URL.",
@@ -68,6 +68,29 @@ public struct SafariTabFindCommand: CommandModel {
         return matches
             .map { "\($0.windowIdentifier)|\($0.windowIndex)|\($0.tabIndex)|\($0.url)|\($0.title)" }
             .joined(separator: "\n")
+    }
+
+    public func executeJSON(arguments: [String]) throws -> String {
+        let request = try parse(arguments)
+        let matches = try findTabs(
+            request.url,
+            request.matchMode,
+            request.windowIdentifier,
+            request.windowIndex,
+            request.profileName,
+            executor
+        )
+
+        return try CommandJSONEncoder.encode(
+            SafariTabFindJSONOutput(
+                query: request.url,
+                matchMode: request.matchMode.rawValue,
+                windowId: request.windowIdentifier,
+                windowIndex: request.windowIndex,
+                profileName: request.profileName,
+                matches: matches.map(SafariTabMatchJSONRecord.init)
+            )
+        )
     }
 
     private func parse(_ arguments: [String]) throws -> SafariTabFindRequest {
@@ -152,6 +175,31 @@ private struct SafariTabFindRequest: Equatable {
     let windowIdentifier: Int?
     let windowIndex: Int?
     let profileName: String?
+}
+
+private struct SafariTabFindJSONOutput: Encodable {
+    let query: String
+    let matchMode: String
+    let windowId: Int?
+    let windowIndex: Int?
+    let profileName: String?
+    let matches: [SafariTabMatchJSONRecord]
+}
+
+private struct SafariTabMatchJSONRecord: Encodable {
+    let windowId: Int
+    let windowIndex: Int
+    let tabIndex: Int
+    let url: String
+    let title: String
+
+    init(_ record: SafariTabMatchRecord) {
+        self.windowId = record.windowIdentifier
+        self.windowIndex = record.windowIndex
+        self.tabIndex = record.tabIndex
+        self.url = record.url
+        self.title = record.title
+    }
 }
 
 private extension String {

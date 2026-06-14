@@ -3,7 +3,7 @@ import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
-public struct SafariTabGroupCreateCommand: CommandModel {
+public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "create-tab-group",
         abstract: "Create a new saved Safari tab group in a specific window.",
@@ -57,6 +57,14 @@ public struct SafariTabGroupCreateCommand: CommandModel {
     }
 
     public func execute(arguments: [String]) throws -> String {
+        try SafariTabGroup.format(createTabGroup(arguments: arguments))
+    }
+
+    public func executeJSON(arguments: [String]) throws -> String {
+        try CommandJSONEncoder.encode(SafariTabGroupMutationJSONOutput(tabGroup: createTabGroup(arguments: arguments)))
+    }
+
+    private func createTabGroup(arguments: [String]) throws -> SafariTabGroupRecord {
         guard let rawWindowIndex = arguments.first else {
             throw SafariTabGroupCommandError.missingWindowIndex
         }
@@ -117,7 +125,7 @@ public struct SafariTabGroupCreateCommand: CommandModel {
             identifier: createdGroup.identifier,
             expectedName: name
         )
-        return SafariTabGroup.format(renamedGroup)
+        return renamedGroup
     }
 
     private func resolveEffectiveProfileName(
@@ -182,4 +190,8 @@ public struct SafariTabGroupCreateCommand: CommandModel {
 
         throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
     }
+}
+
+private struct SafariTabGroupMutationJSONOutput: Encodable {
+    let tabGroup: SafariTabGroupRecord
 }

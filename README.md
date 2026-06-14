@@ -45,6 +45,7 @@ swift run computer-automation safari open-tab 1 https://example.com
 swift run computer-automation safari tabs
 swift run computer-automation safari find-tab https://example.com
 swift run computer-automation safari find-tab https://example.com --prefix --window-id 42 --profile Twisto
+swift run computer-automation --json safari find-tab https://example.com --prefix
 swift run computer-automation safari window-tabs 1
 swift run computer-automation safari set-tab-url 1 1 https://example.com
 swift run computer-automation safari close-tab 1 1
@@ -67,6 +68,12 @@ window-id|42
 
 ```text
 windowId|windowIndex|tabIndex|url|title
+```
+
+Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
+
+```bash
+swift run computer-automation --json safari find-tab https://example.com --prefix
 ```
 
 ## Safari database access

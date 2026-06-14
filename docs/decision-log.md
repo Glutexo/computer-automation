@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### CLI JSON output mode
+
+- Added a global `--json` command output mode before module commands, for example `computer-automation --json safari find-tab https://example.com`.
+- Kept existing text output unchanged and implemented JSON as a parallel command output path in `AutomationFoundation` instead of parsing pipe-delimited text back into records.
+- Commands with structured records return JSON objects or arrays, while simple status and mutation commands fall back to a JSON `message` object.
+- This gives callers a delimiter-safe way to consume URLs, titles, menu labels, and tab-group names that may contain `|`.
+
 ### Safari tab lookup by URL
 
 - Added `safari find-tab <url>` as the supported high-level way to locate open Safari tabs by URL instead of duplicating AppleScript loops in callers.

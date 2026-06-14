@@ -4,6 +4,23 @@ public protocol ModuleModel {
     static func execute(commandName: String, arguments: [String]) throws -> String
 }
 
+public extension ModuleModel {
+    static func execute(
+        commandName: String,
+        arguments: [String],
+        outputFormat: CommandOutputFormat
+    ) throws -> String {
+        switch outputFormat {
+        case .text:
+            return try execute(commandName: commandName, arguments: arguments)
+        case .json:
+            return try CommandJSONEncoder.encode(
+                JSONMessageOutput(message: execute(commandName: commandName, arguments: arguments))
+            )
+        }
+    }
+}
+
 public struct ModuleDescriptor: Sendable, Equatable {
     public let name: String
     public let abstract: String

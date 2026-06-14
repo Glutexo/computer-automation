@@ -46,6 +46,7 @@ flowchart TD
     TabGroupTabs["tab-group-tabs command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
+    TabFind["find-tab command"]
     WindowTabs["window-tabs command"]
     TabSetURL["set-tab-url command"]
     TabClose["close-tab command"]
@@ -103,6 +104,7 @@ flowchart TD
     SafariTabGroup --> DBTabGroup
     SafariTab --> TabOpen
     SafariTab --> Tabs
+    SafariTab --> TabFind
     SafariTab --> WindowTabs
     SafariTab --> TabSetURL
     SafariTab --> TabClose
@@ -118,6 +120,7 @@ flowchart TD
 - Models represent distinct parts of a module's domain.
 - Prefer general structural UI models before adding specialized models for concrete application areas.
 - Keep related operations on one feature aligned to one primary automation surface whenever the product allows it.
+- `AutomationFoundation` owns shared command metadata, dispatch output formats, JSON output helpers, completion, and shell completion installation.
 - Apply YAGNI before expanding the model graph: add a new model only when current behavior needs that surface, not for speculative symmetry.
 - When a feature relies on a Safari accessibility structure, represent that structure as a reusable `SafariUserInterface` model with a matching `SafariAppleScript` infrastructure model before building higher-level orchestration on top.
 - Keep specialized models for behaviors that are genuinely specific to one concrete UI surface.

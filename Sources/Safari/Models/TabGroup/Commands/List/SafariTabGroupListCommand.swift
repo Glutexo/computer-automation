@@ -1,6 +1,6 @@
 import AutomationFoundation
 
-public struct SafariTabGroupListCommand: CommandModel {
+public struct SafariTabGroupListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "tab-groups",
         abstract: "List saved Safari tab groups.",
@@ -24,4 +24,12 @@ public struct SafariTabGroupListCommand: CommandModel {
             .map { "\($0.identifier)|\($0.profileName)|\($0.name)" }
             .joined(separator: "\n")
     }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        try CommandJSONEncoder.encode(SafariTabGroupListJSONOutput(tabGroups: listTabGroups()))
+    }
+}
+
+private struct SafariTabGroupListJSONOutput: Encodable {
+    let tabGroups: [SafariTabGroupRecord]
 }

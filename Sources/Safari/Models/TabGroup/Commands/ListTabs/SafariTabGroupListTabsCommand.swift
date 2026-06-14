@@ -1,6 +1,6 @@
 import AutomationFoundation
 
-public struct SafariTabGroupListTabsCommand: CommandModel {
+public struct SafariTabGroupListTabsCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "tab-group-tabs",
         abstract: "List tabs stored in a saved Safari tab group.",
@@ -23,6 +23,21 @@ public struct SafariTabGroupListTabsCommand: CommandModel {
     }
 
     public func execute(arguments: [String] = []) throws -> String {
+        let tabGroupIdentifier = try parseTabGroupIdentifier(arguments)
+        let tabs = try listTabs(tabGroupIdentifier)
+        return tabs
+            .map { "\($0.index)|\($0.url)" }
+            .joined(separator: "\n")
+    }
+
+    public func executeJSON(arguments: [String] = []) throws -> String {
+        let tabGroupIdentifier = try parseTabGroupIdentifier(arguments)
+        return try CommandJSONEncoder.encode(
+            SafariTabGroupTabsJSONOutput(tabGroupIdentifier: tabGroupIdentifier, tabs: listTabs(tabGroupIdentifier))
+        )
+    }
+
+    private func parseTabGroupIdentifier(_ arguments: [String]) throws -> Int {
         guard let rawTabGroupIdentifier = arguments.first else {
             throw SafariTabGroupCommandError.missingTabGroupIdentifier
         }
@@ -31,9 +46,11 @@ public struct SafariTabGroupListTabsCommand: CommandModel {
             throw SafariTabGroupCommandError.invalidTabGroupIdentifier(rawTabGroupIdentifier)
         }
 
-        let tabs = try listTabs(tabGroupIdentifier)
-        return tabs
-            .map { "\($0.index)|\($0.url)" }
-            .joined(separator: "\n")
+        return tabGroupIdentifier
     }
+}
+
+private struct SafariTabGroupTabsJSONOutput: Encodable {
+    let tabGroupIdentifier: Int
+    let tabs: [SafariTabGroupTabRecord]
 }

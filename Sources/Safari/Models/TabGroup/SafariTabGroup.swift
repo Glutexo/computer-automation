@@ -2,7 +2,7 @@ import AutomationFoundation
 import Foundation
 import SafariDatabase
 
-public struct SafariTabGroupRecord: Equatable, Sendable {
+public struct SafariTabGroupRecord: Equatable, Sendable, Encodable {
     public let identifier: Int
     public let profileName: String
     public let name: String
@@ -14,7 +14,7 @@ public struct SafariTabGroupRecord: Equatable, Sendable {
     }
 }
 
-public struct SafariTabGroupTabRecord: Equatable, Sendable {
+public struct SafariTabGroupTabRecord: Equatable, Sendable, Encodable {
     public let tabGroupIdentifier: Int
     public let index: Int
     public let url: String

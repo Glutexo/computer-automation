@@ -1,7 +1,7 @@
 import AutomationFoundation
 import SafariAppleScript
 
-public struct SafariApplicationMenuBarListCommand: CommandModel {
+public struct SafariApplicationMenuBarListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "menu-bar-items",
         abstract: "List Safari application menu bar items.",
@@ -22,4 +22,12 @@ public struct SafariApplicationMenuBarListCommand: CommandModel {
         let items = try SafariApplicationMenuBar.listItems(executor: executor)
         return items.map(SafariMenuItem.formatIndexAndTitle).joined(separator: "\n")
     }
+
+    public func executeJSON(arguments: [String]) throws -> String {
+        try CommandJSONEncoder.encode(SafariMenuItemsJSONOutput(items: SafariApplicationMenuBar.listItems(executor: executor)))
+    }
+}
+
+private struct SafariMenuItemsJSONOutput: Encodable {
+    let items: [SafariMenuItemRecord]
 }

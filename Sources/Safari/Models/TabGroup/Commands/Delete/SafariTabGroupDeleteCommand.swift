@@ -3,7 +3,7 @@ import AutomationFoundation
 import SafariAppleScript
 import SafariUserInterface
 
-public struct SafariTabGroupDeleteCommand: CommandModel {
+public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "delete-tab-group",
         abstract: "Delete a saved Safari tab group.",
@@ -54,6 +54,14 @@ public struct SafariTabGroupDeleteCommand: CommandModel {
     }
 
     public func execute(arguments: [String]) throws -> String {
+        try SafariTabGroup.format(deleteTabGroup(arguments: arguments))
+    }
+
+    public func executeJSON(arguments: [String]) throws -> String {
+        try CommandJSONEncoder.encode(SafariTabGroupDeleteJSONOutput(tabGroup: deleteTabGroup(arguments: arguments)))
+    }
+
+    private func deleteTabGroup(arguments: [String]) throws -> SafariTabGroupRecord {
         guard let rawTabGroupIdentifier = arguments.first else {
             throw SafariTabGroupCommandError.missingTabGroupIdentifier
         }
@@ -74,6 +82,10 @@ public struct SafariTabGroupDeleteCommand: CommandModel {
         )
         try selectTabGroup(group.name, executor)
         try deleteSelectedTabGroup(executor)
-        return SafariTabGroup.format(group)
+        return group
     }
+}
+
+private struct SafariTabGroupDeleteJSONOutput: Encodable {
+    let tabGroup: SafariTabGroupRecord
 }
