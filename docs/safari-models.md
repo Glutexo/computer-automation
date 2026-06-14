@@ -27,6 +27,7 @@
 | `SafariWindow` | `set-window-tab-group` | `U` | Switch a Safari window to a saved tab group. |
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
 | `SafariTabGroup` | `create-tab-group` | `C` | Create a new saved Safari tab group in a specific window. |
+| `SafariTabGroup` | `ensure-tab-group` | `C` | Create or reuse a saved Safari tab group by profile and name. |
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
 | `SafariTabGroup` | `find-tab-group` | `R` | Find saved Safari tab groups by profile and name. |
 | `SafariTabGroup` | `resolve-tab-group` | `R` | Resolve exactly one saved Safari tab group by profile and name. |
@@ -68,6 +69,7 @@ flowchart TD
     WindowSetTabGroup["SafariWindowSetTabGroupCommand (U)"]
     WindowClose["SafariWindowCloseCommand (D)"]
     TabGroupCreate["SafariTabGroupCreateCommand (C)"]
+    TabGroupEnsure["SafariTabGroupEnsureCommand (C)"]
     TabGroups["SafariTabGroupListCommand (R)"]
     TabGroupFind["SafariTabGroupFindCommand (R)"]
     TabGroupResolve["SafariTabGroupResolveCommand (R)"]
@@ -106,6 +108,7 @@ flowchart TD
     SafariWindow --> WindowClose
     SafariWindow --> DBWindow
     SafariTabGroup --> TabGroupCreate
+    SafariTabGroup --> TabGroupEnsure
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
@@ -137,6 +140,7 @@ flowchart TD
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
 - `create-tab-group` is the create operation for the saved tab-group model.
+- `ensure-tab-group` is a create-or-reuse operation for the saved tab-group model and reports whether it created or reused the target group.
 - `tab-groups` is the read operation for the saved tab-group model.
 - `find-tab-group` is a read operation that returns zero, one, or many saved tab-group matches.
 - `resolve-tab-group` is a read operation that returns exactly one saved tab-group match and treats zero or multiple matches as errors.
@@ -231,6 +235,13 @@ ORDER BY id;
   - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
   - writes the requested name into Safari's post-create inline edit field for that selected group
   - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
+- `ensure-tab-group <profile> <name>`:
+  - reuses exactly one existing saved group when the profile/name lookup is unambiguous
+  - opens or focuses a non-private window for the requested profile when the group is missing
+  - delegates creation to the same create flow as `create-tab-group`
+  - fails on ambiguous existing groups rather than creating another duplicate
+  - text output reports `created` or `reused` and then prints `identifier|profile|name`
+  - JSON output returns `status` and `tabGroup`
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
 - `find-tab-group <profile> <name>` returns matching saved groups as:

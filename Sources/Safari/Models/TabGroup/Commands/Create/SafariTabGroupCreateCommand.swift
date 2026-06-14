@@ -77,6 +77,10 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
             throw SafariTabGroupCommandError.missingTabGroupName
         }
 
+        return try createTabGroup(windowIndex: windowIndex, name: rawName)
+    }
+
+    func createTabGroup(windowIndex: Int, name rawName: String) throws -> SafariTabGroupRecord {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             throw SafariTabGroupCommandError.emptyTabGroupName
@@ -84,7 +88,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
         let windows = try listWindows()
         guard let window = windows.first(where: { $0.index == windowIndex }) else {
-            throw SafariTabGroupCommandError.invalidWindowIndex(rawWindowIndex)
+            throw SafariTabGroupCommandError.invalidWindowIndex(String(windowIndex))
         }
 
         guard !window.isPrivate else {

@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/read/delete flows, window-level tab-group switching, and tab lookup by URL.
+- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar
@@ -40,6 +40,8 @@ swift run computer-automation safari close-window
 swift run computer-automation safari open-tab-group-window 1000
 swift run computer-automation safari set-window-tab-group 1 1000
 swift run computer-automation safari create-tab-group 1 Inbox
+swift run computer-automation safari ensure-tab-group Twisto Inbox
+swift run computer-automation --json safari ensure-tab-group Twisto Inbox
 swift run computer-automation safari tab-groups
 swift run computer-automation safari find-tab-group Twisto Focus
 swift run computer-automation safari resolve-tab-group Twisto Focus
@@ -81,6 +83,8 @@ windowId|windowIndex|tabIndex|url|title
 ```
 
 `safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
+
+`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

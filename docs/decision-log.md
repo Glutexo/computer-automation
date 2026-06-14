@@ -2,6 +2,12 @@
 
 ## 2026-06-14
 
+### Saved tab-group ensure summary
+
+- Added `safari ensure-tab-group <profile> <name>` as the first high-level slice of the saved tab-group create/reuse workflow.
+- The command reuses exactly one existing saved group or creates a missing group through the existing profile-window and `create-tab-group` flow.
+- The initial structured summary reports `status` as `created` or `reused` plus the resolved `tabGroup`; URL reconciliation and cleanup fields are left for later issues.
+
 ### Find and resolve command semantics
 
 - Documented `find-*` and `resolve-*` as separate read command forms rather than separate CRUD categories.

@@ -1,0 +1,93 @@
+import AutomationFoundation
+import SafariAppleScript
+import SafariUserInterface
+
+public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
+    public static let descriptor = CommandDescriptor(
+        name: "ensure-tab-group",
+        abstract: "Create or reuse a saved Safari tab group by profile and name.",
+        operation: .create,
+        arguments: SafariTabGroupFindCommand.descriptor.arguments
+    )
+
+    private let executor: SafariAppleScriptExecuting
+    private let findTabGroups: (String, String) throws -> [SafariTabGroupRecord]
+    private let listWindows: () throws -> [SafariWindowRecord]
+    private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
+    private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+    private let createTabGroup: (Int, String) throws -> SafariTabGroupRecord
+
+    public init() {
+        self.executor = SafariAppleScriptExecutor()
+        self.findTabGroups = { profileName, name in
+            try SafariTabGroup.find(profileName: profileName, name: name)
+        }
+        self.listWindows = { try SafariWindow.list() }
+        self.focusWindow = SafariAppleScriptWindow.focus
+        self.openWindow = { profileName, _ in
+            try SafariFileMenu.openWindow(profileName: profileName)
+        }
+        self.createTabGroup = { windowIndex, name in
+            try SafariTabGroupCreateCommand().createTabGroup(windowIndex: windowIndex, name: name)
+        }
+    }
+
+    init(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
+        findTabGroups: @escaping (String, String) throws -> [SafariTabGroupRecord] = { profileName, name in
+            try SafariTabGroup.find(profileName: profileName, name: name)
+        },
+        listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus,
+        openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
+        createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIndex, name in
+            try SafariTabGroupCreateCommand().createTabGroup(windowIndex: windowIndex, name: name)
+        }
+    ) {
+        self.executor = executor
+        self.findTabGroups = findTabGroups
+        self.listWindows = listWindows
+        self.focusWindow = focusWindow
+        self.openWindow = openWindow
+        self.createTabGroup = createTabGroup
+    }
+
+    public func execute(arguments: [String]) throws -> String {
+        let summary = try ensure(arguments: arguments)
+        return """
+        Safari tab group \(summary.status.rawValue).
+        \(SafariTabGroup.format(summary.tabGroup))
+        """
+    }
+
+    public func executeJSON(arguments: [String]) throws -> String {
+        try CommandJSONEncoder.encode(ensure(arguments: arguments))
+    }
+
+    private func ensure(arguments: [String]) throws -> SafariTabGroupEnsureSummary {
+        let request = try SafariTabGroupLookupRequest.parse(arguments)
+        let matches = try findTabGroups(request.profileName, request.name)
+
+        if let match = matches.first {
+            guard matches.count == 1 else {
+                throw SafariTabGroupCommandError.tabGroupLookupAmbiguous(
+                    profileName: request.profileName,
+                    tabGroupName: request.name,
+                    count: matches.count
+                )
+            }
+
+            return SafariTabGroupEnsureSummary(status: .reused, tabGroup: match)
+        }
+
+        let window = try SafariTabGroupSidebarAccess.focusWindowForProfile(
+            profileName: request.profileName,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openWindow: openWindow
+        )
+        let createdGroup = try createTabGroup(window.index, request.name)
+        return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
+    }
+}

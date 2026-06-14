@@ -84,6 +84,7 @@ import SQLite3
         SafariTabGroup.descriptor.commands ==
         [
             SafariTabGroupCreateCommand.descriptor,
+            SafariTabGroupEnsureCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
@@ -92,6 +93,7 @@ import SQLite3
         ]
     )
     #expect(SafariTabGroupCreateCommand.descriptor.operation == .create)
+    #expect(SafariTabGroupEnsureCommand.descriptor.operation == .create)
     #expect(SafariTabGroupListCommand.descriptor.operation == .read)
     #expect(SafariTabGroupListTabsCommand.descriptor.operation == .read)
     #expect(SafariTabGroupDeleteCommand.descriptor.operation == .delete)
@@ -175,6 +177,7 @@ import SQLite3
             CompletionSuggestion(value: "set-window-tab-group", abstract: "Switch a Safari window to a saved tab group."),
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
             CompletionSuggestion(value: "create-tab-group", abstract: "Create a new saved Safari tab group in a specific window."),
+            CompletionSuggestion(value: "ensure-tab-group", abstract: "Create or reuse a saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
             CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
@@ -255,6 +258,9 @@ import SQLite3
     #expect(createTabGroup.count == 2)
     #expect(createTabGroup[0].name == "window-index")
     #expect(createTabGroup[1].name == "name")
+
+    let ensureTabGroup = SafariTabGroupEnsureCommand.descriptor.arguments
+    #expect(ensureTabGroup == SafariTabGroupFindCommand.descriptor.arguments)
 
     let findProfile = SafariProfileFindCommand.descriptor.arguments
     #expect(findProfile.count == 1)
@@ -423,6 +429,7 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("find-profile"))
     #expect(output.contains("resolve-profile"))
     #expect(output.contains("open-private-window"))
+    #expect(output.contains("ensure-tab-group"))
     #expect(output.contains("tab-groups"))
     #expect(output.contains("find-tab-group"))
     #expect(output.contains("resolve-tab-group"))
@@ -1353,6 +1360,98 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")])
+}
+
+@Test func safariTabGroupEnsureCommandReusesSingleExistingGroup() async throws {
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { profileName, name in
+            #expect(profileName == "Twisto")
+            #expect(name == "Focus")
+            return [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")]
+        },
+        listWindows: {
+            Issue.record("listWindows should not be called")
+            return []
+        },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        createTabGroup: { _, _ in
+            Issue.record("createTabGroup should not be called")
+            return SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus")
+        }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "Safari tab group reused.\n10|Twisto|Focus")
+}
+
+@Test func safariTabGroupEnsureCommandCreatesMissingGroupInProfileWindow() async throws {
+    var openedProfileName: String?
+    var focusedWindowIndexes: [Int] = []
+    var listWindowCallCount = 0
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listWindows: {
+            listWindowCallCount += 1
+            if listWindowCallCount == 1 {
+                return []
+            }
+            return [
+                SafariWindowRecord(identifier: 42, index: 3, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")
+            ]
+        },
+        focusWindow: { windowIndex, _ in focusedWindowIndexes.append(windowIndex) },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        createTabGroup: { windowIndex, name in
+            #expect(windowIndex == 3)
+            #expect(name == "Focus")
+            return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["Twisto", "Focus"])
+    let object = try jsonObject(output)
+    let tabGroup = try #require(object["tabGroup"] as? [String: Any])
+
+    #expect(openedProfileName == "Twisto")
+    #expect(focusedWindowIndexes == [3])
+    #expect(object["status"] as? String == "created")
+    #expect(tabGroup["identifier"] as? Int == 10)
+    #expect(tabGroup["profileName"] as? String == "Twisto")
+    #expect(tabGroup["name"] as? String == "Focus")
+}
+
+@Test func safariTabGroupEnsureCommandRejectsAmbiguousExistingGroups() async throws {
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in
+            [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus")
+            ]
+        },
+        listWindows: {
+            Issue.record("listWindows should not be called")
+            return []
+        },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        createTabGroup: { _, _ in
+            Issue.record("createTabGroup should not be called")
+            return SafariTabGroupRecord(identifier: 12, profileName: "Twisto", name: "Focus")
+        }
+    )
+
+    #expect(
+        throws: SafariTabGroupCommandError.tabGroupLookupAmbiguous(
+            profileName: "Twisto",
+            tabGroupName: "Focus",
+            count: 2
+        )
+    ) {
+        try command.execute(arguments: ["Twisto", "Focus"])
+    }
 }
 
 @Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {

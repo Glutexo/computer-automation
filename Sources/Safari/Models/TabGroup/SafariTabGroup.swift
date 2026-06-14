@@ -32,6 +32,7 @@ public enum SafariTabGroup: ModelModel {
         abstract: "Saved Safari tab groups.",
         commands: [
             SafariTabGroupCreateCommand.descriptor,
+            SafariTabGroupEnsureCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
@@ -95,6 +96,21 @@ public enum SafariTabGroup: ModelModel {
         } catch SafariDatabaseTabGroupError.tabGroupNotFound(let identifier) {
             throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
         }
+    }
+}
+
+public struct SafariTabGroupEnsureSummary: Equatable, Sendable, Encodable {
+    public enum Status: String, Sendable, Encodable {
+        case created
+        case reused
+    }
+
+    public let status: Status
+    public let tabGroup: SafariTabGroupRecord
+
+    public init(status: Status, tabGroup: SafariTabGroupRecord) {
+        self.status = status
+        self.tabGroup = tabGroup
     }
 }
 
