@@ -682,13 +682,21 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 @Test func safariWindowOpenCommandOpensUnprofiledWindow() async throws {
     let executor = MockAppleScriptExecutor()
     var receivedProfileName: String?
+    var windowLists = [
+        [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
+        [
+            SafariAppleScriptWindowRecord(identifier: 42, name: "Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+        ]
+    ]
     let command = SafariWindowOpenCommand(
         executor: executor,
         listProfiles: { [] },
-        openWindow: { profileName, _ in receivedProfileName = profileName }
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in windowLists.removeFirst() }
     )
 
-    #expect(try command.execute(arguments: []) == "Safari window opened.")
+    #expect(try command.execute(arguments: []) == "Safari window opened.\nwindow-id|42")
     #expect(receivedProfileName == nil)
 }
 
@@ -718,26 +726,54 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 
 @Test func safariWindowOpenCommandFallsBackToMenuWhenProfileDatabaseIsUnavailable() async throws {
     var receivedProfileName: String?
+    var windowLists = [
+        [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
+        [
+            SafariAppleScriptWindowRecord(identifier: 43, name: "Twisto"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+        ]
+    ]
     let command = SafariWindowOpenCommand(
         executor: MockAppleScriptExecutor(),
         listProfiles: { throw SafariProfileCommandError.databaseOpenFailed(path: "/protected/SafariTabs.db") },
-        openWindow: { profileName, _ in receivedProfileName = profileName }
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in windowLists.removeFirst() }
     )
 
-    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.")
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|43")
     #expect(receivedProfileName == "Twisto")
 }
 
 @Test func safariWindowOpenCommandFormatsProfileLaunchMessage() async throws {
     var receivedProfileName: String?
+    var windowLists = [
+        [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
+        [
+            SafariAppleScriptWindowRecord(identifier: 44, name: "Twisto"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+        ]
+    ]
     let command = SafariWindowOpenCommand(
         executor: MockAppleScriptExecutor(),
         listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
-        openWindow: { profileName, _ in receivedProfileName = profileName }
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in windowLists.removeFirst() }
     )
 
-    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.")
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|44")
     #expect(receivedProfileName == "Twisto")
+}
+
+@Test func safariWindowOpenCommandRejectsMissingCreatedWindowIdentifier() async throws {
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        openWindow: { _, _ in },
+        listWindows: { _ in [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")] }
+    )
+
+    #expect(throws: SafariWindowCommandError.openedWindowIdentifierNotFound) {
+        try command.execute(arguments: [])
+    }
 }
 
 @Test func safariWindowOpenPrivateCommandFormatsSuccessMessage() async throws {

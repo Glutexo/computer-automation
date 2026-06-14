@@ -2,6 +2,12 @@
 
 ## 2026-06-14
 
+### Open window returns created window id
+
+- Extended `safari open-window` to report the newly created Safari window id as a stable `window-id|<id>` line after the existing human-readable success message.
+- Kept window creation owned by `SafariWindowOpenCommand` and resolved the id by comparing AppleScript-visible window ids before and after opening.
+- Preserved the profile-open error contract while adding a distinct failure for cases where Safari opens a window but its id cannot be resolved.
+
 ### Safari database access moved to its own module
 
 - Split direct `SafariTabs.db` access out of the `Safari` domain module into a dedicated `SafariDatabase` module.

@@ -54,6 +54,13 @@ swift run computer-automation safari-ui menu-item-children 3 27
 
 Running the executable launches Safari on macOS.
 
+`safari open-window` prints a human-readable success line followed by a stable machine-readable window identifier line:
+
+```text
+Safari window opened.
+window-id|42
+```
+
 ## Safari database access
 
 Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved tab-group, private-window, and selected tab-group metadata. Direct access to that database is isolated in the `SafariDatabase` module. On recent macOS versions, the terminal or app running `computer-automation` may need Full Disk Access to read that file.

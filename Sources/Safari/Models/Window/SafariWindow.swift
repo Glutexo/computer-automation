@@ -194,6 +194,7 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case windowTabGroupProfileMismatch(windowProfileName: String, tabGroupProfileName: String)
     case tabGroupPickerUnavailable
     case tabGroupPickerItemNotFound(String)
+    case openedWindowIdentifierNotFound
 
     var errorDescription: String? {
         switch self {
@@ -203,6 +204,8 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
             "Could not prepare the Safari window query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari window query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        case .openedWindowIdentifierNotFound:
+            "Safari opened a window, but computer-automation could not resolve its window id."
         default:
             nil
         }
