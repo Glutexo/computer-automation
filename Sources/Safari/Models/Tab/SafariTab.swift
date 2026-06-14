@@ -57,6 +57,7 @@ public enum SafariTab: ModelModel {
             SafariTabOpenCommand.descriptor,
             SafariTabListCommand.descriptor,
             SafariTabFindCommand.descriptor,
+            SafariTabResolveCommand.descriptor,
             SafariTabExecuteJavaScriptCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
@@ -207,6 +208,8 @@ enum SafariTabCommandError: Error, Equatable {
     case missingJavaScript
     case multipleJavaScriptSources
     case javaScriptFileReadFailed(String)
+    case resolveNoMatch(String)
+    case resolveAmbiguous(String, Int)
     case javaScriptTargetWindowNotFound(Int)
     case javaScriptTargetTabNotFound(windowIdentifier: Int, tabIndex: Int)
     case javaScriptExecutionFailed(windowIdentifier: Int, tabIndex: Int)
@@ -222,6 +225,10 @@ extension SafariTabCommandError: LocalizedError {
             "Provide JavaScript from exactly one source: inline argument, --stdin, or --file."
         case .javaScriptFileReadFailed(let path):
             "Could not read JavaScript file \(path)."
+        case .resolveNoMatch(let url):
+            "No Safari tab matched URL \(url)."
+        case .resolveAmbiguous(let url, let count):
+            "Safari tab query for URL \(url) matched \(count) tabs."
         case .javaScriptTargetWindowNotFound(let windowIdentifier):
             "Safari window \(windowIdentifier) does not exist."
         case .javaScriptTargetTabNotFound(let windowIdentifier, let tabIndex):

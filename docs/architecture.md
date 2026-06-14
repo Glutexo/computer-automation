@@ -47,6 +47,7 @@ flowchart TD
     TabOpen["open-tab command"]
     Tabs["tabs command"]
     TabFind["find-tab command"]
+    TabResolve["resolve-tab command"]
     WindowTabs["window-tabs command"]
     TabExecuteJavaScript["execute-tab-javascript command"]
     TabSetURL["set-tab-url command"]
@@ -106,6 +107,7 @@ flowchart TD
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabFind
+    SafariTab --> TabResolve
     SafariTab --> WindowTabs
     SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
@@ -140,6 +142,7 @@ flowchart TD
 - Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
+- A `find-*` command is a read command that returns a collection of matches; a `resolve-*` command is a read command that shares the lookup semantics but requires exactly one match and fails on none or ambiguity.
 - Commands and modules may share code only through an explicit shared type, library, or module boundary.
 - UI automation must remain independent of the macOS and Safari language setting.
 - Direct AppleScript access should live in `SafariAppleScript`, not inside `Safari` or `SafariUserInterface`.

@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### Find and resolve command semantics
+
+- Documented `find-*` and `resolve-*` as separate read command forms rather than separate CRUD categories.
+- `find-*` commands return zero, one, or many matches and represent zero matches as an empty result.
+- `resolve-*` commands share the same lookup criteria but must return exactly one entity, failing clearly when no entity matches or when the lookup is ambiguous.
+- Added `safari resolve-tab` as the single-entity counterpart to `safari find-tab`.
+
 ### Concrete Safari tab JavaScript execution
 
 - Added `safari execute-tab-javascript <window-id> <tab-index> <javascript>` as the supported high-level way to evaluate JavaScript in a concrete live Safari tab.

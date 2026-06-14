@@ -55,7 +55,7 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
     }
 
     public func execute(arguments: [String]) throws -> String {
-        let request = try parse(arguments)
+        let request = try SafariTabLookupRequest.parse(arguments)
         let matches = try findTabs(
             request.url,
             request.matchMode,
@@ -71,7 +71,7 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
     }
 
     public func executeJSON(arguments: [String]) throws -> String {
-        let request = try parse(arguments)
+        let request = try SafariTabLookupRequest.parse(arguments)
         let matches = try findTabs(
             request.url,
             request.matchMode,
@@ -93,7 +93,16 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
         )
     }
 
-    private func parse(_ arguments: [String]) throws -> SafariTabFindRequest {
+}
+
+struct SafariTabLookupRequest: Equatable {
+    let url: String
+    let matchMode: SafariTabURLMatchMode
+    let windowIdentifier: Int?
+    let windowIndex: Int?
+    let profileName: String?
+
+    static func parse(_ arguments: [String]) throws -> SafariTabLookupRequest {
         var url: String?
         var matchMode = SafariTabURLMatchMode.exact
         var windowIdentifier: Int?
@@ -149,7 +158,7 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
             throw SafariTabCommandError.missingURL
         }
 
-        return SafariTabFindRequest(
+        return SafariTabLookupRequest(
             url: url,
             matchMode: matchMode,
             windowIdentifier: windowIdentifier,
@@ -158,7 +167,7 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
         )
     }
 
-    private func optionValue(after option: String, in arguments: [String], at index: inout Int) throws -> String {
+    private static func optionValue(after option: String, in arguments: [String], at index: inout Int) throws -> String {
         let valueIndex = index + 1
         guard valueIndex < arguments.count, !arguments[valueIndex].hasPrefix("--") else {
             throw SafariTabCommandError.missingOptionValue(option)
@@ -167,14 +176,6 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
         index = valueIndex
         return arguments[valueIndex]
     }
-}
-
-private struct SafariTabFindRequest: Equatable {
-    let url: String
-    let matchMode: SafariTabURLMatchMode
-    let windowIdentifier: Int?
-    let windowIndex: Int?
-    let profileName: String?
 }
 
 private struct SafariTabFindJSONOutput: Encodable {

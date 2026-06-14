@@ -91,6 +91,7 @@ import SQLite3
             SafariTabOpenCommand.descriptor,
             SafariTabListCommand.descriptor,
             SafariTabFindCommand.descriptor,
+            SafariTabResolveCommand.descriptor,
             SafariTabExecuteJavaScriptCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
@@ -167,6 +168,7 @@ import SQLite3
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "find-tab", abstract: "Find Safari tabs by URL."),
+            CompletionSuggestion(value: "resolve-tab", abstract: "Resolve exactly one Safari tab by URL."),
             CompletionSuggestion(value: "execute-tab-javascript", abstract: "Execute JavaScript in a concrete Safari tab."),
             CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
@@ -283,6 +285,9 @@ import SQLite3
     #expect(findTab[3].name == "window-index")
     #expect(findTab[4].name == "profile")
 
+    let resolveTab = SafariTabResolveCommand.descriptor.arguments
+    #expect(resolveTab == findTab)
+
     let executeJavaScript = SafariTabExecuteJavaScriptCommand.descriptor.arguments
     #expect(executeJavaScript.count == 5)
     #expect(executeJavaScript[0].name == "window-id")
@@ -384,6 +389,8 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("tab-group-tabs"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
+    #expect(output.contains("find-tab"))
+    #expect(output.contains("resolve-tab"))
     #expect(output.contains("window-tabs"))
     #expect(output.contains("set-tab-url"))
     #expect(output.contains("close-tab"))
@@ -1606,6 +1613,87 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
 
     #expect(throws: SafariTabCommandError.unexpectedArgument("extra")) {
         try command.execute(arguments: ["https://example.com", "extra"])
+    }
+}
+
+@Test func safariTabResolveCommandFormatsSingleMatch() async throws {
+    let command = SafariTabResolveCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabs: { url, matchMode, windowIdentifier, windowIndex, profileName, _ in
+            #expect(url == "https://example.com")
+            #expect(matchMode == .prefix)
+            #expect(windowIdentifier == 42)
+            #expect(windowIndex == nil)
+            #expect(profileName == "Twisto")
+            return [
+                SafariTabMatchRecord(
+                    windowIdentifier: 42,
+                    windowIndex: 1,
+                    tabIndex: 2,
+                    url: "https://example.com/path",
+                    title: "Example"
+                )
+            ]
+        }
+    )
+
+    #expect(
+        try command.execute(arguments: ["https://example.com", "--prefix", "--window-id=42", "--profile=Twisto"]) ==
+        "42|1|2|https://example.com/path|Example"
+    )
+}
+
+@Test func safariTabResolveCommandReturnsJSONSingleMatch() async throws {
+    let command = SafariTabResolveCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabs: { _, _, _, _, _, _ in
+            [
+                SafariTabMatchRecord(
+                    windowIdentifier: 42,
+                    windowIndex: 1,
+                    tabIndex: 2,
+                    url: "https://example.com/a|b",
+                    title: "Example | Home"
+                )
+            ]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["https://example.com", "--prefix"])
+    let object = try jsonObject(output)
+    let match = try #require(object["match"] as? [String: Any])
+
+    #expect(object["query"] as? String == "https://example.com")
+    #expect(object["matchMode"] as? String == "prefix")
+    #expect(match["windowId"] as? Int == 42)
+    #expect(match["windowIndex"] as? Int == 1)
+    #expect(match["tabIndex"] as? Int == 2)
+    #expect(match["url"] as? String == "https://example.com/a|b")
+    #expect(match["title"] as? String == "Example | Home")
+}
+
+@Test func safariTabResolveCommandRequiresExactlyOneMatch() async throws {
+    let noMatches = SafariTabResolveCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabs: { _, _, _, _, _, _ in [] }
+    )
+
+    #expect(throws: SafariTabCommandError.resolveNoMatch("https://example.com")) {
+        try noMatches.execute(arguments: ["https://example.com"])
+    }
+
+    let multipleMatches = SafariTabResolveCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabs: { _, _, _, _, _, _ in
+            [
+                SafariTabMatchRecord(windowIdentifier: 42, windowIndex: 1, tabIndex: 1, url: "https://example.com"),
+                SafariTabMatchRecord(windowIdentifier: 43, windowIndex: 2, tabIndex: 1, url: "https://example.com")
+            ]
+        }
+    )
+
+    #expect(throws: SafariTabCommandError.resolveAmbiguous("https://example.com", 2)) {
+        try multipleMatches.execute(arguments: ["https://example.com"])
     }
 }
 

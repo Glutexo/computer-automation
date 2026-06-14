@@ -31,6 +31,7 @@
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `find-tab` | `R` | Find open Safari tabs by URL. |
+| `SafariTab` | `resolve-tab` | `R` | Resolve exactly one open Safari tab by URL. |
 | `SafariTab` | `execute-tab-javascript` | `R` | Execute JavaScript in a concrete Safari tab. |
 | `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
@@ -66,6 +67,8 @@ flowchart TD
     TabGroupDelete["SafariTabGroupDeleteCommand (D)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
+    TabFind["SafariTabFindCommand (R)"]
+    TabResolve["SafariTabResolveCommand (R)"]
     WindowTabs["SafariTabListWindowTabsCommand (R)"]
     TabExecuteJavaScript["SafariTabExecuteJavaScriptCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
@@ -99,6 +102,8 @@ flowchart TD
     SafariTabGroup --> DBTabGroup
     SafariTab --> TabOpen
     SafariTab --> Tabs
+    SafariTab --> TabFind
+    SafariTab --> TabResolve
     SafariTab --> WindowTabs
     SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
@@ -123,6 +128,8 @@ flowchart TD
 - `delete-tab-group` is the delete operation for the saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
+- `find-tab` is a read operation that returns zero, one, or many tab matches.
+- `resolve-tab` is a read operation that returns exactly one tab match and treats zero or multiple matches as errors.
 - `window-tabs` is the window-scoped read operation for the browser tab model.
 - `execute-tab-javascript` is a read operation because Safari evaluates page JavaScript and returns the result without changing the modeled tab address.
 - `set-tab-url` is the update operation for the browser tab model.
@@ -264,6 +271,8 @@ ORDER BY id;
 - `find-tab --window-id <id>` and `find-tab --window-index <index>` narrow matches to one Safari window.
 - `find-tab --profile <name>` narrows matches to windows whose profile metadata is available through `SafariWindow`.
 - `--json safari find-tab <url>` returns structured JSON with the search query, match mode, optional filters, and a `matches` array.
+- `resolve-tab <url>` accepts the same filters as `find-tab`, returns the same single text row shape, and fails unless exactly one matching tab exists.
+- `--json safari resolve-tab <url>` returns the search query, match mode, optional filters, and a single `match` object.
 - `window-tabs <window-index>` returns one line per tab as:
   - `tabIndex|selectedTabGroupTabIndex|url`
 - `window-tabs` compares live tabs with the currently selected saved tab group of that window.

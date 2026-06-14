@@ -46,6 +46,8 @@ swift run computer-automation safari tabs
 swift run computer-automation safari find-tab https://example.com
 swift run computer-automation safari find-tab https://example.com --prefix --window-id 42 --profile Twisto
 swift run computer-automation --json safari find-tab https://example.com --prefix
+swift run computer-automation safari resolve-tab https://example.com --window-id 42
+swift run computer-automation --json safari resolve-tab https://example.com --window-id 42
 swift run computer-automation safari window-tabs 1
 swift run computer-automation safari execute-tab-javascript 42 2 'document.title'
 printf 'document.readyState' | swift run computer-automation safari execute-tab-javascript 42 2 --stdin
@@ -73,6 +75,8 @@ window-id|42
 ```text
 windowId|windowIndex|tabIndex|url|title
 ```
+
+`safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 
