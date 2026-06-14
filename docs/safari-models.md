@@ -26,6 +26,8 @@
 | `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
 | `SafariTabGroup` | `create-tab-group` | `C` | Create a new saved Safari tab group in a specific window. |
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
+| `SafariTabGroup` | `find-tab-group` | `R` | Find saved Safari tab groups by profile and name. |
+| `SafariTabGroup` | `resolve-tab-group` | `R` | Resolve exactly one saved Safari tab group by profile and name. |
 | `SafariTabGroup` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
 | `SafariTabGroup` | `delete-tab-group` | `D` | Delete a saved Safari tab group. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
@@ -63,6 +65,8 @@ flowchart TD
     WindowClose["SafariWindowCloseCommand (D)"]
     TabGroupCreate["SafariTabGroupCreateCommand (C)"]
     TabGroups["SafariTabGroupListCommand (R)"]
+    TabGroupFind["SafariTabGroupFindCommand (R)"]
+    TabGroupResolve["SafariTabGroupResolveCommand (R)"]
     TabGroupTabs["SafariTabGroupListTabsCommand (R)"]
     TabGroupDelete["SafariTabGroupDeleteCommand (D)"]
     TabOpen["SafariTabOpenCommand (C)"]
@@ -97,6 +101,8 @@ flowchart TD
     SafariWindow --> DBWindow
     SafariTabGroup --> TabGroupCreate
     SafariTabGroup --> TabGroups
+    SafariTabGroup --> TabGroupFind
+    SafariTabGroup --> TabGroupResolve
     SafariTabGroup --> TabGroupTabs
     SafariTabGroup --> TabGroupDelete
     SafariTabGroup --> DBTabGroup
@@ -124,6 +130,8 @@ flowchart TD
 - `close-window` is the delete operation for the browser window model.
 - `create-tab-group` is the create operation for the saved tab-group model.
 - `tab-groups` is the read operation for the saved tab-group model.
+- `find-tab-group` is a read operation that returns zero, one, or many saved tab-group matches.
+- `resolve-tab-group` is a read operation that returns exactly one saved tab-group match and treats zero or multiple matches as errors.
 - `tab-group-tabs` is the structural read operation for the tabs stored inside a saved tab-group model.
 - `delete-tab-group` is the delete operation for the saved tab-group model.
 - `open-tab` is the create operation for the browser tab model.
@@ -212,6 +220,11 @@ ORDER BY id;
   - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
+- `find-tab-group <profile> <name>` returns matching saved groups as:
+  - `identifier|profile|name`
+- `resolve-tab-group <profile> <name>` returns the same single row shape and fails unless exactly one saved group matches.
+- `--json safari find-tab-group <profile> <name>` returns `profileName`, `name`, and a `matches` array.
+- `--json safari resolve-tab-group <profile> <name>` returns `profileName`, `name`, and a single `match` object.
 - `delete-tab-group <identifier>`:
   - resolves the saved group structurally from the persisted catalog
   - focuses an existing non-private window for the same profile or opens one if needed

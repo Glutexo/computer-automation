@@ -9,6 +9,7 @@
 - `resolve-*` commands share the same lookup criteria but must return exactly one entity, failing clearly when no entity matches or when the lookup is ambiguous.
 - Models that support public record lookup must expose `find-*` and `resolve-*` as a pair so callers do not see divergent lookup semantics across models.
 - Added `safari resolve-tab` as the single-entity counterpart to `safari find-tab`.
+- Added `safari find-tab-group` and `safari resolve-tab-group` as the paired lookup surface for saved Safari tab groups by profile and name.
 
 ### Concrete Safari tab JavaScript execution
 

@@ -76,6 +76,8 @@ import SQLite3
         [
             SafariTabGroupCreateCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
+            SafariTabGroupFindCommand.descriptor,
+            SafariTabGroupResolveCommand.descriptor,
             SafariTabGroupListTabsCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
         ]
@@ -163,6 +165,8 @@ import SQLite3
             CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
             CompletionSuggestion(value: "create-tab-group", abstract: "Create a new saved Safari tab group in a specific window."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
+            CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
+            CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
@@ -240,6 +244,18 @@ import SQLite3
     #expect(createTabGroup.count == 2)
     #expect(createTabGroup[0].name == "window-index")
     #expect(createTabGroup[1].name == "name")
+
+    let findTabGroup = SafariTabGroupFindCommand.descriptor.arguments
+    #expect(findTabGroup.count == 2)
+    #expect(findTabGroup[0].name == "profile")
+    #expect(findTabGroup[0].kind == .positional)
+    #expect(findTabGroup[0].isRequired)
+    #expect(findTabGroup[1].name == "name")
+    #expect(findTabGroup[1].kind == .positional)
+    #expect(findTabGroup[1].isRequired)
+
+    let resolveTabGroup = SafariTabGroupResolveCommand.descriptor.arguments
+    #expect(resolveTabGroup == findTabGroup)
 
     let menuItems = SafariMenuListItemsCommand.descriptor.arguments
     #expect(menuItems.count == 1)
@@ -386,6 +402,8 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("open-window"))
     #expect(output.contains("open-private-window"))
     #expect(output.contains("tab-groups"))
+    #expect(output.contains("find-tab-group"))
+    #expect(output.contains("resolve-tab-group"))
     #expect(output.contains("tab-group-tabs"))
     #expect(output.contains("open-tab"))
     #expect(output.contains("tabs"))
@@ -1062,6 +1080,139 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(throws: SafariTabGroupCommandError.queryPreparationFailed) {
         try command.execute(arguments: [])
     }
+}
+
+@Test func safariTabGroupFindCommandFormatsMatchingRows() async throws {
+    let command = SafariTabGroupFindCommand(
+        findTabGroups: { profileName, name in
+            #expect(profileName == "Twisto")
+            #expect(name == "Focus")
+            return [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
+            ]
+        }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "10|Twisto|Focus")
+}
+
+@Test func safariTabGroupFindCommandReturnsJSONMatches() async throws {
+    let command = SafariTabGroupFindCommand(
+        findTabGroups: { _, _ in
+            [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus")
+            ]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["Twisto", "Focus"])
+    let object = try jsonObject(output)
+    let matches = try #require(object["matches"] as? [[String: Any]])
+
+    #expect(object["profileName"] as? String == "Twisto")
+    #expect(object["name"] as? String == "Focus")
+    #expect(matches.count == 2)
+    #expect(matches[0]["identifier"] as? Int == 10)
+    #expect(matches[0]["profileName"] as? String == "Twisto")
+    #expect(matches[0]["name"] as? String == "Focus")
+}
+
+@Test func safariTabGroupFindCommandRejectsInvalidArguments() async throws {
+    let command = SafariTabGroupFindCommand(
+        findTabGroups: { _, _ in Issue.record("findTabGroups should not be called"); return [] }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.missingProfileName) {
+        try command.execute(arguments: [])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyProfileName) {
+        try command.execute(arguments: ["", "Focus"])
+    }
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupName) {
+        try command.execute(arguments: ["Twisto"])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyTabGroupName) {
+        try command.execute(arguments: ["Twisto", ""])
+    }
+    #expect(throws: SafariTabGroupCommandError.unexpectedArgument("extra")) {
+        try command.execute(arguments: ["Twisto", "Focus", "extra"])
+    }
+}
+
+@Test func safariTabGroupResolveCommandFormatsSingleMatch() async throws {
+    let command = SafariTabGroupResolveCommand(
+        findTabGroups: { profileName, name in
+            #expect(profileName == "Twisto")
+            #expect(name == "Focus")
+            return [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
+            ]
+        }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "10|Twisto|Focus")
+}
+
+@Test func safariTabGroupResolveCommandReturnsJSONMatch() async throws {
+    let command = SafariTabGroupResolveCommand(
+        findTabGroups: { _, _ in
+            [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")]
+        }
+    )
+
+    let output = try command.executeJSON(arguments: ["Twisto", "Focus"])
+    let object = try jsonObject(output)
+    let match = try #require(object["match"] as? [String: Any])
+
+    #expect(object["profileName"] as? String == "Twisto")
+    #expect(object["name"] as? String == "Focus")
+    #expect(match["identifier"] as? Int == 10)
+    #expect(match["profileName"] as? String == "Twisto")
+    #expect(match["name"] as? String == "Focus")
+}
+
+@Test func safariTabGroupResolveCommandRequiresExactlyOneMatch() async throws {
+    let noMatches = SafariTabGroupResolveCommand(findTabGroups: { _, _ in [] })
+    #expect(
+        throws: SafariTabGroupCommandError.tabGroupLookupNotFound(profileName: "Twisto", tabGroupName: "Focus")
+    ) {
+        try noMatches.execute(arguments: ["Twisto", "Focus"])
+    }
+
+    let multipleMatches = SafariTabGroupResolveCommand(
+        findTabGroups: { _, _ in
+            [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus")
+            ]
+        }
+    )
+    #expect(
+        throws: SafariTabGroupCommandError.tabGroupLookupAmbiguous(
+            profileName: "Twisto",
+            tabGroupName: "Focus",
+            count: 2
+        )
+    ) {
+        try multipleMatches.execute(arguments: ["Twisto", "Focus"])
+    }
+}
+
+@Test func safariTabGroupFindMatchesProfileAndNameExactly() async throws {
+    let groups = try SafariTabGroup.find(
+        profileName: "Twisto",
+        name: "Focus",
+        listTabGroups: {
+            [
+                SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus later"),
+                SafariTabGroupRecord(identifier: 12, profileName: "Glutexo", name: "Focus")
+            ]
+        }
+    )
+
+    #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")])
 }
 
 @Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {

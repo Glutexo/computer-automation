@@ -43,6 +43,8 @@ flowchart TD
     Windows["windows command"]
     WindowClose["close-window command"]
     TabGroups["tab-groups command"]
+    TabGroupFind["find-tab-group command"]
+    TabGroupResolve["resolve-tab-group command"]
     TabGroupTabs["tab-group-tabs command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
@@ -102,6 +104,8 @@ flowchart TD
     SafariWindow --> WindowClose
     SafariWindow --> DBWindow
     SafariTabGroup --> TabGroups
+    SafariTabGroup --> TabGroupFind
+    SafariTabGroup --> TabGroupResolve
     SafariTabGroup --> TabGroupTabs
     SafariTabGroup --> DBTabGroup
     SafariTab --> TabOpen

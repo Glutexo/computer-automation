@@ -45,6 +45,10 @@ public enum SafariModule: ModuleModel {
             return try CommandOutputRenderer.execute(SafariWindowCloseCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupListCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabGroupListCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariTabGroupFindCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariTabGroupFindCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariTabGroupResolveCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariTabGroupResolveCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupListTabsCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabGroupListTabsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupCreateCommand.descriptor.name:

@@ -33,6 +33,8 @@ public enum SafariTabGroup: ModelModel {
         commands: [
             SafariTabGroupCreateCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
+            SafariTabGroupFindCommand.descriptor,
+            SafariTabGroupResolveCommand.descriptor,
             SafariTabGroupListTabsCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
         ]
@@ -49,6 +51,16 @@ public enum SafariTabGroup: ModelModel {
             return try SafariDatabaseTabGroup.list(databasePath: databasePath).map(SafariTabGroupRecord.init)
         } catch let error as SafariDatabaseError {
             throw SafariTabGroupCommandError(error)
+        }
+    }
+
+    static func find(
+        profileName: String,
+        name: String,
+        listTabGroups: () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() }
+    ) throws -> [SafariTabGroupRecord] {
+        try listTabGroups().filter {
+            $0.profileName == profileName && $0.name == name
         }
     }
 
@@ -102,6 +114,8 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case databaseOpenFailed(path: String)
     case queryPreparationFailed
     case queryExecutionFailed
+    case missingProfileName
+    case emptyProfileName
     case missingWindowIndex
     case invalidWindowIndex(String)
     case missingTabGroupIdentifier
@@ -109,6 +123,8 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case missingTabGroupName
     case emptyTabGroupName
     case tabGroupNotFound(Int)
+    case tabGroupLookupNotFound(profileName: String, tabGroupName: String)
+    case tabGroupLookupAmbiguous(profileName: String, tabGroupName: String, count: Int)
     case ambiguousTabGroupName(profileName: String, tabGroupName: String)
     case duplicateTabGroupName(profileName: String, tabGroupName: String)
     case privateWindowTabGroupMutationUnsupported(Int)
@@ -117,6 +133,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)
     case sidebarSelectedItemRenameUnavailable
+    case unexpectedArgument(String)
 
     var errorDescription: String? {
         switch self {
@@ -126,6 +143,14 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
             "Could not prepare the Safari tab-group query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari tab-group query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        case .missingProfileName:
+            "Missing Safari profile name."
+        case .emptyProfileName:
+            "Safari profile name must not be empty."
+        case .tabGroupLookupNotFound(let profileName, let tabGroupName):
+            "No Safari tab group named \(tabGroupName) exists in profile \(profileName)."
+        case .tabGroupLookupAmbiguous(let profileName, let tabGroupName, let count):
+            "Safari tab group lookup for \(tabGroupName) in profile \(profileName) matched \(count) groups."
         default:
             nil
         }

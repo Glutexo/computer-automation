@@ -39,6 +39,8 @@ swift run computer-automation safari open-tab-group-window 1000
 swift run computer-automation safari set-window-tab-group 1 1000
 swift run computer-automation safari create-tab-group 1 Inbox
 swift run computer-automation safari tab-groups
+swift run computer-automation safari find-tab-group Twisto Focus
+swift run computer-automation safari resolve-tab-group Twisto Focus
 swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
 swift run computer-automation safari open-tab 1 https://example.com
