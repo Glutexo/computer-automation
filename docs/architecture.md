@@ -16,6 +16,7 @@ flowchart TD
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
     SafariTabGroup["SafariTabGroup model"]
+    SafariTabList["SafariTabList model"]
     SafariTab["SafariTab model"]
     DBProfile["SafariDatabaseProfile model"]
     DBWindow["SafariDatabaseWindow model"]
@@ -76,6 +77,7 @@ flowchart TD
     Safari --> SafariProfile
     Safari --> SafariWindow
     Safari --> SafariTabGroup
+    Safari --> SafariTabList
     Safari --> SafariTab
     SafariDB --> DBProfile
     SafariDB --> DBWindow
@@ -112,13 +114,15 @@ flowchart TD
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
-    SafariTabGroup --> TabGroupTabs
     SafariTabGroup --> DBTabGroup
+    SafariWindow --> SafariTabList
+    SafariTabGroup --> SafariTabList
+    SafariTabList --> TabGroupTabs
+    SafariTabList --> WindowTabs
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabFind
     SafariTab --> TabResolve
-    SafariTab --> WindowTabs
     SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
     SafariTab --> TabClose

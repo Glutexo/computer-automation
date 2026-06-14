@@ -2,11 +2,12 @@
 
 ## Overview
 
-- The `Safari` module currently exposes five models: `SafariApplication`, `SafariProfile`, `SafariWindow`, `SafariTabGroup`, and `SafariTab`.
+- The `Safari` module currently exposes six models: `SafariApplication`, `SafariProfile`, `SafariWindow`, `SafariTabGroup`, `SafariTabList`, and `SafariTab`.
 - `SafariApplication` represents Safari as an application and owns its lifecycle commands.
 - `SafariProfile` represents the profiles available in Safari.
 - `SafariWindow` represents browser windows managed by Safari.
 - `SafariTabGroup` represents saved Safari tab groups.
+- `SafariTabList` is a virtual model for ordered tab lists backed by windows or saved tab groups.
 - `SafariTab` represents browser tabs managed inside Safari windows.
 - Persisted Safari database rows are modeled in the separate `SafariDatabase` module and mapped into these Safari domain models.
 
@@ -31,14 +32,14 @@
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
 | `SafariTabGroup` | `find-tab-group` | `R` | Find saved Safari tab groups by profile and name. |
 | `SafariTabGroup` | `resolve-tab-group` | `R` | Resolve exactly one saved Safari tab group by profile and name. |
-| `SafariTabGroup` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
 | `SafariTabGroup` | `delete-tab-group` | `D` | Delete a saved Safari tab group. |
+| `SafariTabList` | `tab-group-tabs` | `R` | List tabs stored in a saved Safari tab group. |
+| `SafariTabList` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `open-tab` | `C` | Open a new Safari tab in a specific window. |
 | `SafariTab` | `tabs` | `R` | List Safari tabs across all open windows. |
 | `SafariTab` | `find-tab` | `R` | Find open Safari tabs by URL. |
 | `SafariTab` | `resolve-tab` | `R` | Resolve exactly one open Safari tab by URL. |
 | `SafariTab` | `execute-tab-javascript` | `R` | Execute JavaScript in a concrete Safari tab. |
-| `SafariTab` | `window-tabs` | `R` | List Safari tabs in one window with selected-group match metadata. |
 | `SafariTab` | `set-tab-url` | `U` | Update the URL of a Safari tab. |
 | `SafariTab` | `close-tab` | `D` | Close a Safari tab. |
 
@@ -52,6 +53,7 @@ flowchart TD
     SafariProfile["SafariProfile model"]
     SafariWindow["SafariWindow model"]
     SafariTabGroup["SafariTabGroup model"]
+    SafariTabList["SafariTabList model"]
     SafariTab["SafariTab model"]
     DBProfile["SafariDatabaseProfile model"]
     DBWindow["SafariDatabaseWindow model"]
@@ -73,13 +75,13 @@ flowchart TD
     TabGroups["SafariTabGroupListCommand (R)"]
     TabGroupFind["SafariTabGroupFindCommand (R)"]
     TabGroupResolve["SafariTabGroupResolveCommand (R)"]
-    TabGroupTabs["SafariTabGroupListTabsCommand (R)"]
+    TabGroupTabs["SafariTabListTabGroupTabsCommand (R)"]
+    WindowTabs["SafariTabListWindowTabsCommand (R)"]
     TabGroupDelete["SafariTabGroupDeleteCommand (D)"]
     TabOpen["SafariTabOpenCommand (C)"]
     Tabs["SafariTabListCommand (R)"]
     TabFind["SafariTabFindCommand (R)"]
     TabResolve["SafariTabResolveCommand (R)"]
-    WindowTabs["SafariTabListWindowTabsCommand (R)"]
     TabExecuteJavaScript["SafariTabExecuteJavaScriptCommand (R)"]
     TabSetURL["SafariTabSetURLCommand (U)"]
     TabClose["SafariTabCloseCommand (D)"]
@@ -88,6 +90,7 @@ flowchart TD
     SafariModule --> SafariProfile
     SafariModule --> SafariWindow
     SafariModule --> SafariTabGroup
+    SafariModule --> SafariTabList
     SafariModule --> SafariTab
     SafariModule --> SafariDatabase
     SafariDatabase --> DBProfile
@@ -112,14 +115,16 @@ flowchart TD
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
-    SafariTabGroup --> TabGroupTabs
     SafariTabGroup --> TabGroupDelete
     SafariTabGroup --> DBTabGroup
+    SafariWindow --> SafariTabList
+    SafariTabGroup --> SafariTabList
+    SafariTabList --> TabGroupTabs
+    SafariTabList --> WindowTabs
     SafariTab --> TabOpen
     SafariTab --> Tabs
     SafariTab --> TabFind
     SafariTab --> TabResolve
-    SafariTab --> WindowTabs
     SafariTab --> TabExecuteJavaScript
     SafariTab --> TabSetURL
     SafariTab --> TabClose
@@ -144,13 +149,13 @@ flowchart TD
 - `tab-groups` is the read operation for the saved tab-group model.
 - `find-tab-group` is a read operation that returns zero, one, or many saved tab-group matches.
 - `resolve-tab-group` is a read operation that returns exactly one saved tab-group match and treats zero or multiple matches as errors.
-- `tab-group-tabs` is the structural read operation for the tabs stored inside a saved tab-group model.
 - `delete-tab-group` is the delete operation for the saved tab-group model.
+- `tab-group-tabs` is a structural read operation on the virtual tab-list model for a saved tab-group-backed ordered list.
+- `window-tabs` is a structural read operation on the virtual tab-list model for a window-backed ordered list.
 - `open-tab` is the create operation for the browser tab model.
 - `tabs` is the read operation for the browser tab model.
 - `find-tab` is a read operation that returns zero, one, or many tab matches.
 - `resolve-tab` is a read operation that returns exactly one tab match and treats zero or multiple matches as errors.
-- `window-tabs` is the window-scoped read operation for the browser tab model.
 - `execute-tab-javascript` is a read operation because Safari evaluates page JavaScript and returns the result without changing the modeled tab address.
 - `set-tab-url` is the update operation for the browser tab model.
 - `close-tab` is the delete operation for the browser tab model.
@@ -255,9 +260,7 @@ ORDER BY id;
   - selects the target group in the Safari sidebar
   - opens the selected group's accessibility context menu
   - invokes `DeleteTabGroupMenuItem`
-- `tab-group-tabs` returns one line per stored tab as:
-  - `index|url`
-- `SafariTabGroup` delegates persisted saved-group records and stored group tabs to `SafariDatabaseTabGroup`.
+- `SafariTabGroup` delegates persisted saved-group records to `SafariDatabaseTabGroup`.
 - A bookmark is treated as a saved tab group when:
   - `type = 1`
   - `subtype = 0`
@@ -265,10 +268,6 @@ ORDER BY id;
   - it has a child bookmark with `type = 1` and `subtype = 1`
 - This intentionally excludes internal `Local` and `Private` groups.
 - `create-tab-group` rejects duplicate names within the same profile because live Safari selection is still name-based in the toolbar picker.
-- `tab-group-tabs <identifier>` reads child bookmark rows of that saved group:
-  - only child rows with `type = 0` are treated as stored tabs
-  - rows are ordered by `order_index`, then `id`
-  - the current model reads only the URL property, so output is limited to `index|url`
 - Saved tab-group selection in live windows is currently driven by Safari's toolbar UI:
   - the target toolbar item is resolved structurally through an accessibility identifier that starts with `TabGroupPickerButton`
   - the child menu of that toolbar item exposes saved groups by their display names, so duplicate group names within the same profile are treated as ambiguous and rejected by the automation layer
@@ -287,6 +286,26 @@ ORDER BY id;
   - delete the old group
   - this must not be documented or implemented as true rename because it changes the saved group identifier
   - it may also lose Safari metadata that the current model does not read or reproduce, such as non-URL tab state
+
+## Tab-list operations
+
+- `SafariTabList` is a virtual model for ordered lists of tabs.
+- A tab list can be backed by:
+  - a live Safari window
+  - a saved Safari tab group
+- `SafariWindow` and `SafariTabGroup` provide addressable contexts for tab lists, but URL-oriented collection operations belong to the tab-list surface.
+- Individual URL values remain properties of `SafariTab` or stored tab records; `SafariTabList` owns collection-level operations over those ordered items.
+- `tab-group-tabs <identifier>` reads child bookmark rows of a saved group as a saved tab-group-backed tab list:
+  - only child rows with `type = 0` are treated as stored tabs
+  - rows are ordered by `order_index`, then `id`
+  - the current model reads only the URL property, so output is limited to `index|url`
+- `window-tabs <window-index>` reads a live window-backed tab list and returns one line per tab as:
+  - `tabIndex|selectedTabGroupTabIndex|url`
+- `window-tabs` compares live tabs with the currently selected saved tab group of that window.
+- A live tab is currently treated as coming from the selected saved tab group only when:
+  - a selected saved tab group exists for the window
+  - the saved-group tab exists at the same tab index
+  - the saved-group tab URL equals the live tab URL
 
 ## Tab operations
 
@@ -310,13 +329,6 @@ ORDER BY id;
 - `--json safari find-tab <url>` returns structured JSON with the search query, match mode, optional filters, and a `matches` array.
 - `resolve-tab <url>` accepts the same filters as `find-tab`, returns the same single text row shape, and fails unless exactly one matching tab exists.
 - `--json safari resolve-tab <url>` returns the search query, match mode, optional filters, and a single `match` object.
-- `window-tabs <window-index>` returns one line per tab as:
-  - `tabIndex|selectedTabGroupTabIndex|url`
-- `window-tabs` compares live tabs with the currently selected saved tab group of that window.
-- A live tab is currently treated as coming from the selected saved tab group only when:
-  - a selected saved tab group exists for the window
-  - the saved-group tab exists at the same tab index
-  - the saved-group tab URL equals the live tab URL
 - `execute-tab-javascript <window-id> <tab-index> <javascript>` runs inline JavaScript in a concrete live tab addressed by stable Safari window id and tab index.
 - `execute-tab-javascript <window-id> <tab-index> --stdin` reads the JavaScript source from standard input.
 - `execute-tab-javascript <window-id> <tab-index> --file <path>` and `--file=<path>` read the JavaScript source from a UTF-8 file.

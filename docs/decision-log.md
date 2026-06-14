@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### Safari tab-list virtual model
+
+- Added `SafariTabList` as a virtual model for ordered tab lists backed by either live Safari windows or saved Safari tab groups.
+- Moved the model ownership of `window-tabs` and `tab-group-tabs` to `SafariTabList` while keeping the public CLI command names unchanged.
+- Kept URL values as properties of individual tabs or stored tab records, with `SafariTabList` owning collection-level operations over ordered tab items.
+- This supersedes the earlier split where `tab-group-tabs` was owned by `SafariTabGroup` and `window-tabs` was owned by `SafariTab`.
+
 ### Saved tab-group ensure summary
 
 - Added `safari ensure-tab-group <profile> <name>` as the first high-level slice of the saved tab-group create/reuse workflow.

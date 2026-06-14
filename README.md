@@ -6,7 +6,7 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, window-level tab-group switching, and tab lookup by URL.
+- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar
@@ -21,7 +21,7 @@ Minimal Swift application for computer automation experiments.
 
 - Built with Swift Package Manager.
 - The runnable stack currently includes the `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript` modules.
-- The `Safari` module exposes application, profile, window, saved tab-group, and tab commands.
+- The `Safari` module exposes application, profile, window, saved tab-group, tab-list, and tab commands.
 - Requires macOS with Safari installed.
 
 ## Run

@@ -36,7 +36,6 @@ public enum SafariTabGroup: ModelModel {
             SafariTabGroupListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
-            SafariTabGroupListTabsCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
         ]
     )

@@ -32,6 +32,7 @@ import SQLite3
             SafariProfile.descriptor,
             SafariWindow.descriptor,
             SafariTabGroup.descriptor,
+            SafariTabList.descriptor,
             SafariTab.descriptor
         ]
     )
@@ -88,15 +89,23 @@ import SQLite3
             SafariTabGroupListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
-            SafariTabGroupListTabsCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
         ]
     )
     #expect(SafariTabGroupCreateCommand.descriptor.operation == .create)
     #expect(SafariTabGroupEnsureCommand.descriptor.operation == .create)
     #expect(SafariTabGroupListCommand.descriptor.operation == .read)
-    #expect(SafariTabGroupListTabsCommand.descriptor.operation == .read)
     #expect(SafariTabGroupDeleteCommand.descriptor.operation == .delete)
+    #expect(SafariTabList.descriptor.name == "tab-list")
+    #expect(
+        SafariTabList.descriptor.commands ==
+        [
+            SafariTabListTabGroupTabsCommand.descriptor,
+            SafariTabListWindowTabsCommand.descriptor
+        ]
+    )
+    #expect(SafariTabListTabGroupTabsCommand.descriptor.operation == .read)
+    #expect(SafariTabListWindowTabsCommand.descriptor.operation == .read)
     #expect(SafariTab.descriptor.name == "tab")
     #expect(
         SafariTab.descriptor.commands ==
@@ -106,7 +115,6 @@ import SQLite3
             SafariTabFindCommand.descriptor,
             SafariTabResolveCommand.descriptor,
             SafariTabExecuteJavaScriptCommand.descriptor,
-            SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
             SafariTabCloseCommand.descriptor
         ]
@@ -181,14 +189,14 @@ import SQLite3
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
             CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
-            CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
+            CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
+            CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
             CompletionSuggestion(value: "tabs", abstract: "List Safari browser tabs across all open windows."),
             CompletionSuggestion(value: "find-tab", abstract: "Find Safari tabs by URL."),
             CompletionSuggestion(value: "resolve-tab", abstract: "Resolve exactly one Safari tab by URL."),
             CompletionSuggestion(value: "execute-tab-javascript", abstract: "Execute JavaScript in a concrete Safari tab."),
-            CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "set-tab-url", abstract: "Update the URL of a Safari tab."),
             CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
         ]
@@ -354,7 +362,7 @@ import SQLite3
     #expect(windowTabs[0].kind == .positional)
     #expect(windowTabs[0].isRequired)
 
-    let tabGroupTabs = SafariTabGroupListTabsCommand.descriptor.arguments
+    let tabGroupTabs = SafariTabListTabGroupTabsCommand.descriptor.arguments
     #expect(tabGroupTabs.count == 1)
     #expect(tabGroupTabs[0].name == "tab-group-identifier")
     #expect(tabGroupTabs[0].kind == .positional)
@@ -1753,15 +1761,15 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         SafariTabGroupTabRecord(tabGroupIdentifier: 10, index: 2, url: "https://openai.com")
     ]
 ])
-func safariTabGroupListTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]) async throws {
-    let command = SafariTabGroupListTabsCommand(listTabs: { _ in tabs })
+func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]) async throws {
+    let command = SafariTabListTabGroupTabsCommand(listTabs: { _ in tabs })
     let output = try command.execute(arguments: ["10"])
     let expected = tabs.map { "\($0.index)|\($0.url)" }.joined(separator: "\n")
     #expect(output == expected)
 }
 
-@Test func safariTabGroupListTabsCommandRejectsMissingOrInvalidIdentifier() async throws {
-    let command = SafariTabGroupListTabsCommand(listTabs: { _ in [] })
+@Test func safariTabListTabGroupTabsCommandRejectsMissingOrInvalidIdentifier() async throws {
+    let command = SafariTabListTabGroupTabsCommand(listTabs: { _ in [] })
 
     #expect(throws: SafariTabGroupCommandError.missingTabGroupIdentifier) {
         try command.execute(arguments: [])
@@ -1776,8 +1784,8 @@ func safariTabGroupListTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]) a
     }
 }
 
-@Test func safariTabGroupListTabsCommandPropagatesFailure() async throws {
-    let command = SafariTabGroupListTabsCommand(
+@Test func safariTabListTabGroupTabsCommandPropagatesFailure() async throws {
+    let command = SafariTabListTabGroupTabsCommand(
         listTabs: { _ in throw SafariTabGroupCommandError.queryPreparationFailed }
     )
 

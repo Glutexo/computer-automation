@@ -9,6 +9,7 @@ public enum SafariModule: ModuleModel {
             SafariProfile.descriptor,
             SafariWindow.descriptor,
             SafariTabGroup.descriptor,
+            SafariTabList.descriptor,
             SafariTab.descriptor
         ]
     )
@@ -55,8 +56,8 @@ public enum SafariModule: ModuleModel {
             return try CommandOutputRenderer.execute(SafariTabGroupFindCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupResolveCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabGroupResolveCommand(), arguments: arguments, outputFormat: outputFormat)
-        case SafariTabGroupListTabsCommand.descriptor.name:
-            return try CommandOutputRenderer.execute(SafariTabGroupListTabsCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariTabListTabGroupTabsCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariTabListTabGroupTabsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupCreateCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabGroupCreateCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupDeleteCommand.descriptor.name:

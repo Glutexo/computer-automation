@@ -17,14 +17,14 @@ public struct SafariTabListWindowTabsCommand: CommandModel, JSONCommandModel {
     public init() {
         self.executor = SafariAppleScriptExecutor()
         self.listWindowTabs = { windowIndex, executor in
-            try SafariTab.listWindowTabs(windowIndex: windowIndex, executor: executor)
+            try SafariTabList.listWindowTabs(windowIndex: windowIndex, executor: executor)
         }
     }
 
     init(
         executor: SafariAppleScriptExecuting,
         listWindowTabs: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord] = { windowIndex, executor in
-            try SafariTab.listWindowTabs(windowIndex: windowIndex, executor: executor)
+            try SafariTabList.listWindowTabs(windowIndex: windowIndex, executor: executor)
         }
     ) {
         self.executor = executor

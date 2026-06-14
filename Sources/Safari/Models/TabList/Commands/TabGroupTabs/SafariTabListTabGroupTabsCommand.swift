@@ -1,6 +1,6 @@
 import AutomationFoundation
 
-public struct SafariTabGroupListTabsCommand: CommandModel, JSONCommandModel {
+public struct SafariTabListTabGroupTabsCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
         name: "tab-group-tabs",
         abstract: "List tabs stored in a saved Safari tab group.",
@@ -14,7 +14,7 @@ public struct SafariTabGroupListTabsCommand: CommandModel, JSONCommandModel {
 
     public init() {
         self.listTabs = { identifier in
-            try SafariTabGroup.listTabs(tabGroupIdentifier: identifier)
+            try SafariTabList.listTabGroupTabs(tabGroupIdentifier: identifier)
         }
     }
 

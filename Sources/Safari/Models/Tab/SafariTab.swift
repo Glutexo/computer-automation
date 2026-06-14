@@ -59,7 +59,6 @@ public enum SafariTab: ModelModel {
             SafariTabFindCommand.descriptor,
             SafariTabResolveCommand.descriptor,
             SafariTabExecuteJavaScriptCommand.descriptor,
-            SafariTabListWindowTabsCommand.descriptor,
             SafariTabSetURLCommand.descriptor,
             SafariTabCloseCommand.descriptor
         ]
