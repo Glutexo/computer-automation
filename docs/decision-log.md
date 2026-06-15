@@ -16,6 +16,14 @@
 - Saved-tab-group reconciliation first delegates to `ensure-tab-group`, preserves the created/reused status in its summary, then focuses/selects the ensured group before opening missing URLs.
 - The operation intentionally does not reorder existing tabs, delete extra tabs, or move URL ownership away from individual tab records.
 
+### Safari tab-list URL-order reordering
+
+- Added `safari reorder-tab-list-urls` as a second update operation on the virtual `SafariTabList` model.
+- The command reorders existing matching tabs for both window-backed and saved-tab-group-backed tab lists, while keeping URL ownership on individual tabs.
+- Requested URL duplicates are matched by occurrence from left to right; surplus requested occurrences are reported as missing and surplus existing occurrences are reported as extra.
+- Extra tabs are not deleted. Matched requested tabs become the ordered prefix and unmatched tabs keep their previous relative order after that prefix.
+- Saved-tab-group reorder focuses/selects the group in a compatible live window, moves the live tabs, and verifies that `tab-group-tabs` exposes the persisted reordered saved-group order before reporting success.
+
 ### Saved tab-group ensure summary
 
 - Added `safari ensure-tab-group <profile> <name>` as the first high-level slice of the saved tab-group create/reuse workflow.

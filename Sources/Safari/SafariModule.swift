@@ -58,6 +58,8 @@ public enum SafariModule: ModuleModel {
             return try CommandOutputRenderer.execute(SafariTabGroupResolveCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabListEnsureURLsCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabListEnsureURLsCommand(), arguments: arguments, outputFormat: outputFormat)
+        case SafariTabListReorderURLsCommand.descriptor.name:
+            return try CommandOutputRenderer.execute(SafariTabListReorderURLsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabListTabGroupTabsCommand.descriptor.name:
             return try CommandOutputRenderer.execute(SafariTabListTabGroupTabsCommand(), arguments: arguments, outputFormat: outputFormat)
         case SafariTabGroupCreateCommand.descriptor.name:

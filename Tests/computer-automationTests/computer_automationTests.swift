@@ -101,11 +101,13 @@ import SQLite3
         SafariTabList.descriptor.commands ==
         [
             SafariTabListEnsureURLsCommand.descriptor,
+            SafariTabListReorderURLsCommand.descriptor,
             SafariTabListTabGroupTabsCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor
         ]
     )
     #expect(SafariTabListEnsureURLsCommand.descriptor.operation == .update)
+    #expect(SafariTabListReorderURLsCommand.descriptor.operation == .update)
     #expect(SafariTabListTabGroupTabsCommand.descriptor.operation == .read)
     #expect(SafariTabListWindowTabsCommand.descriptor.operation == .read)
     #expect(SafariTab.descriptor.name == "tab")
@@ -193,6 +195,7 @@ import SQLite3
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
             CompletionSuggestion(value: "ensure-tab-list-urls", abstract: "Ensure requested URLs exist in a Safari tab list."),
+            CompletionSuggestion(value: "reorder-tab-list-urls", abstract: "Reorder Safari tab lists to match requested URL order."),
             CompletionSuggestion(value: "tab-group-tabs", abstract: "List tabs stored in a saved Safari tab group."),
             CompletionSuggestion(value: "window-tabs", abstract: "List Safari tabs in a specific window."),
             CompletionSuggestion(value: "open-tab", abstract: "Open a new Safari tab in a specific window."),
@@ -379,6 +382,9 @@ import SQLite3
     #expect(ensureTabListURLs[3].name == "url")
     #expect(ensureTabListURLs[3].kind == .positional)
     #expect(ensureTabListURLs[3].isRequired)
+
+    let reorderTabListURLs = SafariTabListReorderURLsCommand.descriptor.arguments
+    #expect(reorderTabListURLs == ensureTabListURLs)
 
     let tabGroupTabs = SafariTabListTabGroupTabsCommand.descriptor.arguments
     #expect(tabGroupTabs.count == 1)
@@ -2046,6 +2052,262 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     }
 }
 
+@Test func safariTabListReorderURLsCommandMovesRequestedWindowURLOccurrencesToPrefix() async throws {
+    var moves: [String] = []
+    let command = SafariTabListReorderURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { windowIndex, _ in
+            #expect(windowIndex == 2)
+            return [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://a.example"),
+                SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: nil, url: "https://b.example"),
+                SafariWindowTabRecord(index: 3, selectedTabGroupTabIndex: nil, url: "https://a.example"),
+                SafariWindowTabRecord(index: 4, selectedTabGroupTabIndex: nil, url: "https://c.example"),
+                SafariWindowTabRecord(index: 5, selectedTabGroupTabIndex: nil, url: "https://d.example")
+            ]
+        },
+        listTabGroupTabs: { _ in [] },
+        moveTab: { windowIndex, sourceIndex, destinationIndex, _ in
+            moves.append("\(windowIndex)|\(sourceIndex)|\(destinationIndex)")
+        }
+    )
+
+    let output = try command.execute(arguments: [
+        "--window-index", "2",
+        "https://c.example",
+        "https://a.example",
+        "https://a.example",
+        "https://missing.example"
+    ])
+
+    #expect(
+        output ==
+        """
+        Safari tab list URLs reordered.
+        context|window|2
+        moved|https://c.example|4|1
+        moved|https://a.example|4|3
+        unchanged|https://a.example|2
+        missing|https://missing.example
+        extra|https://b.example|4
+        extra|https://d.example|5
+        """
+    )
+    #expect(moves == ["2|4|1", "2|4|3"])
+}
+
+@Test func safariTabListReorderURLsCommandReturnsStructuredJSONForWindowContext() async throws {
+    let command = SafariTabListReorderURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { _, _ in
+            [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "https://a.example"),
+                SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: nil, url: "https://b.example")
+            ]
+        },
+        listTabGroupTabs: { _ in [] },
+        moveTab: { _, _, _, _ in }
+    )
+
+    let output = try command.executeJSON(arguments: [
+        "--window-index=1",
+        "https://b.example",
+        "https://missing.example"
+    ])
+    let object = try jsonObject(output)
+    let context = try #require(object["context"] as? [String: Any])
+    let moved = try #require(object["moved"] as? [[String: Any]])
+    let unchanged = try #require(object["unchanged"] as? [[String: Any]])
+    let extra = try #require(object["extra"] as? [[String: Any]])
+
+    #expect(context["kind"] as? String == "window")
+    #expect(context["windowIndex"] as? Int == 1)
+    #expect(moved.count == 1)
+    #expect(moved[0]["url"] as? String == "https://b.example")
+    #expect(moved[0]["fromIndex"] as? Int == 2)
+    #expect(moved[0]["toIndex"] as? Int == 1)
+    #expect(unchanged.isEmpty)
+    #expect(object["missingURLs"] as? [String] == ["https://missing.example"])
+    #expect(extra.count == 1)
+    #expect(extra[0]["url"] as? String == "https://a.example")
+    #expect(extra[0]["index"] as? Int == 2)
+}
+
+@Test func safariTabListReorderURLsCommandEnsuresSelectsAndVerifiesTabGroupOrder() async throws {
+    var focusedWindowIndexes: [Int] = []
+    var selectedNames: [String] = []
+    var moves: [String] = []
+
+    let command = SafariTabListReorderURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { profileName, name in
+            SafariTabGroupEnsureSummary(
+                status: .reused,
+                tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
+            )
+        },
+        listWindowTabs: { windowIndex, _ in
+            #expect(windowIndex == 3)
+            return [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://a.example"),
+                SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: 2, url: "https://b.example"),
+                SafariWindowTabRecord(index: 3, selectedTabGroupTabIndex: 3, url: "https://c.example")
+            ]
+        },
+        listTabGroupTabs: { identifier in
+            #expect(identifier == 1000)
+            return [
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 1, url: "https://c.example"),
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 2, url: "https://a.example"),
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 3, url: "https://b.example")
+            ]
+        },
+        listWindows: {
+            [
+                SafariWindowRecord(
+                    identifier: 42,
+                    index: 3,
+                    isPrivate: false,
+                    profileName: "Twisto",
+                    selectedTabGroupIdentifier: 1000,
+                    tabGroupName: "Focus",
+                    name: "Focus"
+                )
+            ]
+        },
+        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        selectTabGroup: { name, _ in selectedNames.append(name) },
+        moveTab: { windowIndex, sourceIndex, destinationIndex, _ in
+            moves.append("\(windowIndex)|\(sourceIndex)|\(destinationIndex)")
+        }
+    )
+
+    let output = try command.execute(arguments: [
+        "--tab-group-profile", "Twisto",
+        "--tab-group-name", "Focus",
+        "https://c.example",
+        "https://a.example"
+    ])
+
+    #expect(
+        output ==
+        """
+        Safari tab list URLs reordered.
+        context|tab-group|1000|Twisto|Focus|3
+        tab-group|reused|1000|Twisto|Focus
+        moved|https://c.example|3|1
+        unchanged|https://a.example|2
+        extra|https://b.example|3
+        """
+    )
+    #expect(focusedWindowIndexes == [3])
+    #expect(selectedNames == ["Focus"])
+    #expect(moves == ["3|3|1"])
+}
+
+@Test func safariTabListReorderURLsCommandRejectsUnverifiedSavedTabGroupPersistence() async throws {
+    let command = SafariTabListReorderURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { profileName, name in
+            SafariTabGroupEnsureSummary(
+                status: .reused,
+                tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
+            )
+        },
+        listWindowTabs: { _, _ in
+            [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://a.example"),
+                SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: 2, url: "https://b.example")
+            ]
+        },
+        listTabGroupTabs: { identifier in
+            [
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 1, url: "https://a.example"),
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 2, url: "https://b.example")
+            ]
+        },
+        listWindows: {
+            [SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "Twisto", name: "Focus")]
+        },
+        focusWindow: { _, _ in },
+        selectTabGroup: { _, _ in },
+        moveTab: { _, _, _, _ in }
+    )
+
+    #expect(throws: SafariTabListCommandError.savedTabGroupOrderPersistenceNotVerified(1000)) {
+        try command.execute(arguments: [
+            "--tab-group-profile", "Twisto",
+            "--tab-group-name", "Focus",
+            "https://b.example"
+        ])
+    }
+}
+
+@Test func safariTabListReorderURLsCommandRejectsInvalidArguments() async throws {
+    let command = SafariTabListReorderURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "unused") },
+        listWindowTabs: { _, _ in [] },
+        listTabGroupTabs: { _ in [] },
+        moveTab: { _, _, _, _ in Issue.record("moveTab should not be called") }
+    )
+
+    #expect(throws: SafariTabListCommandError.missingURL) {
+        try command.execute(arguments: ["--window-index", "1"])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingContext) {
+        try command.execute(arguments: ["https://example.com"])
+    }
+
+    #expect(throws: SafariTabListCommandError.multipleContexts) {
+        try command.execute(arguments: [
+            "--window-index", "1",
+            "--tab-group-profile", "Twisto",
+            "--tab-group-name", "Focus",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingTabGroupName) {
+        try command.execute(arguments: [
+            "--tab-group-profile", "Twisto",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingTabGroupProfile) {
+        try command.execute(arguments: [
+            "--tab-group-name", "Focus",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabCommandError.invalidWindowIndex("0")) {
+        try command.execute(arguments: [
+            "--window-index=0",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.missingOptionValue("--window-index")) {
+        try command.execute(arguments: [
+            "--window-index",
+            "--tab-group-name",
+            "https://example.com"
+        ])
+    }
+
+    #expect(throws: SafariTabListCommandError.unknownOption("--unknown")) {
+        try command.execute(arguments: [
+            "--unknown",
+            "https://example.com"
+        ])
+    }
+}
+
 @Test func safariWindowListCommandPropagatesListFailure() async throws {
     let command = SafariWindowListCommand(
         executor: MockAppleScriptExecutor(),
@@ -2713,6 +2975,20 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
     #expect(executor.executedScripts[0].contains("tell window 2"))
     #expect(executor.executedScripts[0].contains("set URL of tab 3"))
     #expect(executor.executedScripts[0].contains("https://openai.com"))
+}
+
+@Test func safariAppleScriptTabMoveExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptTab.move(windowIndex: 2, sourceIndex: 4, destinationIndex: 1, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("tell window 2"))
+    #expect(executor.executedScripts[0].contains("move tab 4 to before tab 1"))
+    #expect(executor.executedScripts[0].contains("set current tab to tab 1"))
+
+    let secondExecutor = MockAppleScriptExecutor()
+    try SafariAppleScriptTab.move(windowIndex: 2, sourceIndex: 1, destinationIndex: 3, executor: secondExecutor)
+    #expect(secondExecutor.executedScripts[0].contains("move tab 1 to after tab 3"))
+    #expect(secondExecutor.executedScripts[0].contains("set current tab to tab 3"))
 }
 
 @Test func safariAppleScriptTabCloseReturnsScriptResult() async throws {

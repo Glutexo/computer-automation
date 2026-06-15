@@ -8,6 +8,7 @@ public enum SafariTabList: ModelModel {
         abstract: "Ordered Safari tab lists for windows and saved tab groups.",
         commands: [
             SafariTabListEnsureURLsCommand.descriptor,
+            SafariTabListReorderURLsCommand.descriptor,
             SafariTabListTabGroupTabsCommand.descriptor,
             SafariTabListWindowTabsCommand.descriptor
         ]
@@ -27,7 +28,7 @@ public enum SafariTabList: ModelModel {
     }
 }
 
-public struct SafariTabListEnsureURLsContext: Equatable, Sendable, Encodable {
+public struct SafariTabListContext: Equatable, Sendable, Encodable {
     public enum Kind: String, Sendable, Encodable {
         case window
         case tabGroup
@@ -55,13 +56,13 @@ public struct SafariTabListEnsureURLsContext: Equatable, Sendable, Encodable {
 }
 
 public struct SafariTabListEnsureURLsSummary: Equatable, Sendable, Encodable {
-    public let context: SafariTabListEnsureURLsContext
+    public let context: SafariTabListContext
     public let tabGroup: SafariTabGroupEnsureSummary?
     public let addedURLs: [String]
     public let skippedURLs: [String]
 
     public init(
-        context: SafariTabListEnsureURLsContext,
+        context: SafariTabListContext,
         tabGroup: SafariTabGroupEnsureSummary? = nil,
         addedURLs: [String],
         skippedURLs: [String]
@@ -70,6 +71,53 @@ public struct SafariTabListEnsureURLsSummary: Equatable, Sendable, Encodable {
         self.tabGroup = tabGroup
         self.addedURLs = addedURLs
         self.skippedURLs = skippedURLs
+    }
+}
+
+public struct SafariTabListReorderURLsSummary: Equatable, Sendable, Encodable {
+    public let context: SafariTabListContext
+    public let tabGroup: SafariTabGroupEnsureSummary?
+    public let moved: [SafariTabListReorderURLMove]
+    public let unchanged: [SafariTabListReorderURLRecord]
+    public let missingURLs: [String]
+    public let extra: [SafariTabListReorderURLRecord]
+
+    public init(
+        context: SafariTabListContext,
+        tabGroup: SafariTabGroupEnsureSummary? = nil,
+        moved: [SafariTabListReorderURLMove],
+        unchanged: [SafariTabListReorderURLRecord],
+        missingURLs: [String],
+        extra: [SafariTabListReorderURLRecord]
+    ) {
+        self.context = context
+        self.tabGroup = tabGroup
+        self.moved = moved
+        self.unchanged = unchanged
+        self.missingURLs = missingURLs
+        self.extra = extra
+    }
+}
+
+public struct SafariTabListReorderURLMove: Equatable, Sendable, Encodable {
+    public let url: String
+    public let fromIndex: Int
+    public let toIndex: Int
+
+    public init(url: String, fromIndex: Int, toIndex: Int) {
+        self.url = url
+        self.fromIndex = fromIndex
+        self.toIndex = toIndex
+    }
+}
+
+public struct SafariTabListReorderURLRecord: Equatable, Sendable, Encodable {
+    public let url: String
+    public let index: Int
+
+    public init(url: String, index: Int) {
+        self.url = url
+        self.index = index
     }
 }
 
@@ -82,6 +130,7 @@ enum SafariTabListCommandError: Error, Equatable, LocalizedError {
     case emptyTabGroupName
     case missingURL
     case emptyURL
+    case savedTabGroupOrderPersistenceNotVerified(Int)
     case unknownOption(String)
     case missingOptionValue(String)
 
@@ -103,6 +152,8 @@ enum SafariTabListCommandError: Error, Equatable, LocalizedError {
             "Missing URL."
         case .emptyURL:
             "URL must not be empty."
+        case .savedTabGroupOrderPersistenceNotVerified(let identifier):
+            "Could not verify that Safari persisted the reordered tab order for saved tab group \(identifier)."
         case .unknownOption(let option):
             "Unknown option \(option)."
         case .missingOptionValue(let option):

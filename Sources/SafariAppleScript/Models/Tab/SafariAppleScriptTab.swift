@@ -118,6 +118,35 @@ public enum SafariAppleScriptTab: ModelModel {
         _ = try executor.execute(script: script)
     }
 
+    public static func move(
+        windowIndex: Int,
+        sourceIndex: Int,
+        destinationIndex: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let script = """
+        tell application "Safari"
+            activate
+            if (count of windows) < \(windowIndex) then error "Window index out of range."
+            tell window \(windowIndex)
+                set tabCount to count of tabs
+                if tabCount < \(sourceIndex) then error "Source tab index out of range."
+                if tabCount < \(destinationIndex) then error "Destination tab index out of range."
+                if \(sourceIndex) is not \(destinationIndex) then
+                    if \(sourceIndex) is less than \(destinationIndex) then
+                        move tab \(sourceIndex) to after tab \(destinationIndex)
+                    else
+                        move tab \(sourceIndex) to before tab \(destinationIndex)
+                    end if
+                    set current tab to tab \(destinationIndex)
+                end if
+            end tell
+        end tell
+        """
+
+        _ = try executor.execute(script: script)
+    }
+
     public static func close(
         windowIndex: Int,
         tabIndex: Int,

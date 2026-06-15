@@ -50,6 +50,7 @@ flowchart TD
     TabGroupFind["find-tab-group command"]
     TabGroupResolve["resolve-tab-group command"]
     EnsureTabListURLs["ensure-tab-list-urls command"]
+    ReorderTabListURLs["reorder-tab-list-urls command"]
     TabGroupTabs["tab-group-tabs command"]
     TabOpen["open-tab command"]
     Tabs["tabs command"]
@@ -119,6 +120,7 @@ flowchart TD
     SafariWindow --> SafariTabList
     SafariTabGroup --> SafariTabList
     SafariTabList --> EnsureTabListURLs
+    SafariTabList --> ReorderTabListURLs
     SafariTabList --> TabGroupTabs
     SafariTabList --> WindowTabs
     SafariTab --> TabOpen
