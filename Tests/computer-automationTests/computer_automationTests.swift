@@ -1702,6 +1702,89 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(renamedTargetName == nil)
 }
 
+@Test func safariTabGroupCreateCommandWaitsForDelayedRenamePersistence() async throws {
+    var renamedSourceName: String?
+    var renamedTargetName: String?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+            if pollCount < 14 {
+                return [
+                    SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                    SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Senza nome")
+                ]
+            }
+
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+            ]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in },
+        renameTabGroup: { currentName, newName, _ in
+            renamedSourceName = currentName
+            renamedTargetName = newName
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
+    #expect(renamedSourceName == "Senza nome")
+    #expect(renamedTargetName == "Inbox")
+    #expect(pollCount == 14)
+}
+
+@Test func safariTabGroupCreateCommandReturnsSingleCreatedRootGroupWhenProfileTargetIsUnavailable() async throws {
+    var renamedSourceName: String?
+    var renamedTargetName: String?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+            if pollCount == 2 {
+                return [
+                    SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                    SafariTabGroupRecord(identifier: 1001, profileName: "", name: "名称未設定")
+                ]
+            }
+
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "", name: "Inbox")
+            ]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in },
+        renameTabGroup: { currentName, newName, _ in
+            renamedSourceName = currentName
+            renamedTargetName = newName
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001||Inbox")
+    #expect(renamedSourceName == "名称未設定")
+    #expect(renamedTargetName == "Inbox")
+}
+
 @Test func safariTabGroupDeleteCommandFormatsResolvedGroup() async throws {
     var focusedWindowIndexes: [Int] = []
     var openedProfiles: [String?] = []
@@ -1767,7 +1850,8 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         focusWindow: { index, _ in focusedWindowIndex = index },
         openWindow: { profileName, _ in openedProfileName = profileName },
         selectTabGroup: { name, _ in selectedName = name },
-        deleteSelectedTabGroup: { _ in didDelete = true }
+        deleteSelectedTabGroup: { _ in didDelete = true },
+        deleteCurrentTabGroup: { _ in Issue.record("deleteCurrentTabGroup should not be called") }
     )
 
     #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
@@ -1775,6 +1859,37 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(openedProfileName == nil)
     #expect(selectedName == "Inbox")
     #expect(didDelete)
+}
+
+@Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarSelectionFails() async throws {
+    var focusedWindowIndex: Int?
+    var selectedName: String?
+    var didDeleteSelectedGroup = false
+    var didDeleteCurrentGroup = false
+
+    let command = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+        },
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Inbox — Start Page")]
+        },
+        focusWindow: { index, _ in focusedWindowIndex = index },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { name, _ in
+            selectedName = name
+            throw SafariTabGroupCommandError.sidebarTabGroupNotFound(name)
+        },
+        deleteSelectedTabGroup: { _ in didDeleteSelectedGroup = true },
+        deleteCurrentTabGroup: { _ in didDeleteCurrentGroup = true }
+    )
+
+    #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
+    #expect(focusedWindowIndex == 2)
+    #expect(selectedName == "Inbox")
+    #expect(!didDeleteSelectedGroup)
+    #expect(didDeleteCurrentGroup)
 }
 
 @Test(arguments: [
@@ -3743,6 +3858,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
         (1000, 288, 1, 'Focus', 'group-1', 0),
         (1001, 1000, 1, 'TopScopedBookmarkList', 'scope-1', 1),
         (1002, 1000, 0, 'OpenAI', 'page-1', 0),
+        (1008, 0, 1, 'Root Group', 'root-group', 0),
+        (1009, 1008, 1, 'TopScopedBookmarkList', 'root-scope', 1),
         (1003, NULL, 1, 'Local', 'local-1', 0),
         (1004, NULL, 1, 'Private', 'private-1', 0),
         (1005, 288, 1, 'No Scope Group', 'group-2', 0),
@@ -3755,7 +3872,8 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     #expect(
         try SafariDatabaseTabGroup.list(databasePath: databasePath) ==
         [
-            SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+            SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+            SafariDatabaseTabGroupRecord(identifier: 1008, profileName: "", name: "Root Group")
         ]
     )
 }
@@ -3845,6 +3963,36 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
 
     #expect(try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 9999, databasePath: databasePath).isEmpty)
     #expect(try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath).isEmpty)
+}
+
+@Test func safariTabGroupListsTabsForRootSavedGroup() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        url TEXT,
+        order_index INTEGER NOT NULL,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
+        (1000, 0, 1, 'Root Group', NULL, 0, 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (1002, 1000, 0, 'Example', 'https://example.com', 1, 0);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariDatabaseTabGroup.listTabs(tabGroupIdentifier: 1000, databasePath: databasePath) ==
+        [
+            SafariDatabaseTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com")
+        ]
+    )
 }
 
 @Test func safariTabGroupDeleteRemovesGroupAndDescendants() async throws {

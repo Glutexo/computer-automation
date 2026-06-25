@@ -4,6 +4,9 @@ import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
+    private static let databaseMutationPollAttempts = 30
+    private static let databaseMutationPollInterval: TimeInterval = 0.25
+
     public static let descriptor = CommandDescriptor(
         name: "create-tab-group",
         abstract: "Create a new saved Safari tab group in a specific window.",
@@ -27,8 +30,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.listWindows = { try SafariWindow.list() }
         self.listTabGroups = { try SafariTabGroup.list() }
         self.focusWindow = SafariAppleScriptWindow.focus
-        self.createEmptyTabGroup = { _ in
-            try SafariFileMenu.createEmptyTabGroup()
+        self.createEmptyTabGroup = { executor in
+            try SafariFileMenu.createEmptyTabGroup(executor: executor)
         }
         self.renameTabGroup = { currentName, newName, _ in
             try SafariSidebar.renameTabGroup(named: currentName, to: newName)
@@ -154,7 +157,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         profileName: String,
         knownIdentifiers: Set<Int>
     ) throws -> SafariTabGroupRecord {
-        for attempt in 0..<10 {
+        for attempt in 0..<Self.databaseMutationPollAttempts {
             let newGroups = try listTabGroups().filter { !knownIdentifiers.contains($0.identifier) }
 
             if let createdGroup = newGroups
@@ -164,12 +167,12 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
                 return createdGroup
             }
 
-            if let createdGroup = newGroups.max(by: { $0.identifier < $1.identifier }), profileName.isEmpty {
+            if let createdGroup = newGroups.max(by: { $0.identifier < $1.identifier }), profileName.isEmpty || newGroups.count == 1 {
                 return createdGroup
             }
 
-            if attempt < 9 {
-                sleep(0.1)
+            if attempt < Self.databaseMutationPollAttempts - 1 {
+                sleep(Self.databaseMutationPollInterval)
             }
         }
 
@@ -180,15 +183,15 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         identifier: Int,
         expectedName: String
     ) throws -> SafariTabGroupRecord {
-        for attempt in 0..<10 {
+        for attempt in 0..<Self.databaseMutationPollAttempts {
             if let renamedGroup = try listTabGroups().first(where: {
                 $0.identifier == identifier && $0.name == expectedName
             }) {
                 return renamedGroup
             }
 
-            if attempt < 9 {
-                sleep(0.1)
+            if attempt < Self.databaseMutationPollAttempts - 1 {
+                sleep(Self.databaseMutationPollInterval)
             }
         }
 

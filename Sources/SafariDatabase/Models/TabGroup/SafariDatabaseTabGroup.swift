@@ -41,14 +41,15 @@ public enum SafariDatabaseTabGroup: ModelModel {
         defer { sqlite3_close(database) }
 
         let query = """
-        SELECT g.id, p.title, g.title
+        SELECT g.id, COALESCE(p.title, ''), g.title
         FROM bookmarks g
-        JOIN bookmarks p ON p.id = g.parent
-        WHERE g.type = 1
-          AND g.subtype = 0
+        LEFT JOIN bookmarks p ON p.id = g.parent
           AND p.parent = 0
           AND p.type = 1
           AND p.subtype = 2
+        WHERE g.type = 1
+          AND g.subtype = 0
+          AND (p.id IS NOT NULL OR g.parent = 0)
           AND EXISTS (
               SELECT 1
               FROM bookmarks child
@@ -109,6 +110,9 @@ public enum SafariDatabaseTabGroup: ModelModel {
                 AND p.parent = 0
                 AND p.type = 1
                 AND p.subtype = 2
+              UNION ALL
+              SELECT 1
+              WHERE g.parent = 0
           )
           AND EXISTS (
               SELECT 1

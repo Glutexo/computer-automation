@@ -1,5 +1,18 @@
 # Research Notes
 
+## 2026-06-25
+
+### Safari localization and root tab-group behavior
+
+- The current macOS language preference list starts with `ja-CZ`, and Safari exposes localized menu titles such as `ファイル` for the File menu.
+- File-menu addressing by menu bar index `3` remains valid under that localization.
+- `NewEmptyTabGroupMenuItem` and `DeleteTabGroupMenuItem` remain stable `AXIdentifier` values under the Japanese Safari UI.
+- The private-window menu item can still be identified through shortcut metadata (`N` with modifier value `1`) rather than localized title text.
+- Safari may persist a newly created empty tab group as a root `bookmarks` row with `parent = 0`, `type = 1`, `subtype = 0`, and a `TopScopedBookmarkList` child, exposing no profile name in `SafariTabs.db`.
+- The default localized name for that root group was observed as `名称未設定`.
+- The create flow must tolerate delayed Safari database writes after inline rename confirmation; a short one-second poll can report failure even though Safari later persists the expected name.
+- When a saved group is already the current front-window group but the sidebar row is not found, File-menu deletion through `DeleteTabGroupMenuItem` is a verified structural fallback.
+
 ## 2026-06-14
 
 ### Safari database access stabilization
