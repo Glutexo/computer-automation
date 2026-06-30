@@ -4,6 +4,9 @@ import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
+    private static let persistencePollAttempts = 30
+    private static let persistencePollInterval: TimeInterval = 0.25
+
     public static let descriptor = CommandDescriptor(
         name: "reorder-tab-list-urls",
         abstract: "Reorder Safari tab lists to match requested URL order.",
@@ -239,18 +242,23 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             return
         }
 
-        for attempt in 0..<10 {
+        let normalizedExpectedURLs = expectedURLs.map(normalizedSavedTabGroupURL)
+        for attempt in 0..<Self.persistencePollAttempts {
             let storedURLs = try listTabGroupTabs(tabGroupIdentifier).map(\.url)
-            if storedURLs == expectedURLs {
+            if storedURLs == normalizedExpectedURLs {
                 return
             }
 
-            if attempt < 9 {
-                sleep(0.1)
+            if attempt < Self.persistencePollAttempts - 1 {
+                sleep(Self.persistencePollInterval)
             }
         }
 
         throw SafariTabListCommandError.savedTabGroupOrderPersistenceNotVerified(tabGroupIdentifier)
+    }
+
+    private func normalizedSavedTabGroupURL(_ url: String) -> String {
+        url == "favorites://" ? "" : url
     }
 
     private func format(_ summary: SafariTabListReorderURLsSummary) -> String {

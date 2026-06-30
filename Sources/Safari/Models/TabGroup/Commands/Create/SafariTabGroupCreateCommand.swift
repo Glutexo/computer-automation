@@ -22,7 +22,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let createEmptyTabGroup: (SafariAppleScriptExecuting) throws -> Void
-    private let renameTabGroup: (String, String, SafariAppleScriptExecuting) throws -> Void
+    private let renameTabGroup: (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void
     private let deleteCurrentTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
@@ -34,8 +34,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.createEmptyTabGroup = { executor in
             try SafariFileMenu.createEmptyTabGroup(executor: executor)
         }
-        self.renameTabGroup = { currentName, newName, _ in
-            try SafariSidebar.renameTabGroup(named: currentName, to: newName)
+        self.renameTabGroup = { group, newName, _ in
+            try SafariSidebar.renameTabGroup(identifier: group.identifier, named: group.name, to: newName)
         }
         self.deleteCurrentTabGroup = SafariFileMenu.deleteCurrentTabGroup
         self.sleep = Thread.sleep
@@ -47,8 +47,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         createEmptyTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.createEmptyTabGroup,
-        renameTabGroup: @escaping (String, String, SafariAppleScriptExecuting) throws -> Void = { currentName, newName, _ in
-            try SafariSidebar.renameTabGroup(named: currentName, to: newName)
+        renameTabGroup: @escaping (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void = { group, newName, _ in
+            try SafariSidebar.renameTabGroup(identifier: group.identifier, named: group.name, to: newName)
         },
         deleteCurrentTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup,
         sleep: @escaping (TimeInterval) -> Void = Thread.sleep
@@ -157,7 +157,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         do {
             if createdGroup.name != name {
                 sleep(0.1)
-                try renameTabGroup(createdGroup.name, name, executor)
+                try renameTabGroup(createdGroup, name, executor)
             }
 
             let renamedGroup = try waitForRenamedTabGroup(
@@ -244,8 +244,28 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     }
 
     private func rollbackCreatedTabGroup(identifier: Int, windowIdentifier: Int) throws {
-        try focusWindow(windowIdentifier, executor)
-        try deleteCurrentTabGroup(executor)
+        do {
+            try focusWindow(windowIdentifier, executor)
+        } catch let focusError {
+            do {
+                try waitForDeletedTabGroup(identifier: identifier)
+                return
+            } catch {
+                throw focusError
+            }
+        }
+
+        do {
+            try deleteCurrentTabGroup(executor)
+        } catch let deletionError {
+            do {
+                try waitForDeletedTabGroup(identifier: identifier)
+                return
+            } catch {
+                throw deletionError
+            }
+        }
+
         try waitForDeletedTabGroup(identifier: identifier)
     }
 

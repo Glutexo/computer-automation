@@ -66,7 +66,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
                                     if currentIdentifier is missing value then set currentIdentifier to ""
                                 end try
                             end if
-                            if currentIdentifier starts with "SidebarLibraryItemTabGroup" and currentIdentifier contains "\(identifier)" then
+                            if sidebarIdentifierMatches(currentIdentifier, \(identifier)) then
                                 set value of attribute "AXSelectedRows" of outlineItem to {currentRow}
                                 set value of attribute "AXSelectedCells" of outlineItem to {currentCell}
                                 set value of attribute "AXFocused" of outlineItem to true
@@ -78,6 +78,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
         } ?? ""
 
         let script = """
+        \(sidebarIdentifierMatchHandlerScript)
         tell application "Safari" to activate
         delay 0.1
         \(sidebarBootstrapScript)
@@ -220,6 +221,28 @@ public enum SafariAppleScriptSidebar: ModelModel {
                 error "Safari sidebar not available."
             end if
             set outlineItem to UI element 1 of UI element 1 of UI element 1 of front window
+    """
+
+    private static let sidebarIdentifierMatchHandlerScript = """
+    on sidebarIdentifierMatches(currentIdentifier, requestedIdentifier)
+        set identifierPrefix to "SidebarLibraryItemTabGroup"
+        if currentIdentifier does not start with identifierPrefix then return false
+        if (length of currentIdentifier) is less than or equal to (length of identifierPrefix) then return false
+
+        set requestedText to requestedIdentifier as text
+        set suffixText to text ((length of identifierPrefix) + 1) thru -1 of currentIdentifier
+        set currentDigits to ""
+        repeat with characterIndex from 1 to length of suffixText
+            set currentCharacter to character characterIndex of suffixText
+            if currentCharacter is in "0123456789" then
+                set currentDigits to currentDigits & currentCharacter
+            else if currentDigits is not "" then
+                return currentDigits is requestedText
+            end if
+        end repeat
+
+        return currentDigits is requestedText
+    end sidebarIdentifierMatches
     """
 
     private static func appleScriptEscaped(_ value: String) -> String {

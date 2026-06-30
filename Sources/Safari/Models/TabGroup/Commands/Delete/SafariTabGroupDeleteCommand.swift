@@ -100,14 +100,31 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         )
         do {
             try selectTabGroup(group, executor)
-            try deleteSelectedTabGroup(executor)
+            try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteSelectedTabGroup)
         } catch SafariTabGroupCommandError.sidebarTabGroupNotFound where window(focusedWindow, matches: group) {
-            try deleteCurrentTabGroup(executor)
+            try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteCurrentTabGroup)
         } catch SafariTabGroupCommandError.sidebarUnavailable where window(focusedWindow, matches: group) {
-            try deleteCurrentTabGroup(executor)
+            try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteCurrentTabGroup)
         }
-        try waitForDeletedTabGroup(identifier: group.identifier)
         return group
+    }
+
+    private func deleteAndVerifyTabGroup(
+        identifier: Int,
+        using deleteTabGroup: (SafariAppleScriptExecuting) throws -> Void
+    ) throws {
+        do {
+            try deleteTabGroup(executor)
+        } catch let deletionError {
+            do {
+                try waitForDeletedTabGroup(identifier: identifier)
+                return
+            } catch {
+                throw deletionError
+            }
+        }
+
+        try waitForDeletedTabGroup(identifier: identifier)
     }
 
     private func waitForDeletedTabGroup(identifier: Int) throws {

@@ -50,7 +50,7 @@ public enum SafariSidebar: ModelModel {
 
         if
             let tabGroupIdentifier,
-            let match = matches.first(where: { $0.identifier.contains(String(tabGroupIdentifier)) })
+            let match = matches.first(where: { sidebarIdentifier($0.identifier, matchesTabGroupIdentifier: tabGroupIdentifier) })
         {
             try select(row: match.row, cell: match.cell, in: outline)
             return
@@ -169,6 +169,22 @@ public enum SafariSidebar: ModelModel {
         named currentName: String,
         to newName: String
     ) throws {
+        try renameTabGroup(matchingIdentifier: nil, named: currentName, to: newName)
+    }
+
+    public static func renameTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named currentName: String,
+        to newName: String
+    ) throws {
+        try renameTabGroup(matchingIdentifier: tabGroupIdentifier, named: currentName, to: newName)
+    }
+
+    private static func renameTabGroup(
+        matchingIdentifier tabGroupIdentifier: Int?,
+        named currentName: String,
+        to newName: String
+    ) throws {
         guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
@@ -181,47 +197,25 @@ public enum SafariSidebar: ModelModel {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
+        if let focusedRenameField = focusedSidebarRenameField(in: applicationElement, matching: currentName) {
+            try confirmRenameField(focusedRenameField, to: newName)
+            return
+        }
+
         let focusedWindow = focusedWindowValue as! AXUIElement
         let outline = try outlinedSidebar(in: focusedWindow)
-        let rows = elements(for: kAXRowsAttribute, on: outline)
+        let matches = tabGroupRows(in: outline)
 
-        guard let targetMatch = rows.compactMap({ row -> (AXUIElement, AXUIElement)? in
-            guard let cell = elements(for: kAXChildrenAttribute, on: row).first else {
-                return nil
-            }
+        let targetMatch = tabGroupIdentifier.flatMap { identifier in
+            matches.first(where: { sidebarIdentifier($0.identifier, matchesTabGroupIdentifier: identifier) })
+        } ?? matches.first(where: { $0.title == currentName })
 
-            guard
-                let titleElementValue = copyAttributeValue(kAXTitleUIElementAttribute, from: cell),
-                CFGetTypeID(titleElementValue) == AXUIElementGetTypeID()
-            else {
-                return nil
-            }
-
-            let titleElement = titleElementValue as! AXUIElement
-            guard stringValue(for: kAXValueAttribute, on: titleElement) == currentName else {
-                return nil
-            }
-
-            let currentCellIdentifier = stringValue(for: kAXIdentifierAttribute, on: cell)
-            if currentCellIdentifier.hasPrefix(tabGroupCellIdentifierPrefix) {
-                return (row, cell)
-            }
-
-            let cellChildren = elements(for: kAXChildrenAttribute, on: cell)
-            guard
-                let childIdentifier = cellChildren.first.map({ stringValue(for: kAXIdentifierAttribute, on: $0) }),
-                childIdentifier.hasPrefix(tabGroupCellIdentifierPrefix)
-            else {
-                return nil
-            }
-
-            return (row, cell)
-        }).first else {
+        guard let targetMatch else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        let targetRow = targetMatch.0
-        let targetCell = targetMatch.1
+        let targetRow = targetMatch.row
+        let targetCell = targetMatch.cell
 
         guard
             AXUIElementSetAttributeValue(outline, kAXSelectedRowsAttribute as CFString, [targetRow] as CFArray) == .success,
@@ -279,6 +273,27 @@ public enum SafariSidebar: ModelModel {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
+        try confirmRenameField(renameField, to: newName)
+    }
+
+    private static func focusedSidebarRenameField(in applicationElement: AXUIElement, matching currentName: String) -> AXUIElement? {
+        guard
+            let focusedElement = elementValue(for: kAXFocusedUIElementAttribute, on: applicationElement),
+            stringValue(for: kAXRoleAttribute, on: focusedElement) == kAXTextFieldRole,
+            stringValue(for: kAXIdentifierAttribute, on: focusedElement) == sidebarTextFieldIdentifier,
+            stringValue(for: kAXValueAttribute, on: focusedElement) == currentName
+        else {
+            return nil
+        }
+
+        return focusedElement
+    }
+
+    private static func confirmRenameField(_ renameField: AXUIElement, to newName: String) throws {
+        guard stringValue(for: kAXRoleAttribute, on: renameField) == kAXTextFieldRole else {
+            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        }
+
         guard AXUIElementSetAttributeValue(renameField, kAXValueAttribute as CFString, newName as CFString) == .success else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
@@ -288,6 +303,28 @@ public enum SafariSidebar: ModelModel {
         guard AXUIElementPerformAction(renameField, kAXConfirmAction as CFString) == .success else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
+    }
+
+    static func sidebarIdentifier(_ rawIdentifier: String, matchesTabGroupIdentifier tabGroupIdentifier: Int) -> Bool {
+        guard rawIdentifier.hasPrefix(tabGroupCellIdentifierPrefix) else {
+            return false
+        }
+
+        let expectedIdentifier = String(tabGroupIdentifier)
+        var currentDigits = ""
+
+        for character in rawIdentifier.dropFirst(tabGroupCellIdentifierPrefix.count) {
+            if character.isNumber {
+                currentDigits.append(character)
+                continue
+            }
+
+            if !currentDigits.isEmpty {
+                return currentDigits == expectedIdentifier
+            }
+        }
+
+        return currentDigits == expectedIdentifier
     }
 
     public static func deleteSelectedTabGroup() throws {
