@@ -38,6 +38,12 @@ public enum CommandOutputRenderer {
         arguments: [String],
         outputFormat: CommandOutputFormat
     ) throws -> String {
+        if CommandArgumentPreflight.requestsHelp(arguments) {
+            return CommandUsageRenderer.render(command: type(of: command).descriptor)
+        }
+
+        try CommandArgumentPreflight.validate(type(of: command).descriptor, arguments: arguments)
+
         switch outputFormat {
         case .text:
             return try command.execute(arguments: arguments)
@@ -103,5 +109,79 @@ public struct CommandArgumentDescriptor: Sendable, Equatable {
         self.kind = kind
         self.isRequired = isRequired
         self.completionSuggestions = completionSuggestions
+    }
+}
+
+public enum CommandArgumentError: Error, Equatable, LocalizedError {
+    case unknownOption(commandName: String, option: String)
+    case unexpectedArgument(commandName: String, argument: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .unknownOption(let commandName, let option):
+            "Unknown option \(option) for \(commandName)."
+        case .unexpectedArgument(let commandName, let argument):
+            "Unexpected argument \(argument) for \(commandName)."
+        }
+    }
+}
+
+public enum CommandArgumentPreflight {
+    public static func requestsHelp(_ arguments: [String]) -> Bool {
+        arguments.contains("--help")
+    }
+
+    public static func validate(_ descriptor: CommandDescriptor, arguments: [String]) throws {
+        let knownOptions = Set(
+            descriptor.arguments
+                .filter { $0.kind == .option }
+                .map { "--\($0.name)" }
+        )
+
+        for argument in arguments {
+            if argument.hasPrefix("--") && !isKnownOption(argument, in: knownOptions) {
+                throw CommandArgumentError.unknownOption(
+                    commandName: descriptor.name,
+                    option: argument
+                )
+            }
+        }
+
+        guard !descriptor.arguments.isEmpty || arguments.isEmpty else {
+            throw CommandArgumentError.unexpectedArgument(
+                commandName: descriptor.name,
+                argument: arguments[0]
+            )
+        }
+    }
+
+    private static func isKnownOption(_ argument: String, in knownOptions: Set<String>) -> Bool {
+        knownOptions.contains(argument) ||
+            knownOptions.contains(where: { option in argument.hasPrefix("\(option)=") })
+    }
+}
+
+public enum CommandUsageRenderer {
+    public static func render(command: CommandDescriptor, invocation: [String]? = nil) -> String {
+        let invocation = invocation ?? [command.name]
+        let usage = (invocation + usageArguments(for: command)).joined(separator: " ")
+        return """
+        Usage: \(usage)
+
+        \(command.abstract)
+        """
+    }
+
+    private static func usageArguments(for command: CommandDescriptor) -> [String] {
+        command.arguments.map { argument in
+            switch argument.kind {
+            case .positional:
+                let value = "<\(argument.name)>"
+                return argument.isRequired ? value : "[\(value)]"
+            case .option:
+                let value = "--\(argument.name)"
+                return argument.isRequired ? value : "[\(value)]"
+            }
+        }
     }
 }

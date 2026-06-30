@@ -104,6 +104,8 @@ Prefix a module command with `--json` to get structured JSON instead of line-ori
 swift run computer-automation --json safari find-tab https://example.com --prefix
 ```
 
+Append `--help` to a module command to print its usage without running the command.
+
 `safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. The JavaScript source can be an inline argument, `--stdin`, or `--file <path>` / `--file=<path>`. Provide exactly one source. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
 
 ```json

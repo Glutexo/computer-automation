@@ -69,6 +69,18 @@ public enum ComputerAutomationCLI {
 
         let commandName = effectiveArguments[1]
         let commandArguments = Array(effectiveArguments.dropFirst(2))
+        guard let command = module.commands.first(where: { $0.name == commandName }) else {
+            throw CLIError.unknownCommand(moduleName: module.name, commandName: commandName)
+        }
+
+        if CommandArgumentPreflight.requestsHelp(commandArguments) {
+            return CommandUsageRenderer.render(
+                command: command,
+                invocation: [executableName, module.name, command.name]
+            )
+        }
+
+        try CommandArgumentPreflight.validate(command, arguments: commandArguments)
 
         switch module.name {
         case SafariModule.descriptor.name:

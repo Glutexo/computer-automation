@@ -500,6 +500,25 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(object["running"] is Bool)
 }
 
+@Test func cliRendersCommandHelpBeforeDispatch() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["safari", "close-window", "--help"])
+
+    #expect(output.contains("Usage: computer-automation safari close-window"))
+    #expect(output.contains("Close the front Safari browser window."))
+}
+
+@Test func cliRejectsUnknownCommandOptionBeforeDispatch() async throws {
+    #expect(throws: CommandArgumentError.unknownOption(commandName: "close-window", option: "--bogus")) {
+        try ComputerAutomationCLI.run(arguments: ["safari", "close-window", "--bogus"])
+    }
+}
+
+@Test func cliRejectsUnexpectedArgumentForCommandWithoutArgumentsBeforeDispatch() async throws {
+    #expect(throws: CommandArgumentError.unexpectedArgument(commandName: "close-window", argument: "extra")) {
+        try ComputerAutomationCLI.run(arguments: ["safari", "close-window", "extra"])
+    }
+}
+
 @Test func cliSurfacesUnknownSafariUiCommand() async throws {
     #expect(throws: CLIError.unknownCommand(moduleName: "safari-ui", commandName: "unknown")) {
         try ComputerAutomationCLI.run(arguments: ["safari-ui", "unknown"])
