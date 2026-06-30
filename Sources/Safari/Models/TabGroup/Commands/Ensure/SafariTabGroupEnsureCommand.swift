@@ -27,8 +27,8 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
-        self.createTabGroup = { windowIndex, name in
-            try SafariTabGroupCreateCommand().createTabGroup(windowIndex: windowIndex, name: name)
+        self.createTabGroup = { windowIdentifier, name in
+            try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
     }
 
@@ -40,8 +40,8 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIndex, name in
-            try SafariTabGroupCreateCommand().createTabGroup(windowIndex: windowIndex, name: name)
+        createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIdentifier, name in
+            try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
     ) {
         self.executor = executor
@@ -84,14 +84,14 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             return SafariTabGroupEnsureSummary(status: .reused, tabGroup: match)
         }
 
-        let window = try SafariTabGroupSidebarAccess.focusWindowForProfile(
+        let window = try SafariTabGroupSidebarAccess.openNewWindowForProfile(
             profileName: profileName,
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
             openWindow: openWindow
         )
-        let createdGroup = try createTabGroup(window.index, name)
+        let createdGroup = try createTabGroup(window.identifier, name)
         return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
     }
 }

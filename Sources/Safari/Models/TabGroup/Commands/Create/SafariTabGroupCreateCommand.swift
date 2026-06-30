@@ -84,18 +84,36 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     }
 
     func createTabGroup(windowIndex: Int, name rawName: String) throws -> SafariTabGroupRecord {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw SafariTabGroupCommandError.emptyTabGroupName
-        }
-
+        let name = try validatedTabGroupName(rawName)
         let windows = try listWindows()
         guard let window = windows.first(where: { $0.index == windowIndex }) else {
             throw SafariTabGroupCommandError.invalidWindowIndex(String(windowIndex))
         }
 
+        return try createTabGroup(in: window, name: name)
+    }
+
+    func createTabGroup(windowIdentifier: Int, name rawName: String) throws -> SafariTabGroupRecord {
+        let name = try validatedTabGroupName(rawName)
+        let windows = try listWindows()
+        guard let window = windows.first(where: { $0.identifier == windowIdentifier }) else {
+            throw SafariTabGroupCommandError.invalidWindowIndex(String(windowIdentifier))
+        }
+
+        return try createTabGroup(in: window, name: name)
+    }
+
+    private func validatedTabGroupName(_ rawName: String) throws -> String {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            throw SafariTabGroupCommandError.emptyTabGroupName
+        }
+        return name
+    }
+
+    private func createTabGroup(in window: SafariWindowRecord, name: String) throws -> SafariTabGroupRecord {
         guard !window.isPrivate else {
-            throw SafariTabGroupCommandError.privateWindowTabGroupMutationUnsupported(windowIndex)
+            throw SafariTabGroupCommandError.privateWindowTabGroupMutationUnsupported(window.index)
         }
 
         let existingGroups = try listTabGroups()
@@ -164,10 +182,6 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
                 .filter({ profileName.isEmpty || $0.profileName == profileName })
                 .max(by: { $0.identifier < $1.identifier })
             {
-                return createdGroup
-            }
-
-            if let createdGroup = newGroups.max(by: { $0.identifier < $1.identifier }), profileName.isEmpty || newGroups.count == 1 {
                 return createdGroup
             }
 

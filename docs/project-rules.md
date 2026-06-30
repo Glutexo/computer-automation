@@ -31,6 +31,9 @@
 - Keep related operations on the same product feature as similar as practical at the automation level.
 - Keep automation independent of the macOS and Safari language setting.
 - Prefer structural identifiers such as indexes, stable attributes, and explicit data sources over localized UI labels.
+- Never implement profile-targeted saved-tab-group creation by reusing an existing Safari window. Open a brand-new window for the requested profile, record its stable window identifier, and mutate only that newly created window.
+- Treat Safari window indexes as volatile across focus, open-window, and tab-group switching. For writes after any such operation, carry stable window identifiers through the command path or re-read windows immediately before using an index.
+- Saved-tab-group deletion must confirm Safari's follow-up sheet through an explicit destructive button identity or inspected button record, and the command must verify by readback instead of trusting that the menu press succeeded.
 - Build new features primarily on general models before introducing specialized convenience models.
 - Keep specialized models when an operation truly belongs to a specific UI surface rather than to the general structure.
 - Keep direct `SafariTabs.db` access inside the `SafariDatabase` module and represent persisted database entities with `SafariDatabase` models.

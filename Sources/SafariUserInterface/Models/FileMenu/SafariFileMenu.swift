@@ -111,6 +111,7 @@ public enum SafariFileMenu: ModelModel {
 
     public static func deleteCurrentTabGroup() throws {
         try clickFileMenuItem(matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier)
+        try SafariMenu.pressFrontWindowSheetButton(matchingIdentifier: "action-button-2")
     }
 
     public static func deleteCurrentTabGroup(

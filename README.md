@@ -90,7 +90,9 @@ windowId|windowIndex|tabIndex|url|title
 
 `safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
 
-`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`.
+`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`.
+
+`safari delete-tab-group <identifier>` deletes a saved Safari tab group and verifies through readback that the group disappeared before returning success.
 
 `safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-index <index>` for a live window, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group and reports that status in text and JSON output.
 

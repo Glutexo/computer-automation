@@ -1,3 +1,4 @@
+import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
@@ -93,6 +94,41 @@ enum SafariTabGroupSidebarAccess {
         )
     }
 
+    static func openNewWindowForProfile(
+        profileName: String,
+        executor: SafariAppleScriptExecuting,
+        listWindows: () throws -> [SafariWindowRecord],
+        focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
+        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+    ) throws -> SafariWindowRecord {
+        let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
+        try openWindow(profileName, executor)
+
+        for attempt in 0..<20 {
+            let newWindows = try listWindows().filter {
+                !existingWindowIdentifiers.contains($0.identifier) && !$0.isPrivate
+            }
+
+            if let profileWindow = newWindows.first(where: {
+                $0.profileName == profileName || windowTitle($0.name, matchesProfileNamed: profileName)
+            }) {
+                try focusWindow(profileWindow.identifier, executor)
+                return profileWindow
+            }
+
+            if newWindows.count == 1, let window = newWindows.first {
+                try focusWindow(window.identifier, executor)
+                return window
+            }
+
+            if attempt < 19 {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+        }
+
+        throw SafariTabGroupCommandError.windowForProfileNotFound(profileName)
+    }
+
     static func selectTabGroup(
         named tabGroupName: String,
         executor: SafariAppleScriptExecuting
@@ -123,5 +159,12 @@ enum SafariTabGroupSidebarAccess {
         matchesTabGroupNamed tabGroupName: String
     ) -> Bool {
         title == tabGroupName || title.hasPrefix("\(tabGroupName) —") || title.hasPrefix("\(tabGroupName) -")
+    }
+
+    private static func windowTitle(
+        _ title: String,
+        matchesProfileNamed profileName: String
+    ) -> Bool {
+        title == profileName || title.hasPrefix("\(profileName) —") || title.hasPrefix("\(profileName) -")
     }
 }

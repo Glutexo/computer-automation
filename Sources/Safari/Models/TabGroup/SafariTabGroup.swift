@@ -144,6 +144,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case duplicateTabGroupName(profileName: String, tabGroupName: String)
     case privateWindowTabGroupMutationUnsupported(Int)
     case createdTabGroupNotFound(profileName: String)
+    case tabGroupDeletionNotVerified(Int)
     case windowForProfileNotFound(String)
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)

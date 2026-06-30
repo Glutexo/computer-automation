@@ -27,6 +27,9 @@ This file applies to the whole repository.
 - Apply YAGNI: add new models, commands, and AX surfaces only when a concrete current use case needs them.
 - Keep UI automation independent of the macOS and Safari language setting.
 - Before any action that touches the user's real Safari application or Safari data, warn the user what will be affected and wait for explicit approval; after that real-Safari work finishes, report that it is finished and wait for explicit approval before continuing.
+- Never implement profile-targeted saved-tab-group creation by reusing an existing Safari window. Open a brand-new window for the requested profile, record its stable window identifier, and mutate only that newly created window.
+- Treat Safari window indexes as volatile across focus, open-window, and tab-group switching. For writes after any such operation, carry stable window identifiers through the command path or re-read windows immediately before using an index.
+- Saved-tab-group deletion must confirm Safari's follow-up sheet through an explicit destructive button identity or inspected button record, and the command must verify by readback instead of trusting that the menu press succeeded.
 - Prefer structural identifiers and explicit data sources over localized UI labels.
 - Keep direct AppleScript access inside `SafariAppleScript`.
 - Keep direct `SafariTabs.db` access inside `SafariDatabase`.

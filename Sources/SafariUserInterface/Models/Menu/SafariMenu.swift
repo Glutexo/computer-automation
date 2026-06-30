@@ -63,6 +63,39 @@ public enum SafariMenu: ModelModel {
         return AXUIElementPerformAction(menuItem, kAXPressAction as CFString) == .success
     }
 
+    static func pressFrontWindowSheetButton(
+        matchingIdentifier identifier: String
+    ) throws {
+        guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
+            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
+        }
+
+        let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
+        guard
+            let focusedWindowValue = copyAttributeValue(kAXFocusedWindowAttribute, from: applicationElement),
+            CFGetTypeID(focusedWindowValue) == AXUIElementGetTypeID()
+        else {
+            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
+        }
+
+        let focusedWindow = focusedWindowValue as! AXUIElement
+        for attempt in 0..<20 {
+            if
+                let sheet = firstDescendant(in: focusedWindow, matchingRole: kAXSheetRole),
+                let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier),
+                AXUIElementPerformAction(button, kAXPressAction as CFString) == .success
+            {
+                return
+            }
+
+            if attempt < 19 {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+        }
+
+        throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
+    }
+
     static func stringValue(for attribute: String, on element: AXUIElement) -> String {
         guard let value = copyAttributeValue(attribute, from: element) else {
             return ""
@@ -166,6 +199,37 @@ public enum SafariMenu: ModelModel {
 
         for child in descendantElements(on: root) {
             if let match = firstDescendant(in: child, matchingRole: role, depth: depth + 1) {
+                return match
+            }
+        }
+
+        return nil
+    }
+
+    private static func firstDescendant(
+        in root: AXUIElement,
+        matchingRole role: String,
+        matchingIdentifier identifier: String,
+        depth: Int = 0
+    ) -> AXUIElement? {
+        if
+            stringValue(for: kAXRoleAttribute, on: root) == role,
+            stringValue(for: kAXIdentifierAttribute, on: root) == identifier
+        {
+            return root
+        }
+
+        if depth > 18 {
+            return nil
+        }
+
+        for child in descendantElements(on: root) {
+            if let match = firstDescendant(
+                in: child,
+                matchingRole: role,
+                matchingIdentifier: identifier,
+                depth: depth + 1
+            ) {
                 return match
             }
         }

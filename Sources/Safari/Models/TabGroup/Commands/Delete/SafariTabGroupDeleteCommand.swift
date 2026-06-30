@@ -1,9 +1,13 @@
 import AutomationFoundation
+import Foundation
 
 import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
+    private static let databaseMutationPollAttempts = 30
+    private static let databaseMutationPollInterval: TimeInterval = 0.25
+
     public static let descriptor = CommandDescriptor(
         name: "delete-tab-group",
         abstract: "Delete a saved Safari tab group.",
@@ -21,6 +25,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
     private let selectTabGroup: (String, SafariAppleScriptExecuting) throws -> Void
     private let deleteSelectedTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let deleteCurrentTabGroup: (SafariAppleScriptExecuting) throws -> Void
+    private let sleep: (TimeInterval) -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
@@ -35,6 +40,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
             try SafariSidebar.deleteSelectedTabGroup()
         }
         self.deleteCurrentTabGroup = SafariFileMenu.deleteCurrentTabGroup
+        self.sleep = Thread.sleep
     }
 
     init(
@@ -44,8 +50,11 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
-        deleteSelectedTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup,
-        deleteCurrentTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup
+        deleteSelectedTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = { _ in
+            try SafariSidebar.deleteSelectedTabGroup()
+        },
+        deleteCurrentTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup,
+        sleep: @escaping (TimeInterval) -> Void = Thread.sleep
     ) {
         self.executor = executor
         self.listTabGroups = listTabGroups
@@ -55,6 +64,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         self.selectTabGroup = selectTabGroup
         self.deleteSelectedTabGroup = deleteSelectedTabGroup
         self.deleteCurrentTabGroup = deleteCurrentTabGroup
+        self.sleep = sleep
     }
 
     public func execute(arguments: [String]) throws -> String {
@@ -92,7 +102,22 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         } catch SafariTabGroupCommandError.sidebarUnavailable where window(focusedWindow, matches: group) {
             try deleteCurrentTabGroup(executor)
         }
+        try waitForDeletedTabGroup(identifier: group.identifier)
         return group
+    }
+
+    private func waitForDeletedTabGroup(identifier: Int) throws {
+        for attempt in 0..<Self.databaseMutationPollAttempts {
+            if try !listTabGroups().contains(where: { $0.identifier == identifier }) {
+                return
+            }
+
+            if attempt < Self.databaseMutationPollAttempts - 1 {
+                sleep(Self.databaseMutationPollInterval)
+            }
+        }
+
+        throw SafariTabGroupCommandError.tabGroupDeletionNotVerified(identifier)
     }
 
     private func window(_ window: SafariWindowRecord, matches group: SafariTabGroupRecord) -> Bool {

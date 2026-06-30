@@ -280,6 +280,8 @@ public enum SafariSidebar: ModelModel {
         else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
+
+        try SafariMenu.pressFrontWindowSheetButton(matchingIdentifier: "action-button-2")
     }
 
     private static func copyAttributeValue(_ attribute: String, from element: AXUIElement) -> CFTypeRef? {
