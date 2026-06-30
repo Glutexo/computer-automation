@@ -1,5 +1,15 @@
 # Research Notes
 
+## 2026-06-30
+
+### Safari default-profile tab-group creation
+
+- In a Safari setup with the default profile named `Glutexo` and another profile named `Twisto`, saved tab groups created for the default profile can be persisted in `SafariTabs.db` with an empty `profileName`.
+- Treat the empty stored profile name as an alias for the first available Safari profile when finding, creating, and ensuring profile-scoped saved tab groups.
+- Profile-specific new-window automation should press only items in Safari's top-level File menu. Recursive application-wide menu searches can find the wrong profile action and create the tab group in another profile.
+- If Safari opens a new window for the wrong profile or creates a saved tab group with a mismatched stored profile, the command should roll back the new window and any created tab group before reporting failure.
+- Safari AppleScript window targeting by stable `id` is more reliable when iterating over `every window` and comparing `id of currentWindow`; direct filtered expressions such as `every window whose id is ...` can fail with invalid-index errors after profile-window creation.
+
 ## 2026-06-25
 
 ### Safari localization and root tab-group behavior

@@ -57,11 +57,31 @@ public enum SafariTabGroup: ModelModel {
     static func find(
         profileName: String,
         name: String,
-        listTabGroups: () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() }
+        listTabGroups: () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
+        listProfiles: () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() }
     ) throws -> [SafariTabGroupRecord] {
-        try listTabGroups().filter {
-            $0.profileName == profileName && $0.name == name
+        let profileNames = try matchingStoredProfileNames(for: profileName, listProfiles: listProfiles)
+        return try listTabGroups().filter {
+            profileNames.contains($0.profileName) && $0.name == name
         }
+    }
+
+    static func matchingStoredProfileNames(
+        for profileName: String,
+        listProfiles: () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() }
+    ) throws -> Set<String> {
+        storedProfileNames(for: profileName, profiles: try listProfiles())
+    }
+
+    static func storedProfileNames(
+        for profileName: String,
+        profiles: [SafariProfileRecord]
+    ) -> Set<String> {
+        var names = Set([profileName])
+        if profiles.first?.name == profileName {
+            names.insert("")
+        }
+        return names
     }
 
     static func listTabs(
@@ -144,6 +164,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case duplicateTabGroupName(profileName: String, tabGroupName: String)
     case privateWindowTabGroupMutationUnsupported(Int)
     case createdTabGroupNotFound(profileName: String)
+    case createdTabGroupProfileMismatch(requestedProfileName: String, createdProfileName: String)
     case tabGroupDeletionNotVerified(Int)
     case windowForProfileNotFound(String)
     case sidebarUnavailable
@@ -167,6 +188,8 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
             "No Safari tab group named \(tabGroupName) exists in profile \(profileName)."
         case .tabGroupLookupAmbiguous(let profileName, let tabGroupName, let count):
             "Safari tab group lookup for \(tabGroupName) in profile \(profileName) matched \(count) groups."
+        case .createdTabGroupProfileMismatch(let requestedProfileName, let createdProfileName):
+            "Safari created the tab group in profile \(createdProfileName), not requested profile \(requestedProfileName)."
         default:
             nil
         }

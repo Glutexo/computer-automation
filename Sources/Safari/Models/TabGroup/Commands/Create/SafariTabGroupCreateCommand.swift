@@ -20,6 +20,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     private let executor: SafariAppleScriptExecuting
     private let listWindows: () throws -> [SafariWindowRecord]
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
+    private let listProfiles: () throws -> [SafariProfileRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let createEmptyTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let renameTabGroup: (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void
@@ -30,6 +31,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.executor = SafariAppleScriptExecutor()
         self.listWindows = { try SafariWindow.list() }
         self.listTabGroups = { try SafariTabGroup.list() }
+        self.listProfiles = { try SafariProfile.listAvailableProfiles() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.createEmptyTabGroup = { executor in
             try SafariFileMenu.createEmptyTabGroup(executor: executor)
@@ -45,6 +47,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         executor: SafariAppleScriptExecuting,
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
+        listProfiles: @escaping () throws -> [SafariProfileRecord] = { [] },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         createEmptyTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.createEmptyTabGroup,
         renameTabGroup: @escaping (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void = { group, newName, _ in
@@ -56,6 +59,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.executor = executor
         self.listWindows = listWindows
         self.listTabGroups = listTabGroups
+        self.listProfiles = listProfiles
         self.focusWindow = focusWindow
         self.createEmptyTabGroup = createEmptyTabGroup
         self.renameTabGroup = renameTabGroup
@@ -122,13 +126,21 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
         let existingGroups = try listTabGroups()
         let effectiveProfileName = resolveEffectiveProfileName(for: window, tabGroups: existingGroups)
+        let matchingProfileNames = try SafariTabGroup.matchingStoredProfileNames(
+            for: effectiveProfileName,
+            listProfiles: listProfiles
+        )
 
-        let hasDuplicateNameInTargetProfile = existingGroups.contains {
-            $0.profileName == effectiveProfileName && $0.name == name
+        let hasDuplicateNameInTargetProfile: Bool
+        if effectiveProfileName.isEmpty {
+            hasDuplicateNameInTargetProfile = existingGroups.contains { $0.name == name }
+        } else {
+            hasDuplicateNameInTargetProfile = existingGroups.contains {
+                matchingProfileNames.contains($0.profileName) && $0.name == name
+            }
         }
-        let hasDuplicateNameWithoutResolvedProfile = effectiveProfileName.isEmpty && existingGroups.contains { $0.name == name }
 
-        guard !(hasDuplicateNameInTargetProfile || hasDuplicateNameWithoutResolvedProfile) else {
+        guard !hasDuplicateNameInTargetProfile else {
             throw SafariTabGroupCommandError.duplicateTabGroupName(
                 profileName: effectiveProfileName,
                 tabGroupName: name
@@ -144,6 +156,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         do {
             createdGroup = try waitForCreatedTabGroup(
                 profileName: effectiveProfileName,
+                matchingProfileNames: matchingProfileNames,
                 knownIdentifiers: knownIdentifiers
             )
         } catch {
@@ -194,13 +207,14 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
     private func waitForCreatedTabGroup(
         profileName: String,
+        matchingProfileNames: Set<String>,
         knownIdentifiers: Set<Int>
     ) throws -> SafariTabGroupRecord {
         for attempt in 0..<Self.databaseMutationPollAttempts {
             let newGroups = try listTabGroups().filter { !knownIdentifiers.contains($0.identifier) }
 
             if let createdGroup = newGroups
-                .filter({ profileName.isEmpty || $0.profileName == profileName })
+                .filter({ profileName.isEmpty || matchingProfileNames.contains($0.profileName) })
                 .max(by: { $0.identifier < $1.identifier })
             {
                 return createdGroup

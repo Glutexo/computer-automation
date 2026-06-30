@@ -140,10 +140,11 @@ public enum SafariFileMenu: ModelModel {
     private static func clickNewWindowMenuItem(
         forProfileNamed profileName: String
     ) throws {
-        guard
-            let menuItem = findFileMenuItem(titleSuffix: profileName),
-            AXUIElementPerformAction(menuItem, kAXPressAction as CFString) == .success
-        else {
+        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
+            stringValue(for: kAXTitleAttribute, on: $0).hasSuffix(profileName)
+        }
+
+        guard didPress else {
             throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
         }
     }
@@ -167,10 +168,11 @@ public enum SafariFileMenu: ModelModel {
     private static func clickFileMenuItem(
         matchingIdentifier identifier: String
     ) throws {
-        guard
-            let menuItem = findFileMenuItem(matchingIdentifier: identifier),
-            AXUIElementPerformAction(menuItem, kAXPressAction as CFString) == .success
-        else {
+        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
+            stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
+        }
+
+        guard didPress else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
     }
@@ -210,26 +212,6 @@ public enum SafariFileMenu: ModelModel {
         return value
     }
 
-    private static func elements(for attribute: String, on element: AXUIElement) -> [AXUIElement] {
-        (copyAttributeValue(attribute, from: element) as? [AXUIElement]) ?? []
-    }
-
-    private static func descendantElements(on element: AXUIElement) -> [AXUIElement] {
-        var seen: Set<CFHashCode> = []
-        var descendants: [AXUIElement] = []
-
-        for child in elements(for: kAXChildrenAttribute, on: element) + elements(for: "AXVisibleChildren", on: element) {
-            let key = CFHash(child)
-            guard !seen.contains(key) else {
-                continue
-            }
-            seen.insert(key)
-            descendants.append(child)
-        }
-
-        return descendants
-    }
-
     private static func stringValue(for attribute: String, on element: AXUIElement) -> String {
         (copyAttributeValue(attribute, from: element) as? String) ?? ""
     }
@@ -240,131 +222,7 @@ public enum SafariFileMenu: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        return elements(for: kAXWindowsAttribute, on: applicationElement).count
+        return (copyAttributeValue(kAXWindowsAttribute, from: applicationElement) as? [AXUIElement] ?? []).count
     }
 
-    private static func findFileMenuItem(
-        matchingIdentifier identifier: String
-    ) -> AXUIElement? {
-        guard let applicationElement = fileMenuApplicationElement() else {
-            return nil
-        }
-
-        return firstDescendant(
-            in: applicationElement,
-            matchingRole: kAXMenuItemRole,
-            matchingIdentifier: identifier
-        )
-    }
-
-    private static func findFileMenuItem(
-        titleSuffix: String
-    ) -> AXUIElement? {
-        guard let applicationElement = fileMenuApplicationElement() else {
-            return nil
-        }
-
-        return firstDescendant(
-            in: applicationElement,
-            matchingRole: kAXMenuItemRole,
-            titleSuffix: titleSuffix
-        )
-    }
-
-    private static func fileMenuApplicationElement() -> AXUIElement? {
-        guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
-            return nil
-        }
-
-        safariApplication.activate(options: [.activateIgnoringOtherApps])
-        Thread.sleep(forTimeInterval: 0.1)
-
-        let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let menuBar = firstDescendant(in: applicationElement, matchingRole: kAXMenuBarRole)
-        else {
-            return nil
-        }
-
-        let menuBarItems = elements(for: kAXChildrenAttribute, on: menuBar)
-        guard menuBarItems.indices.contains(menuBarItemIndex - 1) else {
-            return nil
-        }
-
-        let fileMenuBarItem = menuBarItems[menuBarItemIndex - 1]
-        guard AXUIElementPerformAction(fileMenuBarItem, kAXPressAction as CFString) == .success else {
-            return nil
-        }
-
-        Thread.sleep(forTimeInterval: 0.1)
-        return applicationElement
-    }
-
-    private static func firstDescendant(
-        in root: AXUIElement,
-        matchingRole role: String,
-        depth: Int = 0
-    ) -> AXUIElement? {
-        if stringValue(for: kAXRoleAttribute, on: root) == role {
-            return root
-        }
-
-        if depth > 18 {
-            return nil
-        }
-
-        for child in descendantElements(on: root) {
-            if let match = firstDescendant(in: child, matchingRole: role, depth: depth + 1) {
-                return match
-            }
-        }
-
-        return nil
-    }
-
-    private static func firstDescendant(
-        in root: AXUIElement,
-        matchingRole role: String,
-        matchingIdentifier identifier: String,
-        depth: Int = 0
-    ) -> AXUIElement? {
-        if stringValue(for: kAXRoleAttribute, on: root) == role && stringValue(for: kAXIdentifierAttribute, on: root) == identifier {
-            return root
-        }
-
-        if depth > 18 {
-            return nil
-        }
-
-        for child in descendantElements(on: root) {
-            if let match = firstDescendant(in: child, matchingRole: role, matchingIdentifier: identifier, depth: depth + 1) {
-                return match
-            }
-        }
-
-        return nil
-    }
-
-    private static func firstDescendant(
-        in root: AXUIElement,
-        matchingRole role: String,
-        titleSuffix: String,
-        depth: Int = 0
-    ) -> AXUIElement? {
-        if stringValue(for: kAXRoleAttribute, on: root) == role && stringValue(for: kAXTitleAttribute, on: root).hasSuffix(titleSuffix) {
-            return root
-        }
-
-        if depth > 18 {
-            return nil
-        }
-
-        for child in descendantElements(on: root) {
-            if let match = firstDescendant(in: child, matchingRole: role, titleSuffix: titleSuffix, depth: depth + 1) {
-                return match
-            }
-        }
-
-        return nil
-    }
 }

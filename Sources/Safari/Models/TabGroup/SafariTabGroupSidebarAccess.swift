@@ -99,7 +99,9 @@ enum SafariTabGroupSidebarAccess {
         executor: SafariAppleScriptExecuting,
         listWindows: () throws -> [SafariWindowRecord],
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
-        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,
+        closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
+        sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
         try openWindow(profileName, executor)
@@ -116,16 +118,17 @@ enum SafariTabGroupSidebarAccess {
                 return profileWindow
             }
 
-            if newWindows.count == 1, let window = newWindows.first {
-                try focusWindow(window.identifier, executor)
-                return window
-            }
-
             if attempt < 19 {
-                Thread.sleep(forTimeInterval: 0.1)
+                sleep(0.1)
             }
         }
 
+        try rollbackNewWindows(
+            excluding: existingWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            closeWindow: closeWindow
+        )
         throw SafariTabGroupCommandError.windowForProfileNotFound(profileName)
     }
 
@@ -193,5 +196,20 @@ enum SafariTabGroupSidebarAccess {
         matchesProfileNamed profileName: String
     ) -> Bool {
         title == profileName || title.hasPrefix("\(profileName) —") || title.hasPrefix("\(profileName) -")
+    }
+
+    private static func rollbackNewWindows(
+        excluding knownWindowIdentifiers: Set<Int>,
+        executor: SafariAppleScriptExecuting,
+        listWindows: () throws -> [SafariWindowRecord],
+        closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
+    ) throws {
+        let newWindows = try listWindows().filter {
+            !knownWindowIdentifiers.contains($0.identifier) && !$0.isPrivate
+        }
+
+        for window in newWindows {
+            try closeWindow(window.identifier, executor)
+        }
     }
 }

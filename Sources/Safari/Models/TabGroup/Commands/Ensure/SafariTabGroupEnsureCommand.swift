@@ -1,4 +1,5 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
@@ -12,17 +13,21 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
 
     private let executor: SafariAppleScriptExecuting
     private let findTabGroups: (String, String) throws -> [SafariTabGroupRecord]
+    private let listProfiles: () throws -> [SafariProfileRecord]
     private let listWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let createTabGroup: (Int, String) throws -> SafariTabGroupRecord
+    private let deleteTabGroup: (Int) throws -> Void
+    private let sleep: (TimeInterval) -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
         self.findTabGroups = { profileName, name in
             try SafariTabGroup.find(profileName: profileName, name: name)
         }
+        self.listProfiles = { try SafariProfile.listAvailableProfiles() }
         self.listWindows = { try SafariWindow.list() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
@@ -32,6 +37,10 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         self.createTabGroup = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
+        self.deleteTabGroup = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        }
+        self.sleep = Thread.sleep
     }
 
     init(
@@ -39,21 +48,29 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         findTabGroups: @escaping (String, String) throws -> [SafariTabGroupRecord] = { profileName, name in
             try SafariTabGroup.find(profileName: profileName, name: name)
         },
+        listProfiles: @escaping () throws -> [SafariProfileRecord] = { [] },
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
         createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
-        }
+        },
+        deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        },
+        sleep: @escaping (TimeInterval) -> Void = Thread.sleep
     ) {
         self.executor = executor
         self.findTabGroups = findTabGroups
+        self.listProfiles = listProfiles
         self.listWindows = listWindows
         self.focusWindow = focusWindow
         self.openWindow = openWindow
         self.closeWindow = closeWindow
         self.createTabGroup = createTabGroup
+        self.deleteTabGroup = deleteTabGroup
+        self.sleep = sleep
     }
 
     public func execute(arguments: [String]) throws -> String {
@@ -74,6 +91,10 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     }
 
     func ensure(profileName: String, name: String) throws -> SafariTabGroupEnsureSummary {
+        let matchingProfileNames = try SafariTabGroup.matchingStoredProfileNames(
+            for: profileName,
+            listProfiles: listProfiles
+        )
         let matches = try findTabGroups(profileName, name)
 
         if let match = matches.first {
@@ -93,7 +114,9 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
-            openWindow: openWindow
+            openWindow: openWindow,
+            closeWindow: closeWindow,
+            sleep: sleep
         )
         let createdGroup: SafariTabGroupRecord
         do {
@@ -102,6 +125,38 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             try closeWindow(window.identifier, executor)
             throw error
         }
+        if !matchingProfileNames.contains(createdGroup.profileName) {
+            try rollbackMismatchedCreatedTabGroup(createdGroup, windowIdentifier: window.identifier)
+            throw SafariTabGroupCommandError.createdTabGroupProfileMismatch(
+                requestedProfileName: profileName,
+                createdProfileName: createdGroup.profileName
+            )
+        }
         return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
+    }
+
+    private func rollbackMismatchedCreatedTabGroup(
+        _ group: SafariTabGroupRecord,
+        windowIdentifier: Int
+    ) throws {
+        var cleanupError: Error?
+
+        do {
+            try deleteTabGroup(group.identifier)
+        } catch {
+            cleanupError = error
+        }
+
+        do {
+            try closeWindow(windowIdentifier, executor)
+        } catch {
+            if cleanupError == nil {
+                cleanupError = error
+            }
+        }
+
+        if let cleanupError {
+            throw cleanupError
+        }
     }
 }

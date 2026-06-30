@@ -69,9 +69,15 @@ public enum SafariAppleScriptWindow: ModelModel {
         let script = """
         tell application "Safari"
             activate
-            set targetWindows to every window whose id is \(windowIdentifier)
-            if (count of targetWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            set index of item 1 of targetWindows to 1
+            set didFocusWindow to false
+            repeat with currentWindow in every window
+                if id of currentWindow is \(windowIdentifier) then
+                    set index of currentWindow to 1
+                    set didFocusWindow to true
+                    exit repeat
+                end if
+            end repeat
+            if didFocusWindow is false then error "Safari window \(windowIdentifier) does not exist."
         end tell
         """
 
@@ -100,9 +106,15 @@ public enum SafariAppleScriptWindow: ModelModel {
     ) throws {
         let script = """
         tell application "Safari"
-            set targetWindows to every window whose id is \(windowIdentifier)
-            if (count of targetWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            close item 1 of targetWindows
+            set didCloseWindow to false
+            repeat with currentWindow in every window
+                if id of currentWindow is \(windowIdentifier) then
+                    close currentWindow
+                    set didCloseWindow to true
+                    exit repeat
+                end if
+            end repeat
+            if didCloseWindow is false then error "Safari window \(windowIdentifier) does not exist."
         end tell
         """
 

@@ -1458,10 +1458,37 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
                 SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus later"),
                 SafariTabGroupRecord(identifier: 12, profileName: "Glutexo", name: "Focus")
             ]
+        },
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Glutexo", identifier: "default-profile"),
+                SafariProfileRecord(name: "Twisto", identifier: "work-profile")
+            ]
         }
     )
 
     #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")])
+}
+
+@Test func safariTabGroupFindMatchesDefaultProfileStoredWithoutName() async throws {
+    let groups = try SafariTabGroup.find(
+        profileName: "Glutexo",
+        name: "Focus",
+        listTabGroups: {
+            [
+                SafariTabGroupRecord(identifier: 10, profileName: "", name: "Focus"),
+                SafariTabGroupRecord(identifier: 11, profileName: "Twisto", name: "Focus")
+            ]
+        },
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Glutexo", identifier: "default-profile"),
+                SafariProfileRecord(name: "Twisto", identifier: "work-profile")
+            ]
+        }
+    )
+
+    #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "", name: "Focus")])
 }
 
 @Test func safariTabGroupEnsureCommandReusesSingleExistingGroup() async throws {
@@ -1570,6 +1597,129 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(openedProfileName == "Twisto")
     #expect(focusedWindowIdentifiers == [42])
     #expect(createdWindowIdentifier == 42)
+}
+
+@Test func safariTabGroupEnsureCommandRejectsWrongProfileNewWindow() async throws {
+    var openedProfileName: String?
+    var closedWindowIdentifiers: [Int] = []
+    var didCreateTabGroup = false
+    var listWindowCallCount = 0
+    let wrongProfileWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [] : [wrongProfileWindow]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        createTabGroup: { _, _ in
+            didCreateTabGroup = true
+            return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.windowForProfileNotFound("Glutexo")) {
+        try command.execute(arguments: ["Glutexo", "Focus"])
+    }
+    #expect(openedProfileName == "Glutexo")
+    #expect(closedWindowIdentifiers == [42])
+    #expect(!didCreateTabGroup)
+}
+
+@Test func safariTabGroupEnsureCommandDeletesWrongProfileCreatedGroup() async throws {
+    var deletedTabGroupIdentifiers: [Int] = []
+    var closedWindowIdentifiers: [Int] = []
+    var listWindowCallCount = 0
+    let openedWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Glutexo",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Glutexo — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [] : [openedWindow]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { _, _ in },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        createTabGroup: { windowIdentifier, name in
+            #expect(windowIdentifier == 42)
+            #expect(name == "Focus")
+            return SafariTabGroupRecord(identifier: 99, profileName: "Twisto", name: "Focus")
+        },
+        deleteTabGroup: { identifier in deletedTabGroupIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(
+        throws: SafariTabGroupCommandError.createdTabGroupProfileMismatch(
+            requestedProfileName: "Glutexo",
+            createdProfileName: "Twisto"
+        )
+    ) {
+        try command.execute(arguments: ["Glutexo", "Focus"])
+    }
+    #expect(deletedTabGroupIdentifiers == [99])
+    #expect(closedWindowIdentifiers == [42])
+}
+
+@Test func safariTabGroupEnsureCommandAcceptsDefaultProfileCreatedGroup() async throws {
+    var openedProfileName: String?
+    var focusedWindowIdentifiers: [Int] = []
+    var listWindowCallCount = 0
+    let openedWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Glutexo",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Glutexo — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Glutexo", identifier: "default-profile"),
+                SafariProfileRecord(name: "Twisto", identifier: "work-profile")
+            ]
+        },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [] : [openedWindow]
+        },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        createTabGroup: { windowIdentifier, name in
+            #expect(windowIdentifier == 42)
+            #expect(name == "Focus")
+            return SafariTabGroupRecord(identifier: 99, profileName: "", name: "Focus")
+        }
+    )
+
+    #expect(try command.execute(arguments: ["Glutexo", "Focus"]) == "Safari tab group created.\n99||Focus")
+    #expect(openedProfileName == "Glutexo")
+    #expect(focusedWindowIdentifiers == [42])
 }
 
 @Test func safariTabGroupEnsureCommandClosesNewProfileWindowWhenCreateFails() async throws {
@@ -1682,6 +1832,49 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
+}
+
+@Test func safariTabGroupCreateCommandAcceptsDefaultProfileStoredWithoutName() async throws {
+    var didCreateEmptyTabGroup = false
+    var renamedIdentifier: Int?
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Glutexo")]
+        },
+        listTabGroups: {
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "", name: "Focus")]
+            }
+            if pollCount == 2 {
+                return [
+                    SafariTabGroupRecord(identifier: 1000, profileName: "", name: "Focus"),
+                    SafariTabGroupRecord(identifier: 1001, profileName: "", name: "Senza nome")
+                ]
+            }
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "", name: "Inbox")
+            ]
+        },
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Glutexo", identifier: "default-profile"),
+                SafariProfileRecord(name: "Twisto", identifier: "work-profile")
+            ]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        renameTabGroup: { group, _, _ in renamedIdentifier = group.identifier },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001||Inbox")
+    #expect(didCreateEmptyTabGroup)
+    #expect(renamedIdentifier == 1001)
 }
 
 @Test func safariTabGroupCreateCommandRejectsInvalidArgumentsAndStates() async throws {
@@ -3766,8 +3959,9 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     let executor = MockAppleScriptExecutor()
     try SafariAppleScriptWindow.focus(windowIdentifier: 42, executor: executor)
     #expect(executor.executedScripts.count == 1)
-    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
-    #expect(executor.executedScripts[0].contains("set index of item 1 of targetWindows to 1"))
+    #expect(executor.executedScripts[0].contains("repeat with currentWindow in every window"))
+    #expect(executor.executedScripts[0].contains("if id of currentWindow is 42 then"))
+    #expect(executor.executedScripts[0].contains("set index of currentWindow to 1"))
 }
 
 @Test func safariAppleScriptWindowCloseFrontWindowReturnsScriptResult() async throws {
@@ -3779,8 +3973,9 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     let executor = MockAppleScriptExecutor()
     try SafariAppleScriptWindow.close(windowIdentifier: 42, executor: executor)
     #expect(executor.executedScripts.count == 1)
-    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
-    #expect(executor.executedScripts[0].contains("close item 1 of targetWindows"))
+    #expect(executor.executedScripts[0].contains("repeat with currentWindow in every window"))
+    #expect(executor.executedScripts[0].contains("if id of currentWindow is 42 then"))
+    #expect(executor.executedScripts[0].contains("close currentWindow"))
 }
 
 @Test(arguments: [
