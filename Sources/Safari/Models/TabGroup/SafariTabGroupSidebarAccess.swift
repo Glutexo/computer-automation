@@ -34,18 +34,18 @@ enum SafariTabGroupSidebarAccess {
         let windows = try listWindows()
 
         if let window = windows.first(where: { !$0.isPrivate && $0.profileName == profileName }) {
-            try focusWindow(window.index, executor)
+            try focusWindow(window.identifier, executor)
             return window
         }
 
         let unscopedWindows = windows.filter { !$0.isPrivate && $0.profileName.isEmpty }
         if unscopedWindows.count == 1, let window = unscopedWindows.first {
-            try focusWindow(window.index, executor)
+            try focusWindow(window.identifier, executor)
             return window
         }
 
         if let frontUnscopedWindow = windows.first(where: { !$0.isPrivate && $0.profileName.isEmpty }) {
-            try focusWindow(frontUnscopedWindow.index, executor)
+            try focusWindow(frontUnscopedWindow.identifier, executor)
             return frontUnscopedWindow
         }
 
@@ -55,7 +55,7 @@ enum SafariTabGroupSidebarAccess {
             throw SafariTabGroupCommandError.windowForProfileNotFound(profileName)
         }
 
-        try focusWindow(openedWindow.index, executor)
+        try focusWindow(openedWindow.identifier, executor)
         return openedWindow
     }
 
@@ -71,7 +71,7 @@ enum SafariTabGroupSidebarAccess {
         if let matchingSelectedGroupWindow = windows.first(where: {
             !$0.isPrivate && $0.selectedTabGroupIdentifier == group.identifier
         }) {
-            try focusWindow(matchingSelectedGroupWindow.index, executor)
+            try focusWindow(matchingSelectedGroupWindow.identifier, executor)
             return matchingSelectedGroupWindow
         }
 
@@ -80,7 +80,7 @@ enum SafariTabGroupSidebarAccess {
             ($0.tabGroupName == group.name || windowTitle($0.name, matchesTabGroupNamed: group.name)) &&
             ($0.profileName.isEmpty || $0.profileName == group.profileName)
         }) {
-            try focusWindow(matchingNamedGroupWindow.index, executor)
+            try focusWindow(matchingNamedGroupWindow.identifier, executor)
             return matchingNamedGroupWindow
         }
 

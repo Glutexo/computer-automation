@@ -41,6 +41,11 @@ public enum SafariFileMenu: ModelModel {
         profileName: String?,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        if executor is SafariAppleScriptExecutor {
+            try openWindow(profileName: profileName)
+            return
+        }
+
         if let profileName, !profileName.isEmpty {
             try clickNewWindowMenuItem(forProfileNamed: profileName, executor: executor)
             return
@@ -51,6 +56,11 @@ public enum SafariFileMenu: ModelModel {
     public static func openPrivateWindow(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        if executor is SafariAppleScriptExecutor {
+            try openPrivateWindow()
+            return
+        }
+
         let menuItems = try listItems(executor: executor)
 
         guard let menuItem = menuItems.first(where: {
@@ -66,6 +76,20 @@ public enum SafariFileMenu: ModelModel {
         )
     }
 
+    public static func openPrivateWindow() throws {
+        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
+            SafariMenu.stringValue(for: kAXIdentifierAttribute, on: $0) == "NewPrivateWindow" ||
+            (
+                SafariMenu.stringValue(for: "AXMenuItemCmdChar", on: $0) == "N" &&
+                SafariMenu.stringValue(for: "AXMenuItemCmdModifiers", on: $0) == "1"
+            )
+        }
+
+        guard didPress else {
+            throw SafariUserInterfaceError.privateWindowMenuItemNotFound
+        }
+    }
+
     public static func createEmptyTabGroup(
     ) throws {
         try clickFileMenuItem(matchingIdentifier: createEmptyTabGroupMenuItemIdentifier)
@@ -74,15 +98,29 @@ public enum SafariFileMenu: ModelModel {
     public static func createEmptyTabGroup(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        if executor is SafariAppleScriptExecutor {
+            try createEmptyTabGroup()
+            return
+        }
+
         try clickFileMenuItem(
             matchingIdentifier: createEmptyTabGroupMenuItemIdentifier,
             executor: executor
         )
     }
 
+    public static func deleteCurrentTabGroup() throws {
+        try clickFileMenuItem(matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier)
+    }
+
     public static func deleteCurrentTabGroup(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        if executor is SafariAppleScriptExecutor {
+            try deleteCurrentTabGroup()
+            return
+        }
+
         try clickFileMenuItem(
             matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier,
             executor: executor

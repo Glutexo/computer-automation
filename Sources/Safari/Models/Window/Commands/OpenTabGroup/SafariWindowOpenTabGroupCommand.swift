@@ -23,14 +23,14 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel {
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
-        self.selectTabGroup = SafariWindowTabGroupSelection.selectTabGroup
+        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
     }
 
     init(
         executor: SafariAppleScriptExecuting,
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariWindowTabGroupSelection.selectTabGroup
+        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
     ) {
         self.executor = executor
         self.listTabGroups = listTabGroups

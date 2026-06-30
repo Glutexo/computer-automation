@@ -23,7 +23,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             try SafariTabGroup.find(profileName: profileName, name: name)
         }
         self.listWindows = { try SafariWindow.list() }
-        self.focusWindow = SafariAppleScriptWindow.focus
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
@@ -38,7 +38,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             try SafariTabGroup.find(profileName: profileName, name: name)
         },
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
-        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus,
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIndex, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIndex: windowIndex, name: name)

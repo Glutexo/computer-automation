@@ -62,6 +62,22 @@ public enum SafariAppleScriptWindow: ModelModel {
         _ = try executor.execute(script: script)
     }
 
+    public static func focus(
+        windowIdentifier: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let script = """
+        tell application "Safari"
+            activate
+            set targetWindows to every window whose id is \(windowIdentifier)
+            if (count of targetWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
+            set index of item 1 of targetWindows to 1
+        end tell
+        """
+
+        _ = try executor.execute(script: script)
+    }
+
     public static func closeFrontWindow(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> String {

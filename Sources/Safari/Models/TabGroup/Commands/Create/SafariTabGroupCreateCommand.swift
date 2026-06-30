@@ -29,7 +29,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.executor = SafariAppleScriptExecutor()
         self.listWindows = { try SafariWindow.list() }
         self.listTabGroups = { try SafariTabGroup.list() }
-        self.focusWindow = SafariAppleScriptWindow.focus
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.createEmptyTabGroup = { executor in
             try SafariFileMenu.createEmptyTabGroup(executor: executor)
         }
@@ -43,7 +43,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         executor: SafariAppleScriptExecuting,
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
-        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus,
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         createEmptyTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.createEmptyTabGroup,
         renameTabGroup: @escaping (String, String, SafariAppleScriptExecuting) throws -> Void = { currentName, newName, _ in
             try SafariSidebar.renameTabGroup(named: currentName, to: newName)
@@ -115,7 +115,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
         let knownIdentifiers = Set(existingGroups.map(\.identifier))
 
-        try focusWindow(windowIndex, executor)
+        try focusWindow(window.identifier, executor)
         try createEmptyTabGroup(executor)
 
         let createdGroup = try waitForCreatedTabGroup(

@@ -26,6 +26,7 @@ This file applies to the whole repository.
 - Keep related operations on the same feature as structurally similar as the product allows.
 - Apply YAGNI: add new models, commands, and AX surfaces only when a concrete current use case needs them.
 - Keep UI automation independent of the macOS and Safari language setting.
+- Before any action that touches the user's real Safari application or Safari data, warn the user what will be affected and wait for explicit approval; after that real-Safari work finishes, report that it is finished and wait for explicit approval before continuing.
 - Prefer structural identifiers and explicit data sources over localized UI labels.
 - Keep direct AppleScript access inside `SafariAppleScript`.
 - Keep direct `SafariTabs.db` access inside `SafariDatabase`.

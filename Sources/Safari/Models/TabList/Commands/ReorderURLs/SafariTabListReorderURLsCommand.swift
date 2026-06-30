@@ -44,11 +44,11 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             try SafariTabList.listTabGroupTabs(tabGroupIdentifier: identifier)
         }
         self.listWindows = { try SafariWindow.list(executor: executor) }
-        self.focusWindow = SafariAppleScriptWindow.focus
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
-        self.selectTabGroup = SafariWindowTabGroupSelection.selectTabGroup
+        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
         self.moveTab = SafariAppleScriptTab.move
         self.sleep = Thread.sleep
     }
@@ -59,9 +59,9 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         listWindowTabs: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord],
         listTabGroupTabs: @escaping (Int) throws -> [SafariTabGroupTabRecord],
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
-        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus,
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariWindowTabGroupSelection.selectTabGroup,
+        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
         moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptTab.move,
         sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {

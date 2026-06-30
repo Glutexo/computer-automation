@@ -26,7 +26,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         self.executor = SafariAppleScriptExecutor()
         self.listTabGroups = { try SafariTabGroup.list() }
         self.listWindows = { try SafariWindow.list() }
-        self.focusWindow = SafariAppleScriptWindow.focus
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
@@ -41,7 +41,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
-        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus,
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
         deleteSelectedTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup,

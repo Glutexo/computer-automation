@@ -1117,7 +1117,7 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 }
 
 @Test func safariWindowSetTabGroupCommandFocusesWindowAndSelectsGroup() async throws {
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var selectedTabGroupName: String?
     let command = SafariWindowSetTabGroupCommand(
         executor: MockAppleScriptExecutor(),
@@ -1127,12 +1127,12 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
         listTabGroups: {
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
         },
-        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
         selectTabGroup: { tabGroupName, _ in selectedTabGroupName = tabGroupName }
     )
 
     #expect(try command.execute(arguments: ["2", "1000"]) == "Safari window 2 switched to tab group Focus.")
-    #expect(focusedWindowIndex == 2)
+    #expect(focusedWindowIdentifier == 10)
     #expect(selectedTabGroupName == "Focus")
 }
 
@@ -1197,7 +1197,7 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
 }
 
 @Test func safariWindowSetTabGroupCommandAllowsUnknownWindowProfile() async throws {
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var selectedTabGroupName: String?
 
     let command = SafariWindowSetTabGroupCommand(
@@ -1208,12 +1208,12 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
         listTabGroups: {
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
         },
-        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
         selectTabGroup: { tabGroupName, _ in selectedTabGroupName = tabGroupName }
     )
 
     #expect(try command.execute(arguments: ["1", "1000"]) == "Safari window 1 switched to tab group Focus.")
-    #expect(focusedWindowIndex == 1)
+    #expect(focusedWindowIdentifier == 10)
     #expect(selectedTabGroupName == "Focus")
 }
 
@@ -1419,7 +1419,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
 @Test func safariTabGroupEnsureCommandCreatesMissingGroupInProfileWindow() async throws {
     var openedProfileName: String?
-    var focusedWindowIndexes: [Int] = []
+    var focusedWindowIdentifiers: [Int] = []
     var listWindowCallCount = 0
     let command = SafariTabGroupEnsureCommand(
         executor: MockAppleScriptExecutor(),
@@ -1433,7 +1433,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
                 SafariWindowRecord(identifier: 42, index: 3, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")
             ]
         },
-        focusWindow: { windowIndex, _ in focusedWindowIndexes.append(windowIndex) },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
         openWindow: { profileName, _ in openedProfileName = profileName },
         createTabGroup: { windowIndex, name in
             #expect(windowIndex == 3)
@@ -1447,7 +1447,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     let tabGroup = try #require(object["tabGroup"] as? [String: Any])
 
     #expect(openedProfileName == "Twisto")
-    #expect(focusedWindowIndexes == [3])
+    #expect(focusedWindowIdentifiers == [42])
     #expect(object["status"] as? String == "created")
     #expect(tabGroup["identifier"] as? Int == 10)
     #expect(tabGroup["profileName"] as? String == "Twisto")
@@ -1487,7 +1487,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var didCreateEmptyTabGroup = false
     var renamedSourceName: String?
     var renamedTargetName: String?
@@ -1514,7 +1514,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
             ]
         },
-        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
         createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
         renameTabGroup: { currentName, newName, _ in
             renamedSourceName = currentName
@@ -1524,7 +1524,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
-    #expect(focusedWindowIndex == 2)
+    #expect(focusedWindowIdentifier == 10)
     #expect(didCreateEmptyTabGroup)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
@@ -1623,7 +1623,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupCreateCommandUsesSelectedTabGroupProfileWhenWindowProfileIsUnknown() async throws {
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var didCreateEmptyTabGroup = false
     var renamedSourceName: String?
     var renamedTargetName: String?
@@ -1651,7 +1651,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
             ]
         },
-        focusWindow: { windowIndex, _ in focusedWindowIndex = windowIndex },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
         createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
         renameTabGroup: { currentName, newName, _ in
             renamedSourceName = currentName
@@ -1661,7 +1661,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
-    #expect(focusedWindowIndex == 2)
+    #expect(focusedWindowIdentifier == 10)
     #expect(didCreateEmptyTabGroup)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
@@ -1786,7 +1786,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupDeleteCommandFormatsResolvedGroup() async throws {
-    var focusedWindowIndexes: [Int] = []
+    var focusedWindowIdentifiers: [Int] = []
     var openedProfiles: [String?] = []
     var selectedNames: [String] = []
 
@@ -1802,7 +1802,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             }
             return [SafariWindowRecord(identifier: 12, index: 1, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Twisto")]
         },
-        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
         openWindow: { profile, _ in openedProfiles.append(profile) },
         selectTabGroup: { name, _ in selectedNames.append(name) },
         deleteSelectedTabGroup: { _ in deleted = true }
@@ -1810,7 +1810,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(try deleteCommand.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
     #expect(openedProfiles == [])
     #expect(selectedNames.suffix(1).first == "Inbox")
-    #expect(focusedWindowIndexes.suffix(1).first == 1)
+    #expect(focusedWindowIdentifiers.suffix(1).first == 12)
     #expect(deleted)
 }
 
@@ -1834,7 +1834,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
 @Test func safariTabGroupDeleteCommandFallsBackToSingleUnscopedWindow() async throws {
     let executor = MockAppleScriptExecutor()
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var openedProfileName: String?
     var selectedName: String?
     var didDelete = false
@@ -1847,7 +1847,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         listWindows: {
             [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Front")]
         },
-        focusWindow: { index, _ in focusedWindowIndex = index },
+        focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
         openWindow: { profileName, _ in openedProfileName = profileName },
         selectTabGroup: { name, _ in selectedName = name },
         deleteSelectedTabGroup: { _ in didDelete = true },
@@ -1855,14 +1855,14 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
-    #expect(focusedWindowIndex == 2)
+    #expect(focusedWindowIdentifier == 10)
     #expect(openedProfileName == nil)
     #expect(selectedName == "Inbox")
     #expect(didDelete)
 }
 
 @Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarSelectionFails() async throws {
-    var focusedWindowIndex: Int?
+    var focusedWindowIdentifier: Int?
     var selectedName: String?
     var didDeleteSelectedGroup = false
     var didDeleteCurrentGroup = false
@@ -1875,7 +1875,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         listWindows: {
             [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Inbox — Start Page")]
         },
-        focusWindow: { index, _ in focusedWindowIndex = index },
+        focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
         openWindow: { _, _ in Issue.record("openWindow should not be called") },
         selectTabGroup: { name, _ in
             selectedName = name
@@ -1886,7 +1886,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
-    #expect(focusedWindowIndex == 2)
+    #expect(focusedWindowIdentifier == 10)
     #expect(selectedName == "Inbox")
     #expect(!didDeleteSelectedGroup)
     #expect(didDeleteCurrentGroup)
@@ -1999,7 +1999,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 }
 
 @Test func safariTabListEnsureURLsCommandEnsuresAndSelectsTabGroupBeforeAddingURLs() async throws {
-    var focusedWindowIndexes: [Int] = []
+    var focusedWindowIdentifiers: [Int] = []
     var openedProfiles: [String?] = []
     var selectedNames: [String] = []
     var openedTabs: [(Int, String?)] = []
@@ -2034,7 +2034,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
                 )
             ]
         },
-        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
         openWindow: { profileName, _ in openedProfiles.append(profileName) },
         selectTabGroup: { name, _ in selectedNames.append(name) },
         openTab: { windowIndex, url, _ in openedTabs.append((windowIndex, url)) }
@@ -2057,7 +2057,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         skipped|https://example.com
         """
     )
-    #expect(focusedWindowIndexes == [3])
+    #expect(focusedWindowIdentifiers == [42])
     #expect(openedProfiles.isEmpty)
     #expect(selectedNames == ["Focus"])
     #expect(openedTabs.map(\.0) == [3])
@@ -2251,7 +2251,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 }
 
 @Test func safariTabListReorderURLsCommandEnsuresSelectsAndVerifiesTabGroupOrder() async throws {
-    var focusedWindowIndexes: [Int] = []
+    var focusedWindowIdentifiers: [Int] = []
     var selectedNames: [String] = []
     var moves: [String] = []
 
@@ -2292,7 +2292,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
                 )
             ]
         },
-        focusWindow: { index, _ in focusedWindowIndexes.append(index) },
+        focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
         selectTabGroup: { name, _ in selectedNames.append(name) },
         moveTab: { windowIndex, sourceIndex, destinationIndex, _ in
             moves.append("\(windowIndex)|\(sourceIndex)|\(destinationIndex)")
@@ -2317,7 +2317,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         extra|https://b.example|3
         """
     )
-    #expect(focusedWindowIndexes == [3])
+    #expect(focusedWindowIdentifiers == [42])
     #expect(selectedNames == ["Focus"])
     #expect(moves == ["3|3|1"])
 }
@@ -3381,6 +3381,14 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     try SafariAppleScriptWindow.focus(windowIndex: 2, executor: executor)
     #expect(executor.executedScripts.count == 1)
     #expect(executor.executedScripts[0].contains("set index of window 2 to 1"))
+}
+
+@Test func safariAppleScriptWindowFocusByIdentifierExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptWindow.focus(windowIdentifier: 42, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(executor.executedScripts[0].contains("set index of item 1 of targetWindows to 1"))
 }
 
 @Test func safariAppleScriptWindowCloseFrontWindowReturnsScriptResult() async throws {
