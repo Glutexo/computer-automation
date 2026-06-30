@@ -82,6 +82,8 @@ Safari window opened.
 window-id|42
 ```
 
+When a profile name is provided, `open-window` verifies that the resolved new window belongs to that profile and closes newly created wrong-profile windows before reporting failure.
+
 `safari find-tab <url>` searches open Safari tabs by exact URL. Add `--prefix` for prefix matching, `--window-id <id>` or `--window-index <index>` to limit the search to one window, and `--profile <name>` to limit matches to a Safari profile when window profile metadata is available. It prints one machine-readable row per match:
 
 ```text

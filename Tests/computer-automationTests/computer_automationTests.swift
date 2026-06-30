@@ -1016,11 +1016,62 @@ func safariProfileListCommandFormatsProfileNames(profiles: [SafariProfileRecord]
         executor: MockAppleScriptExecutor(),
         listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
         openWindow: { profileName, _ in receivedProfileName = profileName },
-        listWindows: { _ in windowLists.removeFirst() }
+        listWindows: { _ in windowLists.removeFirst() },
+        listResolvedWindows: {
+            [
+                SafariWindowRecord(identifier: 44, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto"),
+                SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Glutexo", name: "Existing")
+            ]
+        }
     )
 
     #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|44")
     #expect(receivedProfileName == "Twisto")
+}
+
+@Test func safariWindowOpenCommandRejectsAndRollsBackWrongProfileWindow() async throws {
+    var receivedProfileName: String?
+    var closedWindowIdentifiers: [Int] = []
+    var windowLists = [
+        [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
+        [
+            SafariAppleScriptWindowRecord(identifier: 45, name: "Twisto — Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+        ],
+        [
+            SafariAppleScriptWindowRecord(identifier: 45, name: "Twisto — Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+        ]
+    ]
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { [SafariProfileRecord(name: "Glutexo", identifier: "1")] },
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in
+            if windowLists.count > 1 {
+                return windowLists.removeFirst()
+            }
+            return windowLists[0]
+        },
+        listResolvedWindows: {
+            [
+                SafariWindowRecord(identifier: 45, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto — Start Page"),
+                SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", name: "Existing")
+            ]
+        },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) }
+    )
+
+    #expect(
+        throws: SafariWindowCommandError.openedWindowProfileMismatch(
+            requestedProfileName: "Glutexo",
+            observedWindowName: "Twisto — Start Page"
+        )
+    ) {
+        try command.execute(arguments: ["Glutexo"])
+    }
+    #expect(receivedProfileName == "Glutexo")
+    #expect(closedWindowIdentifiers == [45])
 }
 
 @Test func safariWindowOpenCommandRejectsMissingCreatedWindowIdentifier() async throws {
@@ -3492,6 +3543,14 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
 @Test func safariAppleScriptWindowCloseFrontWindowReturnsScriptResult() async throws {
     let executor = MockAppleScriptExecutor(results: [.string("Safari front window closed.")])
     #expect(try SafariAppleScriptWindow.closeFrontWindow(executor: executor) == "Safari front window closed.")
+}
+
+@Test func safariAppleScriptWindowCloseByIdentifierExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptWindow.close(windowIdentifier: 42, executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(executor.executedScripts[0].contains("close item 1 of targetWindows"))
 }
 
 @Test(arguments: [

@@ -21,7 +21,7 @@
 | Model | Internal API | Purpose |
 | --- | --- | --- |
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
-| `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()` | Read and mutate Safari window state through AppleScript. |
+| `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()`, `close(windowIdentifier:)` | Read and mutate Safari window state through AppleScript. |
 | `SafariAppleScriptTab` | `list()`, `open()`, `setURL()`, `close()`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
 | `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
@@ -48,6 +48,7 @@ flowchart TD
     ListWindows["list()"]
     OpenDocument["openNewDocument()"]
     CloseWindow["closeFrontWindow()"]
+    CloseWindowByID["close(windowIdentifier:)"]
     ListTabs["list()"]
     OpenTab["open()"]
     SetTabURL["setURL()"]
@@ -77,6 +78,7 @@ flowchart TD
     ScriptWindow --> ListWindows
     ScriptWindow --> OpenDocument
     ScriptWindow --> CloseWindow
+    ScriptWindow --> CloseWindowByID
     ScriptTab --> ListTabs
     ScriptTab --> OpenTab
     ScriptTab --> SetTabURL

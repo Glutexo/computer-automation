@@ -216,6 +216,7 @@ ORDER BY id;
   - delegates to the `SafariFileMenu` model to activate Safari
   - clicks the matching profile-specific "new window" menu item
 - After opening a window, `open-window` compares AppleScript-visible Safari window ids before and after the operation and appends a stable `window-id|<id>` line to the success output.
+- For profile-targeted opens, the newly resolved window must match the requested profile through the window title or profile-aware `SafariWindow` readback. If Safari opens only wrong-profile windows or no resolvable window, the command closes the newly created windows by stable id before failing.
 - `windows` enumerates `every window` and returns one line per window as:
   - `index|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name`
 - `SafariWindow` delegates persisted window metadata to `SafariDatabaseWindow`.

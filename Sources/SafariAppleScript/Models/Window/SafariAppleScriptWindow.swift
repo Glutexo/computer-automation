@@ -94,6 +94,21 @@ public enum SafariAppleScriptWindow: ModelModel {
         return try executor.execute(script: script)?.stringValue ?? "Safari front window closed."
     }
 
+    public static func close(
+        windowIdentifier: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let script = """
+        tell application "Safari"
+            set targetWindows to every window whose id is \(windowIdentifier)
+            if (count of targetWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
+            close item 1 of targetWindows
+        end tell
+        """
+
+        _ = try executor.execute(script: script)
+    }
+
     public static func parseWindowList(_ descriptor: NSAppleEventDescriptor?) -> [SafariAppleScriptWindowRecord] {
         guard let descriptor else {
             return []

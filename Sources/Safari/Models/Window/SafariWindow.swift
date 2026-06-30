@@ -195,6 +195,7 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case tabGroupPickerUnavailable
     case tabGroupPickerItemNotFound(String)
     case openedWindowIdentifierNotFound
+    case openedWindowProfileMismatch(requestedProfileName: String, observedWindowName: String)
 
     var errorDescription: String? {
         switch self {
@@ -206,6 +207,8 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
             "Could not finish the Safari window query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
         case .openedWindowIdentifierNotFound:
             "Safari opened a window, but computer-automation could not resolve its window id."
+        case .openedWindowProfileMismatch(let requestedProfileName, let observedWindowName):
+            "Safari opened a window for \(observedWindowName), not requested profile \(requestedProfileName)."
         default:
             nil
         }

@@ -1,5 +1,21 @@
 # Decision Log
 
+## 2026-06-30
+
+### Command argument preflight safety
+
+- Added command-level argument preflight before command dispatch.
+- `--help` is handled from command metadata before any command implementation can mutate Safari state.
+- Unknown `--...` options are rejected before dispatch, and no-argument commands reject unexpected positional arguments before execution.
+- This prevents diagnostic invocations such as `safari close-window --help` from reaching destructive command behavior.
+
+### Profile-targeted open-window validation
+
+- Tightened `safari open-window <profile>` so it accepts only a newly created window that matches the requested profile.
+- The command first uses profile-prefixed window titles, then profile-aware `SafariWindow` readback, to resolve the new stable window id.
+- If Safari opens no resolvable window or only a wrong-profile window, the command closes newly created window ids before surfacing the failure.
+- Added stable-id AppleScript window closing as a reusable low-level operation so rollback does not depend on volatile front-window state.
+
 ## 2026-06-14
 
 ### Safari tab-list virtual model
