@@ -23,8 +23,9 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (String, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
     private let moveTab: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
+    private let deleteTabGroup: (Int) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
     public init() {
@@ -50,6 +51,9 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         }
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
         self.moveTab = SafariAppleScriptTab.move
+        self.deleteTabGroup = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        }
         self.sleep = Thread.sleep
     }
 
@@ -61,8 +65,11 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
         moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptTab.move,
+        deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        },
         sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {
         self.executor = executor
@@ -74,6 +81,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         self.openWindow = openWindow
         self.selectTabGroup = selectTabGroup
         self.moveTab = moveTab
+        self.deleteTabGroup = deleteTabGroup
         self.sleep = sleep
     }
 
@@ -101,39 +109,59 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             )
         case .tabGroup(let profileName, let name):
             let tabGroupSummary = try ensureTabGroup(profileName, name)
-            let tabGroup = tabGroupSummary.tabGroup
-            let window = try SafariTabGroupSidebarAccess.focusWindowForTabGroup(
-                tabGroup,
-                executor: executor,
-                listWindows: listWindows,
-                focusWindow: focusWindow,
-                openWindow: openWindow
-            )
-            try selectTabGroup(tabGroup.name, executor)
-
-            let tabs = try listWindowTabs(window.index, executor).map(SafariTabListReorderItem.init)
-            let result = try reorder(windowIndex: window.index, tabs: tabs, requestedURLs: request.urls)
-            try verifySavedTabGroupOrder(
-                tabGroupIdentifier: tabGroup.identifier,
-                expectedURLs: result.finalURLs,
-                movedCount: result.moved.count
-            )
-
-            return SafariTabListReorderURLsSummary(
-                context: SafariTabListContext(
-                    kind: .tabGroup,
-                    windowIndex: window.index,
-                    tabGroupIdentifier: tabGroup.identifier,
-                    profileName: tabGroup.profileName,
-                    name: tabGroup.name
-                ),
-                tabGroup: tabGroupSummary,
-                moved: result.moved,
-                unchanged: result.unchanged,
-                missingURLs: result.missingURLs,
-                extra: result.extra
-            )
+            do {
+                return try reorderTabGroupURLs(tabGroupSummary: tabGroupSummary, requestedURLs: request.urls)
+            } catch {
+                try rollbackCreatedTabGroup(tabGroupSummary)
+                throw error
+            }
         }
+    }
+
+    private func reorderTabGroupURLs(
+        tabGroupSummary: SafariTabGroupEnsureSummary,
+        requestedURLs: [String]
+    ) throws -> SafariTabListReorderURLsSummary {
+        let tabGroup = tabGroupSummary.tabGroup
+        let window = try SafariTabGroupSidebarAccess.focusWindowForTabGroup(
+            tabGroup,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openWindow: openWindow
+        )
+        try selectTabGroup(tabGroup, executor)
+
+        let tabs = try listWindowTabs(window.index, executor).map(SafariTabListReorderItem.init)
+        let result = try reorder(windowIndex: window.index, tabs: tabs, requestedURLs: requestedURLs)
+        try verifySavedTabGroupOrder(
+            tabGroupIdentifier: tabGroup.identifier,
+            expectedURLs: result.finalURLs,
+            movedCount: result.moved.count
+        )
+
+        return SafariTabListReorderURLsSummary(
+            context: SafariTabListContext(
+                kind: .tabGroup,
+                windowIndex: window.index,
+                tabGroupIdentifier: tabGroup.identifier,
+                profileName: tabGroup.profileName,
+                name: tabGroup.name
+            ),
+            tabGroup: tabGroupSummary,
+            moved: result.moved,
+            unchanged: result.unchanged,
+            missingURLs: result.missingURLs,
+            extra: result.extra
+        )
+    }
+
+    private func rollbackCreatedTabGroup(_ summary: SafariTabGroupEnsureSummary) throws {
+        guard summary.status == .created else {
+            return
+        }
+
+        try deleteTabGroup(summary.tabGroup.identifier)
     }
 
     private func reorder(

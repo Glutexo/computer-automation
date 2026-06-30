@@ -133,11 +133,34 @@ enum SafariTabGroupSidebarAccess {
         named tabGroupName: String,
         executor: SafariAppleScriptExecuting
     ) throws {
+        try selectTabGroup(identifier: nil, named: tabGroupName, executor: executor)
+    }
+
+    static func selectTabGroup(
+        _ group: SafariTabGroupRecord,
+        executor: SafariAppleScriptExecuting
+    ) throws {
+        try selectTabGroup(identifier: group.identifier, named: group.name, executor: executor)
+    }
+
+    private static func selectTabGroup(
+        identifier tabGroupIdentifier: Int?,
+        named tabGroupName: String,
+        executor: SafariAppleScriptExecuting
+    ) throws {
         do {
-            try SafariSidebar.selectTabGroup(named: tabGroupName)
+            if let tabGroupIdentifier {
+                try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName)
+            } else {
+                try SafariSidebar.selectTabGroup(named: tabGroupName)
+            }
         } catch SafariUserInterfaceError.sidebarTabGroupNotFound {
             do {
-                try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
+                if let tabGroupIdentifier {
+                    try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+                } else {
+                    try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
+                }
             } catch SafariUserInterfaceError.sidebarTabGroupNotFound {
                 throw SafariTabGroupCommandError.sidebarTabGroupNotFound(tabGroupName)
             } catch {
@@ -145,7 +168,11 @@ enum SafariTabGroupSidebarAccess {
             }
         } catch {
             do {
-                try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
+                if let tabGroupIdentifier {
+                    try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+                } else {
+                    try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
+                }
             } catch SafariUserInterfaceError.sidebarTabGroupNotFound {
                 throw SafariTabGroupCommandError.sidebarTabGroupNotFound(tabGroupName)
             } catch {

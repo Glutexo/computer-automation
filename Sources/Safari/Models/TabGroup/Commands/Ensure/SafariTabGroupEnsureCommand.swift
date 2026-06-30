@@ -15,6 +15,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+    private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let createTabGroup: (Int, String) throws -> SafariTabGroupRecord
 
     public init() {
@@ -27,6 +28,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
+        self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.createTabGroup = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
@@ -40,6 +42,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
+        closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
         createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
@@ -49,6 +52,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         self.listWindows = listWindows
         self.focusWindow = focusWindow
         self.openWindow = openWindow
+        self.closeWindow = closeWindow
         self.createTabGroup = createTabGroup
     }
 
@@ -91,7 +95,13 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             focusWindow: focusWindow,
             openWindow: openWindow
         )
-        let createdGroup = try createTabGroup(window.identifier, name)
+        let createdGroup: SafariTabGroupRecord
+        do {
+            createdGroup = try createTabGroup(window.identifier, name)
+        } catch {
+            try closeWindow(window.identifier, executor)
+            throw error
+        }
         return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
     }
 }

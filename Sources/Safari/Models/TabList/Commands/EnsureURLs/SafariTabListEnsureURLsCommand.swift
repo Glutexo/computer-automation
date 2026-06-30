@@ -22,8 +22,9 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (String, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
     private let openTab: (Int, String?, SafariAppleScriptExecuting) throws -> Void
+    private let deleteTabGroup: (Int) throws -> Void
 
     public init() {
         let executor = SafariAppleScriptExecutor()
@@ -48,6 +49,9 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         }
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
         self.openTab = SafariAppleScriptTab.open
+        self.deleteTabGroup = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        }
     }
 
     init(
@@ -58,8 +62,11 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
-        openTab: @escaping (Int, String?, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptTab.open
+        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        openTab: @escaping (Int, String?, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptTab.open,
+        deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
+            _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
+        }
     ) {
         self.executor = executor
         self.ensureTabGroup = ensureTabGroup
@@ -70,6 +77,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         self.openWindow = openWindow
         self.selectTabGroup = selectTabGroup
         self.openTab = openTab
+        self.deleteTabGroup = deleteTabGroup
     }
 
     public func execute(arguments: [String]) throws -> String {
@@ -97,34 +105,54 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             )
         case .tabGroup(let profileName, let name):
             let tabGroupSummary = try ensureTabGroup(profileName, name)
-            let tabGroup = tabGroupSummary.tabGroup
-            let window = try SafariTabGroupSidebarAccess.focusWindowForTabGroup(
-                tabGroup,
-                executor: executor,
-                listWindows: listWindows,
-                focusWindow: focusWindow,
-                openWindow: openWindow
-            )
-            try selectTabGroup(tabGroup.name, executor)
-
-            let existingURLs = try listTabGroupTabs(tabGroup.identifier).map(\.url)
-            let result = try reconcile(requestedURLs: request.urls, existingURLs: existingURLs) { url in
-                try openTab(window.index, url, executor)
+            do {
+                return try ensureTabGroupURLs(tabGroupSummary: tabGroupSummary, requestedURLs: request.urls)
+            } catch {
+                try rollbackCreatedTabGroup(tabGroupSummary)
+                throw error
             }
-
-            return SafariTabListEnsureURLsSummary(
-                context: SafariTabListContext(
-                    kind: .tabGroup,
-                    windowIndex: window.index,
-                    tabGroupIdentifier: tabGroup.identifier,
-                    profileName: tabGroup.profileName,
-                    name: tabGroup.name
-                ),
-                tabGroup: tabGroupSummary,
-                addedURLs: result.addedURLs,
-                skippedURLs: result.skippedURLs
-            )
         }
+    }
+
+    private func ensureTabGroupURLs(
+        tabGroupSummary: SafariTabGroupEnsureSummary,
+        requestedURLs: [String]
+    ) throws -> SafariTabListEnsureURLsSummary {
+        let tabGroup = tabGroupSummary.tabGroup
+        let window = try SafariTabGroupSidebarAccess.focusWindowForTabGroup(
+            tabGroup,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openWindow: openWindow
+        )
+        try selectTabGroup(tabGroup, executor)
+
+        let existingURLs = try listTabGroupTabs(tabGroup.identifier).map(\.url)
+        let result = try reconcile(requestedURLs: requestedURLs, existingURLs: existingURLs) { url in
+            try openTab(window.index, url, executor)
+        }
+
+        return SafariTabListEnsureURLsSummary(
+            context: SafariTabListContext(
+                kind: .tabGroup,
+                windowIndex: window.index,
+                tabGroupIdentifier: tabGroup.identifier,
+                profileName: tabGroup.profileName,
+                name: tabGroup.name
+            ),
+            tabGroup: tabGroupSummary,
+            addedURLs: result.addedURLs,
+            skippedURLs: result.skippedURLs
+        )
+    }
+
+    private func rollbackCreatedTabGroup(_ summary: SafariTabGroupEnsureSummary) throws {
+        guard summary.status == .created else {
+            return
+        }
+
+        try deleteTabGroup(summary.tabGroup.identifier)
     }
 
     private func reconcile(

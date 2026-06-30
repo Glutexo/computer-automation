@@ -1572,6 +1572,39 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(createdWindowIdentifier == 42)
 }
 
+@Test func safariTabGroupEnsureCommandClosesNewProfileWindowWhenCreateFails() async throws {
+    var openedProfileName: String?
+    var closedWindowIdentifiers: [Int] = []
+    var listWindowCallCount = 0
+    let openedWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [] : [openedWindow]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        createTabGroup: { _, _ in throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "Twisto") }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "Twisto")) {
+        try command.execute(arguments: ["Twisto", "Focus"])
+    }
+    #expect(openedProfileName == "Twisto")
+    #expect(closedWindowIdentifiers == [42])
+}
+
 @Test func safariTabGroupEnsureCommandRejectsAmbiguousExistingGroups() async throws {
     let command = SafariTabGroupEnsureCommand(
         executor: MockAppleScriptExecutor(),
@@ -1863,6 +1896,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupCreateCommandRejectsWrongProfileCreatedGroup() async throws {
+    var deletedCurrentGroup = false
     var renamedSourceName: String?
     var renamedTargetName: String?
     var pollCount = 0
@@ -1873,20 +1907,18 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
         },
         listTabGroups: {
+            if deletedCurrentGroup {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+
             pollCount += 1
             if pollCount == 1 {
                 return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
             }
-            if pollCount == 2 {
-                return [
-                    SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
-                    SafariTabGroupRecord(identifier: 1001, profileName: "", name: "名称未設定")
-                ]
-            }
 
             return [
                 SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
-                SafariTabGroupRecord(identifier: 1001, profileName: "", name: "Inbox")
+                SafariTabGroupRecord(identifier: 1001, profileName: "", name: "名称未設定")
             ]
         },
         focusWindow: { _, _ in },
@@ -1895,19 +1927,59 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             renamedSourceName = currentName
             renamedTargetName = newName
         },
+        deleteCurrentTabGroup: { _ in deletedCurrentGroup = true },
         sleep: { _ in }
     )
 
     #expect(throws: SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "Twisto")) {
         try command.execute(arguments: ["2", "Inbox"])
     }
+    #expect(deletedCurrentGroup)
     #expect(renamedSourceName == nil)
     #expect(renamedTargetName == nil)
+}
+
+@Test func safariTabGroupCreateCommandRollsBackCreatedGroupWhenRenameFails() async throws {
+    var deletedCurrentGroup = false
+    var pollCount = 0
+
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+        },
+        listTabGroups: {
+            if deletedCurrentGroup {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+
+            pollCount += 1
+            if pollCount == 1 {
+                return [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            }
+
+            return [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Senza nome")
+            ]
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in },
+        renameTabGroup: { _, _, _ in throw SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable },
+        deleteCurrentTabGroup: { _ in deletedCurrentGroup = true },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable) {
+        try command.execute(arguments: ["2", "Inbox"])
+    }
+    #expect(deletedCurrentGroup)
 }
 
 @Test func safariTabGroupDeleteCommandFormatsResolvedGroup() async throws {
     var focusedWindowIdentifiers: [Int] = []
     var openedProfiles: [String?] = []
+    var selectedIdentifiers: [Int] = []
     var selectedNames: [String] = []
 
     var deleted = false
@@ -1926,12 +1998,16 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
         openWindow: { profile, _ in openedProfiles.append(profile) },
-        selectTabGroup: { name, _ in selectedNames.append(name) },
+        selectTabGroup: { group, _ in
+            selectedIdentifiers.append(group.identifier)
+            selectedNames.append(group.name)
+        },
         deleteSelectedTabGroup: { _ in deleted = true },
         sleep: { _ in }
     )
     #expect(try deleteCommand.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
     #expect(openedProfiles == [])
+    #expect(selectedIdentifiers.suffix(1).first == 1000)
     #expect(selectedNames.suffix(1).first == "Inbox")
     #expect(focusedWindowIdentifiers.suffix(1).first == 12)
     #expect(deleted)
@@ -1960,6 +2036,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     let executor = MockAppleScriptExecutor()
     var focusedWindowIdentifier: Int?
     var openedProfileName: String?
+    var selectedIdentifier: Int?
     var selectedName: String?
     var didDelete = false
 
@@ -1973,7 +2050,10 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
         openWindow: { profileName, _ in openedProfileName = profileName },
-        selectTabGroup: { name, _ in selectedName = name },
+        selectTabGroup: { group, _ in
+            selectedIdentifier = group.identifier
+            selectedName = group.name
+        },
         deleteSelectedTabGroup: { _ in didDelete = true },
         deleteCurrentTabGroup: { _ in Issue.record("deleteCurrentTabGroup should not be called") },
         sleep: { _ in }
@@ -1982,12 +2062,14 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
     #expect(focusedWindowIdentifier == 10)
     #expect(openedProfileName == nil)
+    #expect(selectedIdentifier == 1000)
     #expect(selectedName == "Inbox")
     #expect(didDelete)
 }
 
 @Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarSelectionFails() async throws {
     var focusedWindowIdentifier: Int?
+    var selectedIdentifier: Int?
     var selectedName: String?
     var didDeleteSelectedGroup = false
     var didDeleteCurrentGroup = false
@@ -2002,9 +2084,10 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
         openWindow: { _, _ in Issue.record("openWindow should not be called") },
-        selectTabGroup: { name, _ in
-            selectedName = name
-            throw SafariTabGroupCommandError.sidebarTabGroupNotFound(name)
+        selectTabGroup: { group, _ in
+            selectedIdentifier = group.identifier
+            selectedName = group.name
+            throw SafariTabGroupCommandError.sidebarTabGroupNotFound(group.name)
         },
         deleteSelectedTabGroup: { _ in didDeleteSelectedGroup = true },
         deleteCurrentTabGroup: { _ in didDeleteCurrentGroup = true },
@@ -2013,6 +2096,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
     #expect(focusedWindowIdentifier == 10)
+    #expect(selectedIdentifier == 1000)
     #expect(selectedName == "Inbox")
     #expect(!didDeleteSelectedGroup)
     #expect(didDeleteCurrentGroup)
@@ -2150,7 +2234,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 @Test func safariTabListEnsureURLsCommandEnsuresAndSelectsTabGroupBeforeAddingURLs() async throws {
     var focusedWindowIdentifiers: [Int] = []
     var openedProfiles: [String?] = []
-    var selectedNames: [String] = []
+    var selectedTabGroups: [String] = []
     var openedTabs: [(Int, String?)] = []
 
     let command = SafariTabListEnsureURLsCommand(
@@ -2185,7 +2269,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         },
         focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
         openWindow: { profileName, _ in openedProfiles.append(profileName) },
-        selectTabGroup: { name, _ in selectedNames.append(name) },
+        selectTabGroup: { group, _ in selectedTabGroups.append("\(group.identifier)|\(group.profileName)|\(group.name)") },
         openTab: { windowIndex, url, _ in openedTabs.append((windowIndex, url)) }
     )
 
@@ -2208,9 +2292,40 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     )
     #expect(focusedWindowIdentifiers == [42])
     #expect(openedProfiles.isEmpty)
-    #expect(selectedNames == ["Focus"])
+    #expect(selectedTabGroups == ["1000|Twisto|Focus"])
     #expect(openedTabs.map(\.0) == [3])
     #expect(openedTabs.map(\.1) == ["https://openai.com"])
+}
+
+@Test func safariTabListEnsureURLsCommandDeletesCreatedTabGroupWhenSelectionFails() async throws {
+    var deletedTabGroupIdentifiers: [Int] = []
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { profileName, name in
+            SafariTabGroupEnsureSummary(
+                status: .created,
+                tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
+            )
+        },
+        listWindowTabs: { _, _ in [] },
+        listTabGroupTabs: { _ in [] },
+        listWindows: {
+            [SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto")]
+        },
+        focusWindow: { _, _ in },
+        selectTabGroup: { _, _ in throw SafariTabGroupCommandError.sidebarUnavailable },
+        openTab: { _, _, _ in Issue.record("openTab should not be called") },
+        deleteTabGroup: { identifier in deletedTabGroupIdentifiers.append(identifier) }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.sidebarUnavailable) {
+        try command.execute(arguments: [
+            "--tab-group-profile", "Twisto",
+            "--tab-group-name", "Focus",
+            "https://example.com"
+        ])
+    }
+    #expect(deletedTabGroupIdentifiers == [1000])
 }
 
 @Test func safariTabListEnsureURLsCommandReturnsStructuredJSONForTabGroupContext() async throws {
@@ -2401,7 +2516,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 
 @Test func safariTabListReorderURLsCommandEnsuresSelectsAndVerifiesTabGroupOrder() async throws {
     var focusedWindowIdentifiers: [Int] = []
-    var selectedNames: [String] = []
+    var selectedTabGroups: [String] = []
     var moves: [String] = []
 
     let command = SafariTabListReorderURLsCommand(
@@ -2442,7 +2557,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
             ]
         },
         focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
-        selectTabGroup: { name, _ in selectedNames.append(name) },
+        selectTabGroup: { group, _ in selectedTabGroups.append("\(group.identifier)|\(group.profileName)|\(group.name)") },
         moveTab: { windowIndex, sourceIndex, destinationIndex, _ in
             moves.append("\(windowIndex)|\(sourceIndex)|\(destinationIndex)")
         }
@@ -2467,16 +2582,17 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         """
     )
     #expect(focusedWindowIdentifiers == [42])
-    #expect(selectedNames == ["Focus"])
+    #expect(selectedTabGroups == ["1000|Twisto|Focus"])
     #expect(moves == ["3|3|1"])
 }
 
 @Test func safariTabListReorderURLsCommandRejectsUnverifiedSavedTabGroupPersistence() async throws {
+    var deletedTabGroupIdentifiers: [Int] = []
     let command = SafariTabListReorderURLsCommand(
         executor: MockAppleScriptExecutor(),
         ensureTabGroup: { profileName, name in
             SafariTabGroupEnsureSummary(
-                status: .reused,
+                status: .created,
                 tabGroup: SafariTabGroupRecord(identifier: 1000, profileName: profileName, name: name)
             )
         },
@@ -2497,7 +2613,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         },
         focusWindow: { _, _ in },
         selectTabGroup: { _, _ in },
-        moveTab: { _, _, _, _ in }
+        moveTab: { _, _, _, _ in },
+        deleteTabGroup: { identifier in deletedTabGroupIdentifiers.append(identifier) }
     )
 
     #expect(throws: SafariTabListCommandError.savedTabGroupOrderPersistenceNotVerified(1000)) {
@@ -2507,6 +2624,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
             "https://b.example"
         ])
     }
+    #expect(deletedTabGroupIdentifiers == [1000])
 }
 
 @Test func safariTabListReorderURLsCommandRejectsInvalidArguments() async throws {
@@ -3706,6 +3824,15 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     #expect(throws: SafariUserInterfaceError.sidebarTabGroupNotFound("Focus")) {
         try SafariSidebar.selectTabGroup(named: "Focus", executor: missingExecutor)
     }
+}
+
+@Test func safariAppleScriptSidebarSelectTabGroupByIdentifierExecutesExpectedScript() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariAppleScriptSidebar.selectTabGroup(identifier: 57189, named: "名称未設定", executor: executor)
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("currentIdentifier contains \"57189\""))
+    #expect(executor.executedScripts[0].contains("SidebarLibraryItemTabGroup"))
+    #expect(executor.executedScripts[0].contains("名称未設定"))
 }
 
 @Test func safariFileMenuListItemsUsesFileMenuIndex() async throws {

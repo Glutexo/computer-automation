@@ -9,9 +9,10 @@ Minimal Swift application for computer automation experiments.
 - The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads, URL reconciliation, and URL-order reordering for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
-  - the target group is resolved through the opened Safari sidebar
+  - the target group is resolved through the opened Safari sidebar, using the saved group identifier when Safari exposes it and falling back to the display name only when needed
   - create uses Safari's File-menu action identified by `NewEmptyTabGroupMenuItem`
   - create relies on Safari's post-create inline edit field for naming the newly created group
+  - create rolls back newly created groups when profile validation or rename/readback verification fails
   - delete uses the selected group's context menu item `DeleteTabGroupMenuItem`
   - standalone rename is currently not exposed because the visible Safari sidebar rename affordance is not available through a stable accessibility trigger
   - replacing a group by creating a new one and deleting the old one is documented as a possible future workaround, but it is not implemented because it would change the stable group identifier and may lose Safari metadata
@@ -96,9 +97,9 @@ windowId|windowIndex|tabIndex|url|title
 
 `safari delete-tab-group <identifier>` deletes a saved Safari tab group and verifies through readback that the group disappeared before returning success.
 
-`safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-index <index>` for a live window, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group and reports that status in text and JSON output.
+`safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-index <index>` for a live window, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group and reports that status in text and JSON output. If it created the group but cannot subsequently focus, select, or mutate it, the command deletes that newly created group before failing.
 
-`safari reorder-tab-list-urls` reorders existing matching tabs in a window-backed or saved-tab-group-backed tab list so the requested URL occurrences become the ordered prefix. It does not create missing URLs and does not delete extra tabs; text and JSON output report moved, unchanged, missing, and extra entries.
+`safari reorder-tab-list-urls` reorders existing matching tabs in a window-backed or saved-tab-group-backed tab list so the requested URL occurrences become the ordered prefix. It does not create missing URLs and does not delete extra tabs; text and JSON output report moved, unchanged, missing, and extra entries. If the saved-group path created a new group and later verification fails, that new group is deleted before the command reports the failure.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

@@ -4,6 +4,7 @@ import AutomationFoundation
 import SafariAppleScript
 
 public enum SafariSidebar: ModelModel {
+    private static let tabGroupCellIdentifierPrefix = "SidebarLibraryItemTabGroup"
     private static let renameTabGroupMenuItemIdentifier = "RenameTabGroupMenuItem"
     private static let deleteTabGroupMenuItemIdentifier = "DeleteTabGroupMenuItem"
     private static let sidebarTextFieldIdentifier = "LibraryItemCellTextField"
@@ -15,6 +16,20 @@ public enum SafariSidebar: ModelModel {
     )
 
     public static func selectTabGroup(
+        named tabGroupName: String
+    ) throws {
+        try selectTabGroup(matchingIdentifier: nil, named: tabGroupName)
+    }
+
+    public static func selectTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named tabGroupName: String
+    ) throws {
+        try selectTabGroup(matchingIdentifier: tabGroupIdentifier, named: tabGroupName)
+    }
+
+    private static func selectTabGroup(
+        matchingIdentifier tabGroupIdentifier: Int?,
         named tabGroupName: String
     ) throws {
         guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
@@ -31,6 +46,25 @@ public enum SafariSidebar: ModelModel {
 
         let focusedWindow = focusedWindowValue as! AXUIElement
         let outline = try outlinedSidebar(in: focusedWindow)
+        let matches = tabGroupRows(in: outline)
+
+        if
+            let tabGroupIdentifier,
+            let match = matches.first(where: { $0.identifier.contains(String(tabGroupIdentifier)) })
+        {
+            try select(row: match.row, cell: match.cell, in: outline)
+            return
+        }
+
+        guard let match = matches.first(where: { $0.title == tabGroupName }) else {
+            throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
+        }
+
+        try select(row: match.row, cell: match.cell, in: outline)
+    }
+
+    private static func tabGroupRows(in outline: AXUIElement) -> [(row: AXUIElement, cell: AXUIElement, title: String, identifier: String)] {
+        var matches: [(row: AXUIElement, cell: AXUIElement, title: String, identifier: String)] = []
 
         let rows = elements(for: kAXRowsAttribute, on: outline)
         for row in rows {
@@ -47,34 +81,33 @@ public enum SafariSidebar: ModelModel {
 
             let titleElement = titleElementValue as! AXUIElement
             let title = stringValue(for: kAXValueAttribute, on: titleElement)
-            guard title == tabGroupName else {
-                continue
-            }
+            let identifier = tabGroupIdentifier(for: cell)
+            guard identifier.hasPrefix(tabGroupCellIdentifierPrefix) else { continue }
 
-            let identifier = {
-                let currentCellIdentifier = stringValue(for: kAXIdentifierAttribute, on: cell)
-                if !currentCellIdentifier.isEmpty {
-                    return currentCellIdentifier
-                }
-                let cellChildren = elements(for: kAXChildrenAttribute, on: cell)
-                return cellChildren.first.map { stringValue(for: kAXIdentifierAttribute, on: $0) } ?? ""
-            }()
-            guard identifier.hasPrefix("SidebarLibraryItemTabGroup") else {
-                continue
-            }
-
-            guard
-                AXUIElementSetAttributeValue(outline, kAXSelectedRowsAttribute as CFString, [row] as CFArray) == .success,
-                AXUIElementSetAttributeValue(outline, kAXSelectedCellsAttribute as CFString, [cell] as CFArray) == .success,
-                AXUIElementSetAttributeValue(outline, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success
-            else {
-                throw SafariUserInterfaceError.sidebarUnavailable
-            }
-
-            return
+            matches.append((row: row, cell: cell, title: title, identifier: identifier))
         }
 
-        throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
+        return matches
+    }
+
+    private static func tabGroupIdentifier(for cell: AXUIElement) -> String {
+        let currentCellIdentifier = stringValue(for: kAXIdentifierAttribute, on: cell)
+        if !currentCellIdentifier.isEmpty {
+            return currentCellIdentifier
+        }
+
+        let cellChildren = elements(for: kAXChildrenAttribute, on: cell)
+        return cellChildren.first.map { stringValue(for: kAXIdentifierAttribute, on: $0) } ?? ""
+    }
+
+    private static func select(row: AXUIElement, cell: AXUIElement, in outline: AXUIElement) throws {
+        guard
+            AXUIElementSetAttributeValue(outline, kAXSelectedRowsAttribute as CFString, [row] as CFArray) == .success,
+            AXUIElementSetAttributeValue(outline, kAXSelectedCellsAttribute as CFString, [cell] as CFArray) == .success,
+            AXUIElementSetAttributeValue(outline, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success
+        else {
+            throw SafariUserInterfaceError.sidebarUnavailable
+        }
     }
 
     private static func outlinedSidebar(in focusedWindow: AXUIElement) throws -> AXUIElement {
@@ -105,6 +138,23 @@ public enum SafariSidebar: ModelModel {
     ) throws {
         do {
             try SafariAppleScriptSidebar.selectTabGroup(named: tabGroupName, executor: executor)
+        } catch SafariAppleScriptError.executionFailed(let message) {
+            if message.localizedCaseInsensitiveContains("not found") {
+                throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
+            }
+            throw SafariUserInterfaceError.sidebarUnavailable
+        } catch {
+            throw SafariUserInterfaceError.sidebarUnavailable
+        }
+    }
+
+    public static func selectTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named tabGroupName: String,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        do {
+            try SafariAppleScriptSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
         } catch SafariAppleScriptError.executionFailed(let message) {
             if message.localizedCaseInsensitiveContains("not found") {
                 throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
@@ -153,14 +203,14 @@ public enum SafariSidebar: ModelModel {
             }
 
             let currentCellIdentifier = stringValue(for: kAXIdentifierAttribute, on: cell)
-            if currentCellIdentifier.hasPrefix("SidebarLibraryItemTabGroup") {
+            if currentCellIdentifier.hasPrefix(tabGroupCellIdentifierPrefix) {
                 return (row, cell)
             }
 
             let cellChildren = elements(for: kAXChildrenAttribute, on: cell)
             guard
                 let childIdentifier = cellChildren.first.map({ stringValue(for: kAXIdentifierAttribute, on: $0) }),
-                childIdentifier.hasPrefix("SidebarLibraryItemTabGroup")
+                childIdentifier.hasPrefix(tabGroupCellIdentifierPrefix)
             else {
                 return nil
             }

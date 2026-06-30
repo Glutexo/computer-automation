@@ -23,6 +23,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let createEmptyTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let renameTabGroup: (String, String, SafariAppleScriptExecuting) throws -> Void
+    private let deleteCurrentTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
     public init() {
@@ -36,6 +37,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.renameTabGroup = { currentName, newName, _ in
             try SafariSidebar.renameTabGroup(named: currentName, to: newName)
         }
+        self.deleteCurrentTabGroup = SafariFileMenu.deleteCurrentTabGroup
         self.sleep = Thread.sleep
     }
 
@@ -48,6 +50,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         renameTabGroup: @escaping (String, String, SafariAppleScriptExecuting) throws -> Void = { currentName, newName, _ in
             try SafariSidebar.renameTabGroup(named: currentName, to: newName)
         },
+        deleteCurrentTabGroup: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.deleteCurrentTabGroup,
         sleep: @escaping (TimeInterval) -> Void = Thread.sleep
     ) {
         self.executor = executor
@@ -56,6 +59,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.focusWindow = focusWindow
         self.createEmptyTabGroup = createEmptyTabGroup
         self.renameTabGroup = renameTabGroup
+        self.deleteCurrentTabGroup = deleteCurrentTabGroup
         self.sleep = sleep
     }
 
@@ -136,21 +140,38 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         try focusWindow(window.identifier, executor)
         try createEmptyTabGroup(executor)
 
-        let createdGroup = try waitForCreatedTabGroup(
-            profileName: effectiveProfileName,
-            knownIdentifiers: knownIdentifiers
-        )
-
-        if createdGroup.name != name {
-            sleep(0.1)
-            try renameTabGroup(createdGroup.name, name, executor)
+        let createdGroup: SafariTabGroupRecord
+        do {
+            createdGroup = try waitForCreatedTabGroup(
+                profileName: effectiveProfileName,
+                knownIdentifiers: knownIdentifiers
+            )
+        } catch {
+            try rollbackNewTabGroups(
+                excluding: knownIdentifiers,
+                windowIdentifier: window.identifier
+            )
+            throw error
         }
 
-        let renamedGroup = try waitForRenamedTabGroup(
-            identifier: createdGroup.identifier,
-            expectedName: name
-        )
-        return renamedGroup
+        do {
+            if createdGroup.name != name {
+                sleep(0.1)
+                try renameTabGroup(createdGroup.name, name, executor)
+            }
+
+            let renamedGroup = try waitForRenamedTabGroup(
+                identifier: createdGroup.identifier,
+                expectedName: name
+            )
+            return renamedGroup
+        } catch {
+            try rollbackCreatedTabGroup(
+                identifier: createdGroup.identifier,
+                windowIdentifier: window.identifier
+            )
+            throw error
+        }
     }
 
     private func resolveEffectiveProfileName(
@@ -210,6 +231,36 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         }
 
         throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
+    }
+
+    private func rollbackNewTabGroups(
+        excluding knownIdentifiers: Set<Int>,
+        windowIdentifier: Int
+    ) throws {
+        let newGroups = try listTabGroups().filter { !knownIdentifiers.contains($0.identifier) }
+        for group in newGroups.sorted(by: { $0.identifier > $1.identifier }) {
+            try rollbackCreatedTabGroup(identifier: group.identifier, windowIdentifier: windowIdentifier)
+        }
+    }
+
+    private func rollbackCreatedTabGroup(identifier: Int, windowIdentifier: Int) throws {
+        try focusWindow(windowIdentifier, executor)
+        try deleteCurrentTabGroup(executor)
+        try waitForDeletedTabGroup(identifier: identifier)
+    }
+
+    private func waitForDeletedTabGroup(identifier: Int) throws {
+        for attempt in 0..<Self.databaseMutationPollAttempts {
+            if try !listTabGroups().contains(where: { $0.identifier == identifier }) {
+                return
+            }
+
+            if attempt < Self.databaseMutationPollAttempts - 1 {
+                sleep(Self.databaseMutationPollInterval)
+            }
+        }
+
+        throw SafariTabGroupCommandError.tabGroupDeletionNotVerified(identifier)
     }
 }
 

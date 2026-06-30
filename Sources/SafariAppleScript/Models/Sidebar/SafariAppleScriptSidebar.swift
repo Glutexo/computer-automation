@@ -34,10 +34,54 @@ public enum SafariAppleScriptSidebar: ModelModel {
         named tabGroupName: String,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        try selectTabGroup(matchingIdentifier: nil, named: tabGroupName, executor: executor)
+    }
+
+    public static func selectTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named tabGroupName: String,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        try selectTabGroup(matchingIdentifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+    }
+
+    private static func selectTabGroup(
+        matchingIdentifier tabGroupIdentifier: Int?,
+        named tabGroupName: String,
+        executor: SafariAppleScriptExecuting
+    ) throws {
+        let identifierMatchScript = tabGroupIdentifier.map { identifier in
+            """
+                    repeat with currentRow in rows of outlineItem
+                        try
+                            set currentCell to UI element 1 of currentRow
+                            set currentIdentifier to ""
+                            try
+                                set currentIdentifier to value of attribute "AXIdentifier" of currentCell
+                                if currentIdentifier is missing value then set currentIdentifier to ""
+                            end try
+                            if currentIdentifier is "" then
+                                try
+                                    set currentIdentifier to value of attribute "AXIdentifier" of UI element 1 of currentCell
+                                    if currentIdentifier is missing value then set currentIdentifier to ""
+                                end try
+                            end if
+                            if currentIdentifier starts with "SidebarLibraryItemTabGroup" and currentIdentifier contains "\(identifier)" then
+                                set value of attribute "AXSelectedRows" of outlineItem to {currentRow}
+                                set value of attribute "AXSelectedCells" of outlineItem to {currentCell}
+                                set value of attribute "AXFocused" of outlineItem to true
+                                return
+                            end if
+                        end try
+                    end repeat
+            """
+        } ?? ""
+
         let script = """
         tell application "Safari" to activate
         delay 0.1
         \(sidebarBootstrapScript)
+        \(identifierMatchScript)
                 repeat with currentRow in rows of outlineItem
                     try
                         set currentCell to UI element 1 of currentRow

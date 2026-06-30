@@ -17,7 +17,7 @@
 | Model | Command | CRUD | Description |
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
-| `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row in the Safari sidebar by display name. |
+| `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row in the Safari sidebar by saved group identifier when available, with display-name fallback. |
 | `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
 | `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |
 | `SafariMenu` | `menu-items` | `R` | List items for a top-level Safari menu chosen by menu bar item index. |
@@ -72,6 +72,7 @@ flowchart TD
 - `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` and reusable toolbar models through explicit module boundaries.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
+- `SafariSidebar.selectTabGroup(identifier:named:)` prefers accessibility identifiers beginning with `SidebarLibraryItemTabGroup` that contain the saved group identifier; name-only selection remains available for flows that do not have a persisted saved group id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
 - `SafariFileMenu.openPrivateWindow()` is the explicit create operation for Safari's private-window mode.
@@ -80,7 +81,7 @@ flowchart TD
   - File-menu create only where Safari exposes no equivalent sidebar mutation trigger for new empty groups
 - Current verified tab-group flows are:
   - create: File-menu `NewEmptyTabGroupMenuItem`, then inline sidebar text field
-  - delete: sidebar group context-menu `DeleteTabGroupMenuItem`
+  - delete: identifier-aware sidebar group selection, then context-menu `DeleteTabGroupMenuItem`
 - Safari also shows a visual rename affordance for saved tab groups, but the trigger for that affordance is not currently available through a stable accessibility surface, so no standalone rename command is exposed.
 - A create-new-and-delete-old fallback would be a replacement workflow, not a UI rename workflow, because it would create a different saved tab-group identity.
 - UI automation must remain independent of the macOS and Safari language setting.
@@ -102,6 +103,7 @@ flowchart TD
 - `SafariFileMenu.openPrivateWindow()` first reads the File menu structure and then identifies the private-window entry through shortcut metadata (`N` with modifier value `1`) instead of localized title text.
 - `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
+- `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.
 - The currently verified uses of the sidebar inline text field are:
   - the post-create flow for a newly created empty tab group

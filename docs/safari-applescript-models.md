@@ -23,7 +23,7 @@
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
 | `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()`, `close(windowIdentifier:)` | Read and mutate Safari window state through AppleScript. |
 | `SafariAppleScriptTab` | `list()`, `open()`, `setURL()`, `close()`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
-| `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
+| `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `selectTabGroup(identifier:named:)`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
 | `SafariAppleScriptToolbar` | `listItems()` | Read front-window Safari toolbar items. |
 | `SafariAppleScriptToolbarItem` | `listChildItems()`, `clickChildItem()` | Read and invoke child items of a Safari toolbar item. |
@@ -105,6 +105,7 @@ flowchart TD
 - `SafariAppleScriptTab.executeJavaScript()` resolves the target through `every window whose id is <window-id>` and then runs `do JavaScript` in the requested tab index of that window.
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.
 - `SafariAppleScriptSidebar` includes the low-level bootstrap needed to ensure the Safari sidebar is open before structural row access.
+- `SafariAppleScriptSidebar.selectTabGroup(identifier:named:)` first searches sidebar rows for `SidebarLibraryItemTabGroup` accessibility identifiers containing the saved group identifier, then falls back to display-name matching.
 - The higher-level `SafariSidebar` model uses direct Swift accessibility for live sidebar targeting and delete, with AppleScript retained only where it is still needed as a fallback transport.
 - `SafariAppleScriptSidebar` remains valuable as:
   - the script transport behind scripted sidebar selection helpers

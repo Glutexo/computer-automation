@@ -16,6 +16,20 @@
 - If Safari opens no resolvable window or only a wrong-profile window, the command closes newly created window ids before surfacing the failure.
 - Added stable-id AppleScript window closing as a reusable low-level operation so rollback does not depend on volatile front-window state.
 
+### Stable saved tab-group sidebar targeting
+
+- Changed saved tab-group sidebar selection to prefer Safari's `SidebarLibraryItemTabGroup` accessibility identifiers when a persisted saved group id is available.
+- Kept display-name matching as a fallback for flows that do not yet have a saved group id or for Safari surfaces that omit the identifier.
+- Routed saved tab-group delete and saved-group-backed tab-list operations through the resolved `SafariTabGroupRecord` so localized unnamed groups and duplicate display names across profiles do not rely on name-only targeting.
+- Added AppleScript fallback support for the same identifier-first matching contract.
+
+### Saved tab-group rollback after partial creation
+
+- Added rollback for saved tab-group creation failures after Safari creates a new group but before the command can verify the expected profile/name result.
+- `create-tab-group` now tracks pre-existing saved group identifiers and deletes newly created groups when expected-profile validation or rename/readback verification fails.
+- `ensure-tab-group` closes the newly opened profile window when delegated creation fails.
+- Saved-group-backed `ensure-tab-list-urls` and `reorder-tab-list-urls` delete a newly created group if later focusing, selection, mutation, or persistence verification fails.
+
 ## 2026-06-14
 
 ### Safari tab-list virtual model

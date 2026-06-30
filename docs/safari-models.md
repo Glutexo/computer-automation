@@ -249,10 +249,12 @@ ORDER BY id;
   - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
   - writes the requested name into Safari's post-create inline edit field for that selected group
   - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
+  - deletes newly created saved groups before failing when the created group cannot be verified under the expected profile or the rename/readback step fails
 - `ensure-tab-group <profile> <name>`:
   - reuses exactly one existing saved group when the profile/name lookup is unambiguous
   - opens or focuses a non-private window for the requested profile when the group is missing
   - delegates creation to the same create flow as `create-tab-group`
+  - closes a newly opened profile window before failing when delegated creation fails
   - fails on ambiguous existing groups rather than creating another duplicate
   - text output reports `created` or `reused` and then prints `identifier|profile|name`
   - JSON output returns `status` and `tabGroup`
@@ -266,7 +268,7 @@ ORDER BY id;
 - `delete-tab-group <identifier>`:
   - resolves the saved group structurally from the persisted catalog
   - focuses an existing non-private window for the same profile or opens one if needed
-  - selects the target group in the Safari sidebar
+  - selects the target group in the Safari sidebar by saved group identifier when that accessibility identifier is exposed, with display-name matching retained as a fallback
   - opens the selected group's accessibility context menu
   - invokes `DeleteTabGroupMenuItem`
 - `SafariTabGroup` delegates persisted saved-group records to `SafariDatabaseTabGroup`.
@@ -281,7 +283,7 @@ ORDER BY id;
   - the target toolbar item is resolved structurally through an accessibility identifier that starts with `TabGroupPickerButton`
   - the child menu of that toolbar item exposes saved groups by their display names, so duplicate group names within the same profile are treated as ambiguous and rejected by the automation layer
 - Saved tab-group create/delete uses a different live UI path:
-  - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group
+  - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group, preferring the saved group identifier over the localized display name
   - create uses the File-menu item `NewEmptyTabGroupMenuItem`
   - delete uses the selected sidebar group's context-menu item `DeleteTabGroupMenuItem`
   - create then writes the name into the inline text field that Safari exposes immediately after creating a new empty tab group
@@ -313,10 +315,11 @@ ORDER BY id;
 - `ensure-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` reconciles requested URLs against a saved-tab-group-backed tab list:
   - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
   - focuses or opens a compatible non-private Safari window
-  - selects the saved tab group in that window before opening missing URLs
+  - selects the saved tab group in that window by its resolved saved group record before opening missing URLs
   - existing stored tab URLs are skipped
   - missing URLs are opened as new tabs in requested order
   - the command does not reorder existing tabs and does not remove extra tabs
+  - if the command created the saved group and a later focus, selection, read, or open step fails, it deletes that newly created group before surfacing the failure
 - `reorder-tab-list-urls --window-index <index> <url>...` reorders existing matching tabs in a live window-backed tab list:
   - each requested URL occurrence consumes the first unused existing tab with the same URL
   - matched requested tabs are moved into the requested order as the list prefix
@@ -327,9 +330,10 @@ ORDER BY id;
 - `reorder-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` applies the same reorder semantics to a saved-tab-group-backed tab list:
   - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
   - focuses or opens a compatible non-private Safari window
-  - selects the saved tab group in that window before moving tabs
+  - selects the saved tab group in that window by its resolved saved group record before moving tabs
   - verifies the saved group's stored tab order after live tab moves
   - fails if Safari does not expose the persisted reordered group order through `tab-group-tabs`
+  - if the command created the saved group and a later focus, selection, move, or verification step fails, it deletes that newly created group before surfacing the failure
 - `tab-group-tabs <identifier>` reads child bookmark rows of a saved group as a saved tab-group-backed tab list:
   - only child rows with `type = 0` are treated as stored tabs
   - rows are ordered by `order_index`, then `id`
