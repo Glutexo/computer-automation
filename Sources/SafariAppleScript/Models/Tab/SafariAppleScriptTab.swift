@@ -18,6 +18,7 @@ public struct SafariAppleScriptTabRecord: Equatable, Sendable {
 public enum SafariAppleScriptTabJavaScriptError: Error, Equatable {
     case windowNotFound(Int)
     case tabNotFound(windowIdentifier: Int, tabIndex: Int)
+    case unsupportedResult(windowIdentifier: Int, tabIndex: Int)
     case executionFailed(windowIdentifier: Int, tabIndex: Int)
 }
 
@@ -172,15 +173,20 @@ public enum SafariAppleScriptTab: ModelModel {
         javaScript: String,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> String {
+        let serializedJavaScript = serializedJavaScriptResultSource(for: javaScript)
         let script = """
         tell application "Safari"
             set matchingWindows to every window whose id is \(windowIdentifier)
             if (count of matchingWindows) is 0 then error "COMPUTER_AUTOMATION_WINDOW_NOT_FOUND"
             set targetWindow to item 1 of matchingWindows
             if (count of tabs of targetWindow) < \(tabIndex) then error "COMPUTER_AUTOMATION_TAB_NOT_FOUND"
-            set javaScriptResult to do JavaScript \(appleScriptStringLiteral(javaScript)) in tab \(tabIndex) of targetWindow
+            set javaScriptResult to do JavaScript \(appleScriptStringLiteral(serializedJavaScript)) in tab \(tabIndex) of targetWindow
             if javaScriptResult is missing value then return ""
-            return javaScriptResult as text
+            try
+                return javaScriptResult as text
+            on error
+                error "COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT"
+            end try
         end tell
         """
 
@@ -196,11 +202,39 @@ public enum SafariAppleScriptTab: ModelModel {
                     tabIndex: tabIndex
                 )
             }
+            if message.contains("COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT") {
+                throw SafariAppleScriptTabJavaScriptError.unsupportedResult(
+                    windowIdentifier: windowIdentifier,
+                    tabIndex: tabIndex
+                )
+            }
             throw SafariAppleScriptTabJavaScriptError.executionFailed(
                 windowIdentifier: windowIdentifier,
                 tabIndex: tabIndex
             )
         }
+    }
+
+    private static func serializedJavaScriptResultSource(for javaScript: String) -> String {
+        [
+            "(() => {",
+            "const computerAutomationSource = \(javaScriptStringLiteral(javaScript));",
+            "const computerAutomationResult = (0, eval)(computerAutomationSource);",
+            "if (computerAutomationResult === undefined || computerAutomationResult === null) return \"\";",
+            "const computerAutomationType = typeof computerAutomationResult;",
+            "if (computerAutomationType === \"string\") return computerAutomationResult;",
+            "if (computerAutomationType === \"number\" || computerAutomationType === \"boolean\" || computerAutomationType === \"bigint\") return String(computerAutomationResult);",
+            "try {",
+            "const computerAutomationJSON = JSON.stringify(computerAutomationResult);",
+            "if (typeof computerAutomationJSON === \"string\") return computerAutomationJSON;",
+            "} catch (error) {}",
+            "try {",
+            "return String(computerAutomationResult);",
+            "} catch (error) {",
+            "return Object.prototype.toString.call(computerAutomationResult);",
+            "}",
+            "})()"
+        ].joined(separator: " ")
     }
 
     public static func parseTabList(_ descriptor: NSAppleEventDescriptor?) -> [SafariAppleScriptTabRecord] {
@@ -278,5 +312,32 @@ public enum SafariAppleScriptTab: ModelModel {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         return "\"\(escaped)\""
+    }
+
+    private static func javaScriptStringLiteral(_ value: String) -> String {
+        var escaped = "\""
+        for scalar in value.unicodeScalars {
+            switch scalar {
+            case "\\":
+                escaped += "\\\\"
+            case "\"":
+                escaped += "\\\""
+            case "\n":
+                escaped += "\\n"
+            case "\r":
+                escaped += "\\r"
+            case "\t":
+                escaped += "\\t"
+            default:
+                if scalar.value < 0x20 || scalar.value == 0x2028 || scalar.value == 0x2029 {
+                    let hex = String(scalar.value, radix: 16, uppercase: false)
+                    escaped += "\\u\(String(repeating: "0", count: max(0, 4 - hex.count)))\(hex)"
+                } else {
+                    escaped.unicodeScalars.append(scalar)
+                }
+            }
+        }
+        escaped += "\""
+        return escaped
     }
 }

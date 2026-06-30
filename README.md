@@ -115,6 +115,8 @@ Append `--help` to a module command to print its usage without running the comma
 {"windowId":42,"tabIndex":2,"result":"complete"}
 ```
 
+Primitive JavaScript results are returned as text. Object and array results are serialized with `JSON.stringify(...)` before being returned.
+
 ## Safari database access
 
 Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved tab-group, private-window, and selected tab-group metadata. Direct access to that database is isolated in the `SafariDatabase` module. On recent macOS versions, the terminal or app running `computer-automation` may need Full Disk Access to read that file.

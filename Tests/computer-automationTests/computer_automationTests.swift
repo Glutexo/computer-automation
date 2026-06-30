@@ -3513,6 +3513,16 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     #expect(throws: SafariTabCommandError.javaScriptExecutionFailed(windowIdentifier: 42, tabIndex: 2)) {
         try failedScript.execute(arguments: ["42", "2", "document.title"])
     }
+
+    let unsupportedResult = SafariTabExecuteJavaScriptCommand(
+        executor: MockAppleScriptExecutor(),
+        executeJavaScript: { _, _, _, _ in
+            throw SafariAppleScriptTabJavaScriptError.unsupportedResult(windowIdentifier: 42, tabIndex: 2)
+        }
+    )
+    #expect(throws: SafariTabCommandError.javaScriptResultUnsupported(windowIdentifier: 42, tabIndex: 2)) {
+        try unsupportedResult.execute(arguments: ["42", "2", "({ a: 1 })"])
+    }
 }
 
 @Test(arguments: [
@@ -3698,7 +3708,11 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
     #expect(executor.executedScripts[0].contains("every window whose id is 42"))
     #expect(executor.executedScripts[0].contains("do JavaScript"))
     #expect(executor.executedScripts[0].contains("in tab 2 of targetWindow"))
-    #expect(executor.executedScripts[0].contains("document.querySelector(\\\"main\\\")"))
+    #expect(executor.executedScripts[0].contains("COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT"))
+    #expect(executor.executedScripts[0].contains("computerAutomationSource"))
+    #expect(executor.executedScripts[0].contains("(0, eval)(computerAutomationSource)"))
+    #expect(executor.executedScripts[0].contains("JSON.stringify(computerAutomationResult)"))
+    #expect(executor.executedScripts[0].contains("document.querySelector"))
 }
 
 @Test func safariAppleScriptTabExecuteJavaScriptMapsTargetAndExecutionFailures() async throws {
@@ -3735,6 +3749,18 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
             tabIndex: 2,
             javaScript: "window.secret.token",
             executor: failedJavaScript
+        )
+    }
+
+    let unsupportedResult = MockAppleScriptExecutor(
+        error: SafariAppleScriptError.executionFailed("COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT")
+    )
+    #expect(throws: SafariAppleScriptTabJavaScriptError.unsupportedResult(windowIdentifier: 42, tabIndex: 2)) {
+        try SafariAppleScriptTab.executeJavaScript(
+            windowIdentifier: 42,
+            tabIndex: 2,
+            javaScript: "({ a: 1 })",
+            executor: unsupportedResult
         )
     }
 }

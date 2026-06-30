@@ -211,6 +211,7 @@ enum SafariTabCommandError: Error, Equatable {
     case resolveAmbiguous(String, Int)
     case javaScriptTargetWindowNotFound(Int)
     case javaScriptTargetTabNotFound(windowIdentifier: Int, tabIndex: Int)
+    case javaScriptResultUnsupported(windowIdentifier: Int, tabIndex: Int)
     case javaScriptExecutionFailed(windowIdentifier: Int, tabIndex: Int)
     case unknownOption(String)
     case missingOptionValue(String)
@@ -232,6 +233,8 @@ extension SafariTabCommandError: LocalizedError {
             "Safari window \(windowIdentifier) does not exist."
         case .javaScriptTargetTabNotFound(let windowIdentifier, let tabIndex):
             "Safari window \(windowIdentifier) does not contain tab \(tabIndex)."
+        case .javaScriptResultUnsupported(let windowIdentifier, let tabIndex):
+            "JavaScript result in Safari window \(windowIdentifier) tab \(tabIndex) could not be converted to text. Return a primitive value, or use JSON.stringify(...) before returning objects."
         case .javaScriptExecutionFailed(let windowIdentifier, let tabIndex):
             "Could not execute JavaScript in Safari window \(windowIdentifier) tab \(tabIndex)."
         default:

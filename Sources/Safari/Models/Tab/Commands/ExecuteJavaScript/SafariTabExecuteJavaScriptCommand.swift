@@ -178,6 +178,11 @@ public struct SafariTabExecuteJavaScriptCommand: CommandModel, JSONCommandModel 
                 windowIdentifier: windowIdentifier,
                 tabIndex: tabIndex
             )
+        } catch SafariAppleScriptTabJavaScriptError.unsupportedResult(let windowIdentifier, let tabIndex) {
+            throw SafariTabCommandError.javaScriptResultUnsupported(
+                windowIdentifier: windowIdentifier,
+                tabIndex: tabIndex
+            )
         } catch SafariAppleScriptTabJavaScriptError.executionFailed(let windowIdentifier, let tabIndex) {
             throw SafariTabCommandError.javaScriptExecutionFailed(
                 windowIdentifier: windowIdentifier,

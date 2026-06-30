@@ -374,6 +374,7 @@ ORDER BY id;
 - `execute-tab-javascript` requires exactly one JavaScript source: inline argument, `--stdin`, or `--file`.
 - `execute-tab-javascript` prints the JavaScript result directly in text mode.
 - `--json safari execute-tab-javascript <window-id> <tab-index> <javascript>` returns `windowId`, `tabIndex`, and `result`.
+- Primitive JavaScript results return as text; object and array results return as `JSON.stringify(...)` text.
 - If the target window or tab no longer exists, `execute-tab-javascript` fails with a target-specific error that does not include browser page state or JavaScript error details.
 - `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`.
 - `close-tab` closes a specific tab identified by `window-index` and `tab-index`.

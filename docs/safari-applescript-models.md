@@ -103,7 +103,9 @@ flowchart TD
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
 - `SafariAppleScriptTab.executeJavaScript()` resolves the target through `every window whose id is <window-id>` and then runs `do JavaScript` in the requested tab index of that window.
+- `SafariAppleScriptTab.executeJavaScript()` wraps the caller source so primitive JavaScript results return as text and object/array results return as `JSON.stringify(...)` text.
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.
+- `SafariAppleScriptTab.executeJavaScript()` reports JavaScript results that Safari cannot convert to text as a typed unsupported-result error instead of a generic execution failure.
 - `SafariAppleScriptSidebar` includes the low-level bootstrap needed to ensure the Safari sidebar is open before structural row access.
 - `SafariAppleScriptSidebar.selectTabGroup(identifier:named:)` first searches sidebar rows for `SidebarLibraryItemTabGroup` accessibility identifiers containing the saved group identifier, then falls back to display-name matching.
 - The higher-level `SafariSidebar` model uses direct Swift accessibility for live sidebar targeting and delete, with AppleScript retained only where it is still needed as a fallback transport.
