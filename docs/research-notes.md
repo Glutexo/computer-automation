@@ -1,5 +1,15 @@
 # Research Notes
 
+## 2026-07-01
+
+### SwiftPM live Safari test TCC behavior
+
+- Passive TCC inspection showed Air had AppleEvents permissions for Safari and System Events, Accessibility, and Full Disk Access.
+- Terminal had AppleEvents and Accessibility permissions, but its Full Disk Access TCC record was denied.
+- `swiftpm-testing-helper`, which hosts Swift Testing bundles, had no visible AppleEvents permission for Safari or System Events.
+- The live Safari regression stalled inside an `NSAppleScript` call reached through `SafariAppleScriptWindow.list()` before any Safari mutation.
+- Live Safari regression should run from a process launched by an explicitly authorized terminal, or from another standalone runner whose responsible process can receive the needed TCC permissions.
+
 ## 2026-06-30
 
 ### Safari default-profile tab-group creation

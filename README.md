@@ -166,3 +166,42 @@ The installer writes `_computer-automation` into the user's zsh completion direc
 ```bash
 swift test
 ```
+
+The default test suite is safe for normal development: it does not opt in to live
+Safari regression tests.
+
+### Opt-in live Safari regression
+
+Live Safari regression is not run through `swift test`. SwiftPM executes tests
+inside `swiftpm-testing-helper`, which is not a reliable macOS TCC responsible
+process for Safari Automation permissions. Run the standalone executable from
+an authorized terminal instead.
+
+Run it only against a disposable or test Safari profile because it creates
+temporary windows, saved tab groups, and tabs, then attempts to delete or close
+those artifacts during cleanup.
+
+Prerequisites:
+
+- Automation permission from the terminal to Safari and System Events.
+- Accessibility permission for the terminal.
+- Full Disk Access for the terminal so commands can read `SafariTabs.db`.
+- Safari's Develop setting that allows JavaScript from Apple Events when
+  exercising JavaScript execution.
+
+```bash
+SAFARI_LIVE_TEST_PROFILE=Automation \
+swift run computer-automation-live-safari-regression
+```
+
+Optional environment variables:
+
+- `SAFARI_LIVE_TEST_CLI` points to a prebuilt `computer-automation`
+  executable. When unset, the regression runner executes the same CLI router in
+  a timeout-controlled child process of the standalone runner.
+- `SAFARI_LIVE_TEST_COMMAND_TIMEOUT_SECONDS` controls the per-command timeout
+  used by the live regression subprocess runner. The default is 120 seconds.
+- `SAFARI_LIVE_TEST_GROUP_PREFIX` controls the temporary saved-tab-group name
+  prefix. The regression runner appends a UUID token.
+- `SAFARI_LIVE_TEST_URL_1` and `SAFARI_LIVE_TEST_URL_2` override the two test
+  URLs used for window-id tab mutation and saved-group URL ensure/reorder.

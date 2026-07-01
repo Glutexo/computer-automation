@@ -2,6 +2,13 @@
 
 ## 2026-07-01
 
+### Terminal-owned live Safari regression runner
+
+- Moved the live Safari critical-flow regression out of Swift Testing execution.
+- Kept the Swift test entrypoint disabled with instructions because `swiftpm-testing-helper` is not a reliable macOS TCC responsible process for Safari Automation permissions.
+- Added `computer-automation-live-safari-regression` as a standalone executable that should be launched from an authorized terminal.
+- The standalone runner executes each CLI step in a timeout-controlled child process and can optionally target a prebuilt `computer-automation` executable through `SAFARI_LIVE_TEST_CLI`.
+
 ### Default-profile saved tab-group normalization
 
 - Kept `SafariDatabaseTabGroup` faithful to Safari's storage shape, where root/default saved groups can have an empty profile name.

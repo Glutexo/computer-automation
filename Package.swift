@@ -36,6 +36,10 @@ let package = Package(
             name: "computer-automation",
             dependencies: ["ComputerAutomationKit"]
         ),
+        .executableTarget(
+            name: "computer-automation-live-safari-regression",
+            dependencies: ["ComputerAutomationKit"]
+        ),
         .testTarget(
             name: "computer-automationTests",
             dependencies: ["AutomationFoundation", "SafariAppleScript", "SafariDatabase", "Safari", "SafariUserInterface", "ComputerAutomationKit"]

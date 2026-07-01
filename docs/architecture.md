@@ -5,6 +5,8 @@
 ```mermaid
 flowchart TD
     App["computer-automation executable"]
+    LiveRegression["computer-automation-live-safari-regression executable"]
+    CLIKit["ComputerAutomationKit CLI router"]
     Foundation["AutomationFoundation shared module"]
     Zsh["zsh completion script"]
     ZshInstaller["zsh completion installer"]
@@ -61,12 +63,13 @@ flowchart TD
     TabSetURL["set-tab-url command"]
     TabClose["close-tab command"]
 
-    App --> Foundation
     Zsh --> App
     ZshInstaller --> App
-    App --> Safari
-    App --> SafariUI
-    App --> SafariScript
+    App --> CLIKit
+    LiveRegression --> CLIKit
+    CLIKit --> Foundation
+    CLIKit --> Safari
+    CLIKit --> SafariUI
     Safari --> Foundation
     Safari --> SafariScript
     Safari --> SafariDB
@@ -172,4 +175,5 @@ flowchart TD
 - Module and command models publish completion metadata that the CLI consumes.
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.
-- The current executable is a thin entry point over the `Safari`, `SafariUserInterface`, `SafariAppleScript`, and `SafariDatabase` modules.
+- The current user-facing executable is a thin entry point over `ComputerAutomationKit`, which owns CLI routing to the `Safari` and `SafariUserInterface` modules.
+- `computer-automation-live-safari-regression` is an opt-in executable for live Safari regression. It exists outside Swift Testing so macOS TCC Automation and Full Disk Access checks can be owned by the terminal that launches it instead of `swiftpm-testing-helper`.
