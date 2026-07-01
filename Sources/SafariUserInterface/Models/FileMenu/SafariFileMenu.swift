@@ -28,7 +28,9 @@ public enum SafariFileMenu: ModelModel {
                 }
 
                 try SafariAppleScriptWindow.openNewDocument()
-                Thread.sleep(forTimeInterval: 0.2)
+                _ = SafariAXPolling().firstResult {
+                    visibleWindowCount() > 0 ? true : nil
+                }
                 try clickNewWindowMenuItem(forProfileNamed: profileName)
             }
             return
@@ -204,16 +206,8 @@ public enum SafariFileMenu: ModelModel {
         _ = try executor.execute(script: script)
     }
 
-    private static func copyAttributeValue(_ attribute: String, from element: AXUIElement) -> CFTypeRef? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
-            return nil
-        }
-        return value
-    }
-
     private static func stringValue(for attribute: String, on element: AXUIElement) -> String {
-        (copyAttributeValue(attribute, from: element) as? String) ?? ""
+        SafariAX.stringValue(for: attribute, on: element)
     }
 
     private static func visibleWindowCount() -> Int {
@@ -222,7 +216,7 @@ public enum SafariFileMenu: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        return (copyAttributeValue(kAXWindowsAttribute, from: applicationElement) as? [AXUIElement] ?? []).count
+        return SafariAX.elements(for: kAXWindowsAttribute, on: applicationElement).count
     }
 
 }

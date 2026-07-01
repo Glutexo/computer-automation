@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### Command usage metadata and shared Safari argument parsing
+
+- Added optional usage metadata to command descriptors so help output can describe mutually exclusive address forms and options with values without changing command execution semantics.
+- Added shared Safari argument parsers for `--window-id`, `--window-index`, addressed tab arguments, and tab-list URL contexts.
+- Kept each command responsible for its domain-specific validation and error types while moving repeated option scanning and positive-integer parsing into shared Safari helpers.
+- Exposed `safari close-window --window-id <id>` so cleanup and rollback flows can close a concrete Safari window without relying on the volatile front-window order.
+
+### Polling-based Safari accessibility reads
+
+- Added shared Safari accessibility helpers for typed attribute reads, element arrays, string/boolean conversion, and bounded polling.
+- Replaced fixed sleeps in menu, sidebar, and profile-window UI flows with retry loops that wait for the concrete accessibility element or action result needed by the next step.
+- Kept the automation surface accessibility-only: polling observes accessibility structures and invokes accessibility actions, never pointer coordinates.
+
 ### Terminal-owned live Safari regression runner
 
 - Moved the live Safari critical-flow regression out of Swift Testing execution.

@@ -8,8 +8,15 @@ public struct SafariTabOpenCommand: CommandModel {
         operation: .create,
         arguments: [
             CommandArgumentDescriptor(name: "window-index", kind: .positional),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false),
+            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
             CommandArgumentDescriptor(name: "url", kind: .positional, isRequired: false)
+        ],
+        usage: [
+            .requiredAlternatives([
+                [.argumentRef("window-id", isRequired: true)],
+                [.argumentRef("window-index", isRequired: true)]
+            ]),
+            .argumentRef("url")
         ]
     )
 
@@ -58,75 +65,27 @@ public struct SafariTabOpenCommand: CommandModel {
     }
 
     private func parse(_ arguments: [String]) throws -> SafariTabOpenRequest {
-        var windowIdentifier: Int?
-        var positionalArguments: [String] = []
-        var index = 0
-
-        while index < arguments.count {
-            let argument = arguments[index]
-            switch argument {
-            case "--window-id":
-                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
-                windowIdentifier = try parseWindowIdentifier(rawValue)
-            default:
-                if let rawValue = argument.optionValue(prefix: "--window-id=") {
-                    guard !rawValue.isEmpty else {
-                        throw SafariTabCommandError.missingOptionValue("--window-id")
-                    }
-                    windowIdentifier = try parseWindowIdentifier(rawValue)
-                } else if argument.hasPrefix("--") {
-                    throw SafariTabCommandError.unknownOption(argument)
-                } else {
-                    positionalArguments.append(argument)
-                }
-            }
-
-            index += 1
-        }
-
-        if let windowIdentifier {
-            if positionalArguments.count > 1 {
-                throw SafariTabCommandError.unexpectedArgument(positionalArguments[1])
-            }
-            return SafariTabOpenRequest(
-                address: .identifier(windowIdentifier),
-                url: positionalArguments.first.flatMap(normalizedURL)
-            )
-        }
-
-        guard let rawWindowIndex = positionalArguments.first else {
-            throw SafariTabCommandError.missingWindowIndex
-        }
-
-        guard let windowIndex = Int(rawWindowIndex), windowIndex > 0 else {
-            throw SafariTabCommandError.invalidWindowIndex(rawWindowIndex)
-        }
-
-        if positionalArguments.count > 2 {
-            throw SafariTabCommandError.unexpectedArgument(positionalArguments[2])
-        }
-
-        return SafariTabOpenRequest(
-            address: .index(windowIndex),
-            url: positionalArguments.count >= 2 ? normalizedURL(positionalArguments[1]) : nil
+        let parsed = try SafariWindowAddressArgumentParser.parseWindowIdentifierArguments(
+            arguments,
+            allowEmptyIdentifierAfterOption: false,
+            allowEmptyIdentifierInEqualsForm: false,
+            missingOptionValue: SafariTabCommandError.missingOptionValue,
+            unknownOption: SafariTabCommandError.unknownOption,
+            invalidWindowIdentifier: SafariTabCommandError.invalidWindowIdentifier
         )
-    }
-
-    private func parseWindowIdentifier(_ rawValue: String) throws -> Int {
-        guard let windowIdentifier = Int(rawValue), windowIdentifier > 0 else {
-            throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
+        let addressArguments = try SafariWindowAddressArgumentParser.parseRequiredAddress(
+            positionalArguments: parsed.positionalArguments,
+            windowIdentifier: parsed.windowIdentifier,
+            missingWindowIndex: { SafariTabCommandError.missingWindowIndex },
+            invalidWindowIndex: SafariTabCommandError.invalidWindowIndex
+        )
+        if addressArguments.remainingArguments.count > 1 {
+            throw SafariTabCommandError.unexpectedArgument(addressArguments.remainingArguments[1])
         }
-        return windowIdentifier
-    }
-
-    private func optionValue(after option: String, in arguments: [String], at index: inout Int) throws -> String {
-        let valueIndex = index + 1
-        guard valueIndex < arguments.count, !arguments[valueIndex].hasPrefix("--"), !arguments[valueIndex].isEmpty else {
-            throw SafariTabCommandError.missingOptionValue(option)
-        }
-
-        index = valueIndex
-        return arguments[valueIndex]
+        return SafariTabOpenRequest(
+            address: addressArguments.address,
+            url: addressArguments.remainingArguments.first.flatMap(normalizedURL)
+        )
     }
 
     private func normalizedURL(_ rawValue: String) -> String? {
@@ -137,14 +96,4 @@ public struct SafariTabOpenCommand: CommandModel {
 private struct SafariTabOpenRequest {
     let address: SafariWindowAddress
     let url: String?
-}
-
-private extension String {
-    func optionValue(prefix: String) -> String? {
-        guard hasPrefix(prefix) else {
-            return nil
-        }
-
-        return String(dropFirst(prefix.count))
-    }
 }

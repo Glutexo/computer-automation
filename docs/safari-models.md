@@ -26,7 +26,7 @@
 | `SafariWindow` | `open-tab-group-window` | `C` | Open a new Safari window for a saved tab group. |
 | `SafariWindow` | `windows` | `R` | List open Safari browser windows. |
 | `SafariWindow` | `set-window-tab-group` | `U` | Switch a Safari window to a saved tab group. |
-| `SafariWindow` | `close-window` | `D` | Close the front Safari browser window. |
+| `SafariWindow` | `close-window` | `D` | Close the front Safari browser window, or a specific window by stable id. |
 | `SafariTabGroup` | `create-tab-group` | `C` | Create a new saved Safari tab group in a specific window. |
 | `SafariTabGroup` | `ensure-tab-group` | `C` | Create or reuse a saved Safari tab group by profile and name. |
 | `SafariTabGroup` | `tab-groups` | `R` | List saved Safari tab groups. |
@@ -240,7 +240,8 @@ ORDER BY id;
   - requires the target window profile to match the saved tab-group profile
   - brings the target window to the front
   - switches that front window through identifier-aware sidebar selection
-- `close-window` closes the current front window.
+- `close-window` closes the current front window by default.
+- `close-window --window-id <id>` closes a specific Safari window by stable AppleScript window id.
 
 ## Saved tab-group operations
 

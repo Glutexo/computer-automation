@@ -86,6 +86,7 @@ flowchart TD
 - Safari also shows a visual rename affordance for saved tab groups, but the trigger for that affordance is not currently available through a stable accessibility surface, so no standalone rename command is exposed.
 - A create-new-and-delete-old fallback would be a replacement workflow, not a UI rename workflow, because it would create a different saved tab-group identity.
 - UI automation must remain independent of the macOS and Safari language setting.
+- Shared accessibility helpers centralize typed attribute reads, element arrays, string/boolean conversion, and bounded polling for delayed Safari UI state.
 - The module identifies Safari's `File` menu by menu bar position instead of by localized title text.
 - `SafariFileMenu` is intentionally a thin specialization rather than the primary abstraction for menu automation.
 - `SafariMenuItem` addresses concrete menu items by structural coordinates: `menu-bar-item-index` plus `menu-item-index`.
@@ -98,14 +99,17 @@ flowchart TD
 - `file-menu-items` returns one line per File menu item in the form `index|title|commandCharacter|commandModifiers`.
 - `menu-item-children <menu-bar-item-index> <menu-item-index>` returns one line per child item in the form `index|title|commandCharacter|commandModifiers`.
 - `SafariMenu` owns the shared implementation for reading top-level menu items.
+- `SafariMenu` waits for menu and sheet accessibility elements through bounded polling instead of fixed sleeps.
 - `SafariUserInterface` uses `SafariAppleScript` as its script transport and parsing layer.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
+- Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
 - `SafariFileMenu.openPrivateWindow()` first reads the File menu structure and then identifies the private-window entry through shortcut metadata (`N` with modifier value `1`) instead of localized title text.
 - `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.
+- Sidebar reveal, rename, context-menu, and delete-confirmation flows wait for the specific accessibility element or action result they need instead of sleeping for a fixed delay.
 - The currently verified uses of the sidebar inline text field are:
   - the post-create flow for a newly created empty tab group
 - Toolbar models remain in the module for structured Safari toolbar inspection and older picker research, but current high-level saved tab-group selection uses the sidebar surface rather than the toolbar picker.

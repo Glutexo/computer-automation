@@ -12,7 +12,16 @@ public struct SafariTabExecuteJavaScriptCommand: CommandModel, JSONCommandModel 
             CommandArgumentDescriptor(name: "tab-index", kind: .positional),
             CommandArgumentDescriptor(name: "javascript", kind: .positional, isRequired: false),
             CommandArgumentDescriptor(name: "stdin", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "file", kind: .option, isRequired: false)
+            CommandArgumentDescriptor(name: "file", kind: .option, isRequired: false, valueName: "path")
+        ],
+        usage: [
+            .argumentRef("window-id"),
+            .argumentRef("tab-index"),
+            .requiredAlternatives([
+                [.argumentRef("javascript", isRequired: true)],
+                [.argumentRef("stdin", isRequired: true)],
+                [.argumentRef("file", isRequired: true)]
+            ])
         ]
     )
 

@@ -185,7 +185,9 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case profileMenuItemNotFound(String)
     case privateWindowMenuItemNotFound
     case missingWindowIndex
+    case missingWindowIdentifier
     case invalidWindowIndex(String)
+    case invalidWindowIdentifier(String)
     case missingTabGroupIdentifier
     case invalidTabGroupIdentifier(String)
     case tabGroupNotFound(Int)

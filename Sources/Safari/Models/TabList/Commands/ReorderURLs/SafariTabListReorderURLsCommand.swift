@@ -12,11 +12,22 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         abstract: "Reorder Safari tab lists to match requested URL order.",
         operation: .update,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "tab-group-profile", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "tab-group-name", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "url", kind: .positional)
+            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false, valueName: "window-index"),
+            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
+            CommandArgumentDescriptor(name: "tab-group-profile", kind: .option, isRequired: false, valueName: "profile"),
+            CommandArgumentDescriptor(name: "tab-group-name", kind: .option, isRequired: false, valueName: "name"),
+            CommandArgumentDescriptor(name: "url", kind: .positional, isRepeating: true)
+        ],
+        usage: [
+            .requiredAlternatives([
+                [.argumentRef("window-index", isRequired: true)],
+                [.argumentRef("window-id", isRequired: true)],
+                [
+                    .argumentRef("tab-group-profile", isRequired: true),
+                    .argumentRef("tab-group-name", isRequired: true)
+                ]
+            ]),
+            .argumentRef("url")
         ]
     )
 
@@ -388,129 +399,11 @@ private struct SafariTabListReorderItem: Equatable {
 }
 
 private struct SafariTabListReorderURLsRequest: Equatable {
-    enum Context: Equatable {
-        case window(SafariWindowAddress)
-        case tabGroup(profileName: String, name: String)
-    }
-
-    let context: Context
+    let context: SafariTabListAddressedURLsArguments.Context
     let urls: [String]
 
     static func parse(_ arguments: [String]) throws -> SafariTabListReorderURLsRequest {
-        var windowIndex: Int?
-        var windowIdentifier: Int?
-        var tabGroupProfile: String?
-        var tabGroupName: String?
-        var urls: [String] = []
-
-        var index = 0
-        while index < arguments.count {
-            let argument = arguments[index]
-            switch argument {
-            case "--window-index":
-                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
-                guard let value = Int(rawValue), value > 0 else {
-                    throw SafariTabCommandError.invalidWindowIndex(rawValue)
-                }
-                windowIndex = value
-            case "--window-id":
-                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
-                guard let value = Int(rawValue), value > 0 else {
-                    throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
-                }
-                windowIdentifier = value
-            case "--tab-group-profile":
-                tabGroupProfile = try optionValue(after: argument, in: arguments, at: &index)
-            case "--tab-group-name":
-                tabGroupName = try optionValue(after: argument, in: arguments, at: &index)
-            default:
-                if let rawValue = argument.optionValue(prefix: "--window-index=") {
-                    guard !rawValue.isEmpty else {
-                        throw SafariTabListCommandError.missingOptionValue("--window-index")
-                    }
-                    guard let value = Int(rawValue), value > 0 else {
-                        throw SafariTabCommandError.invalidWindowIndex(rawValue)
-                    }
-                    windowIndex = value
-                } else if let rawValue = argument.optionValue(prefix: "--window-id=") {
-                    guard !rawValue.isEmpty else {
-                        throw SafariTabListCommandError.missingOptionValue("--window-id")
-                    }
-                    guard let value = Int(rawValue), value > 0 else {
-                        throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
-                    }
-                    windowIdentifier = value
-                } else if let value = argument.optionValue(prefix: "--tab-group-profile=") {
-                    tabGroupProfile = value
-                } else if let value = argument.optionValue(prefix: "--tab-group-name=") {
-                    tabGroupName = value
-                } else if argument.hasPrefix("--") {
-                    throw SafariTabListCommandError.unknownOption(argument)
-                } else {
-                    urls.append(argument)
-                }
-            }
-
-            index += 1
-        }
-
-        guard !urls.isEmpty else {
-            throw SafariTabListCommandError.missingURL
-        }
-
-        if windowIndex != nil && windowIdentifier != nil {
-            throw SafariTabListCommandError.multipleContexts
-        }
-
-        if (windowIndex != nil || windowIdentifier != nil) && (tabGroupProfile != nil || tabGroupName != nil) {
-            throw SafariTabListCommandError.multipleContexts
-        }
-
-        if let windowIndex {
-            return SafariTabListReorderURLsRequest(context: .window(.index(windowIndex)), urls: urls)
-        }
-
-        if let windowIdentifier {
-            return SafariTabListReorderURLsRequest(context: .window(.identifier(windowIdentifier)), urls: urls)
-        }
-
-        guard let tabGroupProfile else {
-            throw tabGroupName == nil ? SafariTabListCommandError.missingContext : SafariTabListCommandError.missingTabGroupProfile
-        }
-        guard !tabGroupProfile.isEmpty else {
-            throw SafariTabListCommandError.emptyTabGroupProfile
-        }
-
-        guard let tabGroupName else {
-            throw SafariTabListCommandError.missingTabGroupName
-        }
-        guard !tabGroupName.isEmpty else {
-            throw SafariTabListCommandError.emptyTabGroupName
-        }
-
-        return SafariTabListReorderURLsRequest(
-            context: .tabGroup(profileName: tabGroupProfile, name: tabGroupName),
-            urls: urls
-        )
-    }
-
-    private static func optionValue(after option: String, in arguments: [String], at index: inout Int) throws -> String {
-        let valueIndex = index + 1
-        guard valueIndex < arguments.count, !arguments[valueIndex].hasPrefix("--") else {
-            throw SafariTabListCommandError.missingOptionValue(option)
-        }
-
-        index = valueIndex
-        return arguments[valueIndex]
-    }
-}
-
-private extension String {
-    func optionValue(prefix: String) -> String? {
-        guard hasPrefix(prefix) else {
-            return nil
-        }
-
-        return String(dropFirst(prefix.count))
+        let parsed = try SafariTabListAddressedURLsArguments.parse(arguments)
+        return SafariTabListReorderURLsRequest(context: parsed.context, urls: parsed.urls)
     }
 }

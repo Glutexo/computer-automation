@@ -64,52 +64,43 @@ public enum SafariMenu: ModelModel {
     }
 
     static func pressFrontWindowSheetButton(
-        matchingIdentifier identifier: String
+        matchingIdentifier identifier: String,
+        polling: SafariAXPolling = SafariAXPolling()
     ) throws {
         guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let focusedWindowValue = copyAttributeValue(kAXFocusedWindowAttribute, from: applicationElement),
-            CFGetTypeID(focusedWindowValue) == AXUIElementGetTypeID()
-        else {
+        let focusedWindow = try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: applicationElement,
+            error: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
+        )
+
+        try waitForSheetButtonPress(polling: polling) {
+            guard
+                let sheet = firstDescendant(in: focusedWindow, matchingRole: kAXSheetRole),
+                let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier)
+            else {
+                return false
+            }
+
+            return AXUIElementPerformAction(button, kAXPressAction as CFString) == .success
+        }
+    }
+
+    static func waitForSheetButtonPress(
+        polling: SafariAXPolling = SafariAXPolling(),
+        pressMatchingButton: () throws -> Bool
+    ) throws {
+        guard try polling.firstResult({ try pressMatchingButton() ? true : nil }) != nil else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
         }
-
-        let focusedWindow = focusedWindowValue as! AXUIElement
-        for attempt in 0..<20 {
-            if
-                let sheet = firstDescendant(in: focusedWindow, matchingRole: kAXSheetRole),
-                let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier),
-                AXUIElementPerformAction(button, kAXPressAction as CFString) == .success
-            {
-                return
-            }
-
-            if attempt < 19 {
-                Thread.sleep(forTimeInterval: 0.1)
-            }
-        }
-
-        throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
     }
 
     static func stringValue(for attribute: String, on element: AXUIElement) -> String {
-        guard let value = copyAttributeValue(attribute, from: element) else {
-            return ""
-        }
-
-        if let string = value as? String {
-            return string
-        }
-
-        if let number = value as? NSNumber {
-            return number.stringValue
-        }
-
-        return ""
+        SafariAX.stringValue(for: attribute, on: element)
     }
 
     private static func menuItemElements(menuBarItemIndex: Int) throws -> [AXUIElement] {
@@ -118,13 +109,10 @@ public enum SafariMenu: ModelModel {
         }
 
         safariApplication.activate(options: [.activateIgnoringOtherApps])
-        Thread.sleep(forTimeInterval: 0.1)
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let menuBar = firstDescendant(in: applicationElement, matchingRole: kAXMenuBarRole)
-        else {
-            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
+        let menuBar = try waitForMenuElement(menuBarItemIndex: menuBarItemIndex) {
+            firstDescendant(in: applicationElement, matchingRole: kAXMenuBarRole)
         }
 
         let menuBarItems = elements(for: kAXChildrenAttribute, on: menuBar)
@@ -137,12 +125,10 @@ public enum SafariMenu: ModelModel {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard let menu = elements(for: kAXChildrenAttribute, on: menuBarItem).first(where: {
-            stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuRole
-        }) else {
-            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
+        let menu = try waitForMenuElement(menuBarItemIndex: menuBarItemIndex) {
+            elements(for: kAXChildrenAttribute, on: menuBarItem).first(where: {
+                stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuRole
+            })
         }
 
         return unique(
@@ -152,16 +138,20 @@ public enum SafariMenu: ModelModel {
         }
     }
 
-    private static func copyAttributeValue(_ attribute: String, from element: AXUIElement) -> CFTypeRef? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
-            return nil
+    static func waitForMenuElement<Element>(
+        menuBarItemIndex: Int,
+        polling: SafariAXPolling = SafariAXPolling(),
+        currentElement: () throws -> Element?
+    ) throws -> Element {
+        guard let element = try polling.firstResult(currentElement) else {
+            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
-        return value
+
+        return element
     }
 
     private static func elements(for attribute: String, on element: AXUIElement) -> [AXUIElement] {
-        (copyAttributeValue(attribute, from: element) as? [AXUIElement]) ?? []
+        SafariAX.elements(for: attribute, on: element)
     }
 
     private static func unique(_ elements: [AXUIElement]) -> [AXUIElement] {

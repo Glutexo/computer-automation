@@ -74,17 +74,20 @@ public struct CommandDescriptor: Sendable, Equatable {
     public let abstract: String
     public let operation: CRUDOperation
     public let arguments: [CommandArgumentDescriptor]
+    public let usage: [CommandUsageComponent]?
 
     public init(
         name: String,
         abstract: String,
         operation: CRUDOperation,
-        arguments: [CommandArgumentDescriptor] = []
+        arguments: [CommandArgumentDescriptor] = [],
+        usage: [CommandUsageComponent]? = nil
     ) {
         self.name = name
         self.abstract = abstract
         self.operation = operation
         self.arguments = arguments
+        self.usage = usage
     }
 }
 
@@ -97,18 +100,57 @@ public struct CommandArgumentDescriptor: Sendable, Equatable {
     public let name: String
     public let kind: Kind
     public let isRequired: Bool
+    public let valueName: String?
+    public let isRepeating: Bool
     public let completionSuggestions: [CompletionSuggestion]
 
     public init(
         name: String,
         kind: Kind,
         isRequired: Bool = true,
+        valueName: String? = nil,
+        isRepeating: Bool = false,
         completionSuggestions: [CompletionSuggestion] = []
     ) {
         self.name = name
         self.kind = kind
         self.isRequired = isRequired
+        self.valueName = valueName
+        self.isRepeating = isRepeating
         self.completionSuggestions = completionSuggestions
+    }
+}
+
+public struct CommandUsageArgument: Sendable, Equatable {
+    public let name: String
+    public let isRequired: Bool?
+
+    public init(name: String, isRequired: Bool? = nil) {
+        self.name = name
+        self.isRequired = isRequired
+    }
+}
+
+public struct CommandUsageAlternatives: Sendable, Equatable {
+    public let alternatives: [[CommandUsageComponent]]
+    public let isRequired: Bool
+
+    public init(alternatives: [[CommandUsageComponent]], isRequired: Bool = true) {
+        self.alternatives = alternatives
+        self.isRequired = isRequired
+    }
+}
+
+public enum CommandUsageComponent: Sendable, Equatable {
+    case argument(CommandUsageArgument)
+    case alternatives(CommandUsageAlternatives)
+
+    public static func argumentRef(_ name: String, isRequired: Bool? = nil) -> CommandUsageComponent {
+        .argument(CommandUsageArgument(name: name, isRequired: isRequired))
+    }
+
+    public static func requiredAlternatives(_ alternatives: [[CommandUsageComponent]]) -> CommandUsageComponent {
+        .alternatives(CommandUsageAlternatives(alternatives: alternatives))
     }
 }
 
@@ -173,15 +215,48 @@ public enum CommandUsageRenderer {
     }
 
     private static func usageArguments(for command: CommandDescriptor) -> [String] {
-        command.arguments.map { argument in
-            switch argument.kind {
-            case .positional:
-                let value = "<\(argument.name)>"
-                return argument.isRequired ? value : "[\(value)]"
-            case .option:
-                let value = "--\(argument.name)"
-                return argument.isRequired ? value : "[\(value)]"
-            }
+        if let usage = command.usage {
+            return usage.map { usageComponent($0, in: command) }
         }
+
+        return command.arguments.map { argument in
+            usageArgument(argument, isRequired: argument.isRequired)
+        }
+    }
+
+    private static func usageComponent(_ component: CommandUsageComponent, in command: CommandDescriptor) -> String {
+        switch component {
+        case .argument(let usageArgument):
+            guard let argument = command.arguments.first(where: { $0.name == usageArgument.name }) else {
+                return "<\(usageArgument.name)>"
+            }
+            return self.usageArgument(argument, isRequired: usageArgument.isRequired ?? argument.isRequired)
+        case .alternatives(let alternatives):
+            let renderedAlternatives = alternatives.alternatives.map { alternative in
+                alternative.map { usageComponent($0, in: command) }.joined(separator: " ")
+            }
+            let value = "(\(renderedAlternatives.joined(separator: " | ")))"
+            return alternatives.isRequired ? value : "[\(value)]"
+        }
+    }
+
+    private static func usageArgument(_ argument: CommandArgumentDescriptor, isRequired: Bool) -> String {
+        let value: String
+        switch argument.kind {
+        case .positional:
+            value = "<\(argument.name)>\(argument.isRepeating ? "..." : "")"
+        case .option:
+            value = optionUsage(argument)
+        }
+        return isRequired ? value : "[\(value)]"
+    }
+
+    private static func optionUsage(_ argument: CommandArgumentDescriptor) -> String {
+        let option = "--\(argument.name)"
+        guard let valueName = argument.valueName else {
+            return option
+        }
+
+        return "\(option) <\(valueName)>"
     }
 }

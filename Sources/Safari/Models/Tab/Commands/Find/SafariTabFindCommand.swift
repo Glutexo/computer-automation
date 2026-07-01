@@ -9,9 +9,9 @@ public struct SafariTabFindCommand: CommandModel, JSONCommandModel {
         arguments: [
             CommandArgumentDescriptor(name: "url", kind: .positional),
             CommandArgumentDescriptor(name: "prefix", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "profile", kind: .option, isRequired: false)
+            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
+            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false, valueName: "window-index"),
+            CommandArgumentDescriptor(name: "profile", kind: .option, isRequired: false, valueName: "profile")
         ]
     )
 
@@ -109,49 +109,44 @@ struct SafariTabLookupRequest: Equatable {
         var windowIndex: Int?
         var profileName: String?
 
-        var index = 0
-        while index < arguments.count {
-            let argument = arguments[index]
-            switch argument {
-            case "--prefix":
+        var scanner = SafariCommandArgumentScanner(
+            arguments: arguments,
+            options: [
+                .flag("--prefix"),
+                .value(SafariWindowAddressArgumentParser.windowIdentifierOption),
+                .value(SafariWindowAddressArgumentParser.windowIndexOption),
+                .value("--profile")
+            ],
+            missingOptionValue: SafariTabCommandError.missingOptionValue,
+            unknownOption: SafariTabCommandError.unknownOption
+        )
+        while let token = try scanner.next() {
+            switch token {
+            case .flag("--prefix"):
                 matchMode = .prefix
-            case "--window-id":
-                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
-                guard let value = Int(rawValue), value > 0 else {
-                    throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
-                }
-                windowIdentifier = value
-            case "--window-index":
-                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
-                guard let value = Int(rawValue), value > 0 else {
-                    throw SafariTabCommandError.invalidWindowIndex(rawValue)
-                }
-                windowIndex = value
-            case "--profile":
-                profileName = try optionValue(after: argument, in: arguments, at: &index)
-            default:
-                if let rawValue = argument.optionValue(prefix: "--window-id=") {
-                    guard let value = Int(rawValue), value > 0 else {
-                        throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
-                    }
-                    windowIdentifier = value
-                } else if let rawValue = argument.optionValue(prefix: "--window-index=") {
-                    guard let value = Int(rawValue), value > 0 else {
-                        throw SafariTabCommandError.invalidWindowIndex(rawValue)
-                    }
-                    windowIndex = value
-                } else if let rawValue = argument.optionValue(prefix: "--profile=") {
-                    profileName = rawValue
-                } else if argument.hasPrefix("--") {
-                    throw SafariTabCommandError.unknownOption(argument)
-                } else if url == nil {
+            case .option(SafariWindowAddressArgumentParser.windowIdentifierOption, let rawValue):
+                windowIdentifier = try SafariArgumentValueParser.positiveInteger(
+                    rawValue,
+                    invalid: SafariTabCommandError.invalidWindowIdentifier
+                )
+            case .option(SafariWindowAddressArgumentParser.windowIndexOption, let rawValue):
+                windowIndex = try SafariArgumentValueParser.positiveInteger(
+                    rawValue,
+                    invalid: SafariTabCommandError.invalidWindowIndex
+                )
+            case .option("--profile", let rawValue):
+                profileName = rawValue
+            case .positional(let argument):
+                if url == nil {
                     url = argument
                 } else {
                     throw SafariTabCommandError.unexpectedArgument(argument)
                 }
+            case .flag:
+                break
+            case .option:
+                break
             }
-
-            index += 1
         }
 
         guard let url else {
@@ -165,16 +160,6 @@ struct SafariTabLookupRequest: Equatable {
             windowIndex: windowIndex,
             profileName: profileName
         )
-    }
-
-    private static func optionValue(after option: String, in arguments: [String], at index: inout Int) throws -> String {
-        let valueIndex = index + 1
-        guard valueIndex < arguments.count, !arguments[valueIndex].hasPrefix("--") else {
-            throw SafariTabCommandError.missingOptionValue(option)
-        }
-
-        index = valueIndex
-        return arguments[valueIndex]
     }
 }
 
@@ -200,15 +185,5 @@ private struct SafariTabMatchJSONRecord: Encodable {
         self.tabIndex = record.tabIndex
         self.url = record.url
         self.title = record.title
-    }
-}
-
-private extension String {
-    func optionValue(prefix: String) -> String? {
-        guard hasPrefix(prefix) else {
-            return nil
-        }
-
-        return String(dropFirst(prefix.count))
     }
 }

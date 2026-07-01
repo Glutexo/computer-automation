@@ -16,6 +16,7 @@ This file applies to the whole repository.
 - Read `docs/project-rules.md` before making architectural or documentation changes.
 - Read `docs/architecture.md` when changing module boundaries, models, or command ownership.
 - Check `docs/decision-log.md` and `docs/research-notes.md` when prior tradeoffs or failed approaches may matter.
+- Use `docs/safari-audit-workflow.md` for recurring Safari audits before filing issues or making audit-driven changes.
 
 ## Working rules
 

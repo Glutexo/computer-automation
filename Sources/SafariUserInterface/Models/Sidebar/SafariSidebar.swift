@@ -37,14 +37,11 @@ public enum SafariSidebar: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let focusedWindowValue = copyAttributeValue(kAXFocusedWindowAttribute, from: applicationElement),
-            CFGetTypeID(focusedWindowValue) == AXUIElementGetTypeID()
-        else {
-            throw SafariUserInterfaceError.sidebarUnavailable
-        }
-
-        let focusedWindow = focusedWindowValue as! AXUIElement
+        let focusedWindow = try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: applicationElement,
+            error: SafariUserInterfaceError.sidebarUnavailable
+        )
         let outline = try outlinedSidebar(in: focusedWindow)
         let matches = tabGroupRows(in: outline)
 
@@ -72,14 +69,10 @@ public enum SafariSidebar: ModelModel {
                 continue
             }
 
-            guard
-                let titleElementValue = copyAttributeValue(kAXTitleUIElementAttribute, from: cell),
-                CFGetTypeID(titleElementValue) == AXUIElementGetTypeID()
-            else {
+            guard let titleElement = elementValue(for: kAXTitleUIElementAttribute, on: cell) else {
                 continue
             }
 
-            let titleElement = titleElementValue as! AXUIElement
             let title = stringValue(for: kAXValueAttribute, on: titleElement)
             let identifier = tabGroupIdentifier(for: cell)
             guard identifier.hasPrefix(tabGroupCellIdentifierPrefix) else { continue }
@@ -111,21 +104,34 @@ public enum SafariSidebar: ModelModel {
     }
 
     private static func outlinedSidebar(in focusedWindow: AXUIElement) throws -> AXUIElement {
-        if let outline = firstDescendant(in: focusedWindow, matchingRole: kAXOutlineRole) {
+        try waitForSidebarOutline(
+            currentOutline: {
+                firstDescendant(in: focusedWindow, matchingRole: kAXOutlineRole)
+            },
+            revealSidebar: {
+                guard let sidebarButton = firstDescendant(in: focusedWindow, matchingIdentifier: "SidebarButton") else {
+                    throw SafariUserInterfaceError.sidebarUnavailable
+                }
+
+                guard AXUIElementPerformAction(sidebarButton, kAXPressAction as CFString) == .success else {
+                    throw SafariUserInterfaceError.sidebarUnavailable
+                }
+            }
+        )
+    }
+
+    static func waitForSidebarOutline<Element>(
+        polling: SafariAXPolling = SafariAXPolling(),
+        currentOutline: () throws -> Element?,
+        revealSidebar: () throws -> Void
+    ) throws -> Element {
+        if let outline = try currentOutline() {
             return outline
         }
 
-        guard let sidebarButton = firstDescendant(in: focusedWindow, matchingIdentifier: "SidebarButton") else {
-            throw SafariUserInterfaceError.sidebarUnavailable
-        }
+        try revealSidebar()
 
-        guard AXUIElementPerformAction(sidebarButton, kAXPressAction as CFString) == .success else {
-            throw SafariUserInterfaceError.sidebarUnavailable
-        }
-
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard let outline = firstDescendant(in: focusedWindow, matchingRole: kAXOutlineRole) else {
+        guard let outline = try polling.firstResult(currentOutline) else {
             throw SafariUserInterfaceError.sidebarUnavailable
         }
 
@@ -190,19 +196,17 @@ public enum SafariSidebar: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let focusedWindowValue = copyAttributeValue(kAXFocusedWindowAttribute, from: applicationElement),
-            CFGetTypeID(focusedWindowValue) == AXUIElementGetTypeID()
-        else {
-            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
-        }
+        let focusedWindow = try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: applicationElement,
+            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        )
 
         if let focusedRenameField = focusedSidebarRenameField(in: applicationElement, matching: currentName) {
             try confirmRenameField(focusedRenameField, to: newName)
             return
         }
 
-        let focusedWindow = focusedWindowValue as! AXUIElement
         let outline = try outlinedSidebar(in: focusedWindow)
         let matches = tabGroupRows(in: outline)
 
@@ -225,55 +229,63 @@ public enum SafariSidebar: ModelModel {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard var titleElement = elementValue(for: kAXTitleUIElementAttribute, on: targetCell) else {
+        guard let titleElement = elementValue(for: kAXTitleUIElementAttribute, on: targetCell) else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
+        let renameField: AXUIElement
         if stringValue(for: kAXRoleAttribute, on: titleElement) != kAXTextFieldRole {
             guard AXUIElementPerformAction(titleElement, kAXShowMenuAction as CFString) == .success else {
                 throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
             }
 
-            Thread.sleep(forTimeInterval: 0.1)
-
-            guard
-                let renameMenuItem = firstDescendant(
+            let renameMenuItem = try waitForSidebarElement(
+                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            ) {
+                firstDescendant(
                     in: applicationElement,
                     matchingRole: kAXMenuItemRole,
                     matchingIdentifier: renameTabGroupMenuItemIdentifier
-                ),
-                AXUIElementPerformAction(renameMenuItem, kAXPressAction as CFString) == .success
-            else {
+                )
+            }
+
+            guard AXUIElementPerformAction(renameMenuItem, kAXPressAction as CFString) == .success else {
                 throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
             }
 
-            Thread.sleep(forTimeInterval: 0.1)
+            renameField = try waitForSidebarElement(
+                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            ) {
+                guard let refreshedTitleElement = elementValue(for: kAXTitleUIElementAttribute, on: targetCell) else {
+                    return nil
+                }
 
-            guard let refreshedTitleElement = elementValue(for: kAXTitleUIElementAttribute, on: targetCell) else {
-                throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+                return sidebarRenameField(in: applicationElement, titleElement: refreshedTitleElement)
             }
-            titleElement = refreshedTitleElement
-        }
-
-        let focusedElement = elementValue(for: kAXFocusedUIElementAttribute, on: applicationElement)
-        let renameField = {
-            if
-                let focusedElement,
-                stringValue(for: kAXRoleAttribute, on: focusedElement) == kAXTextFieldRole,
-                stringValue(for: kAXIdentifierAttribute, on: focusedElement) == sidebarTextFieldIdentifier
-            {
-                return focusedElement
-            }
-            return titleElement
-        }()
-
-        guard stringValue(for: kAXRoleAttribute, on: renameField) == kAXTextFieldRole else {
-            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        } else {
+            renameField = sidebarRenameField(in: applicationElement, titleElement: titleElement) ?? titleElement
         }
 
         try confirmRenameField(renameField, to: newName)
+    }
+
+    private static func sidebarRenameField(
+        in applicationElement: AXUIElement,
+        titleElement: AXUIElement
+    ) -> AXUIElement? {
+        if
+            let focusedElement = elementValue(for: kAXFocusedUIElementAttribute, on: applicationElement),
+            stringValue(for: kAXRoleAttribute, on: focusedElement) == kAXTextFieldRole,
+            stringValue(for: kAXIdentifierAttribute, on: focusedElement) == sidebarTextFieldIdentifier
+        {
+            return focusedElement
+        }
+
+        guard stringValue(for: kAXRoleAttribute, on: titleElement) == kAXTextFieldRole else {
+            return nil
+        }
+
+        return titleElement
     }
 
     private static func focusedSidebarRenameField(in applicationElement: AXUIElement, matching currentName: String) -> AXUIElement? {
@@ -298,9 +310,9 @@ public enum SafariSidebar: ModelModel {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard AXUIElementPerformAction(renameField, kAXConfirmAction as CFString) == .success else {
+        guard SafariAXPolling().firstResult({
+            AXUIElementPerformAction(renameField, kAXConfirmAction as CFString) == .success ? true : nil
+        }) != nil else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
     }
@@ -333,14 +345,11 @@ public enum SafariSidebar: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        guard
-            let focusedWindowValue = copyAttributeValue(kAXFocusedWindowAttribute, from: applicationElement),
-            CFGetTypeID(focusedWindowValue) == AXUIElementGetTypeID()
-        else {
-            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
-        }
-
-        let focusedWindow = focusedWindowValue as! AXUIElement
+        let focusedWindow = try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: applicationElement,
+            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        )
         guard let outline = firstDescendant(in: focusedWindow, matchingRole: kAXOutlineRole) else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
@@ -355,47 +364,49 @@ public enum SafariSidebar: ModelModel {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard
-            let deleteMenuItem = firstDescendant(
+        let deleteMenuItem = try waitForSidebarElement(
+            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        ) {
+            firstDescendant(
                 in: applicationElement,
                 matchingRole: kAXMenuItemRole,
                 matchingIdentifier: deleteTabGroupMenuItemIdentifier
-            ),
-            AXUIElementPerformAction(deleteMenuItem, kAXPressAction as CFString) == .success
-        else {
+            )
+        }
+
+        guard AXUIElementPerformAction(deleteMenuItem, kAXPressAction as CFString) == .success else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
         try SafariMenu.pressFrontWindowSheetButton(matchingIdentifier: "action-button-2")
     }
 
-    private static func copyAttributeValue(_ attribute: String, from element: AXUIElement) -> CFTypeRef? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
-            return nil
+    static func waitForSidebarElement<Element>(
+        error: SafariUserInterfaceError,
+        polling: SafariAXPolling = SafariAXPolling(),
+        currentElement: () throws -> Element?
+    ) throws -> Element {
+        guard let element = try polling.firstResult(currentElement) else {
+            throw error
         }
-        return value
+
+        return element
     }
 
     private static func elements(for attribute: String, on element: AXUIElement) -> [AXUIElement] {
-        (copyAttributeValue(attribute, from: element) as? [AXUIElement]) ?? []
+        SafariAX.elements(for: attribute, on: element)
     }
 
     private static func elementValue(for attribute: String, on element: AXUIElement) -> AXUIElement? {
-        guard let value = copyAttributeValue(attribute, from: element), CFGetTypeID(value) == AXUIElementGetTypeID() else {
-            return nil
-        }
-        return (value as! AXUIElement)
+        SafariAX.elementValue(for: attribute, on: element)
     }
 
     private static func stringValue(for attribute: String, on element: AXUIElement) -> String {
-        (copyAttributeValue(attribute, from: element) as? String) ?? ""
+        SafariAX.stringValue(for: attribute, on: element)
     }
 
     private static func booleanValue(for attribute: String, on element: AXUIElement) -> Bool {
-        (copyAttributeValue(attribute, from: element) as? Bool) ?? false
+        SafariAX.booleanValue(for: attribute, on: element)
     }
 
     private static func descendantElements(on element: AXUIElement) -> [AXUIElement] {
@@ -413,6 +424,7 @@ public enum SafariSidebar: ModelModel {
 
         return descendants
     }
+
     private static func firstDescendant(in root: AXUIElement, matchingRole role: String, depth: Int = 0) -> AXUIElement? {
         if stringValue(for: kAXRoleAttribute, on: root) == role {
             return root

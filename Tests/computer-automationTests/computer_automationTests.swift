@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import ApplicationServices
 import SQLite3
 @testable import AutomationFoundation
 @testable import SafariAppleScript
@@ -187,7 +188,7 @@ import SQLite3
             CompletionSuggestion(value: "open-tab-group-window", abstract: "Open a new Safari window for a saved tab group."),
             CompletionSuggestion(value: "windows", abstract: "List open Safari browser windows."),
             CompletionSuggestion(value: "set-window-tab-group", abstract: "Switch a Safari window to a saved tab group."),
-            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "close-window", abstract: "Close a Safari browser window."),
             CompletionSuggestion(value: "create-tab-group", abstract: "Create a new saved Safari tab group in a specific window."),
             CompletionSuggestion(value: "ensure-tab-group", abstract: "Create or reuse a saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
@@ -230,6 +231,8 @@ import SQLite3
     #expect(descriptor.name == "profile")
     #expect(descriptor.kind == .positional)
     #expect(descriptor.isRequired)
+    #expect(descriptor.valueName == nil)
+    #expect(!descriptor.isRepeating)
     #expect(descriptor.completionSuggestions.isEmpty)
 }
 
@@ -322,6 +325,7 @@ import SQLite3
     #expect(tabOpen[1].name == "window-id")
     #expect(tabOpen[1].kind == .option)
     #expect(!tabOpen[1].isRequired)
+    #expect(tabOpen[1].valueName == "window-id")
     #expect(tabOpen[2].name == "url")
     #expect(tabOpen[2].kind == .positional)
     #expect(!tabOpen[2].isRequired)
@@ -345,6 +349,9 @@ import SQLite3
     #expect(findTab[2].name == "window-id")
     #expect(findTab[3].name == "window-index")
     #expect(findTab[4].name == "profile")
+    #expect(findTab[2].valueName == "window-id")
+    #expect(findTab[3].valueName == "window-index")
+    #expect(findTab[4].valueName == "profile")
 
     let resolveTab = SafariTabResolveCommand.descriptor.arguments
     #expect(resolveTab == findTab)
@@ -361,6 +368,7 @@ import SQLite3
     #expect(executeJavaScript[4].name == "file")
     #expect(executeJavaScript[4].kind == .option)
     #expect(!executeJavaScript[4].isRequired)
+    #expect(executeJavaScript[4].valueName == "path")
 
     let closeTab = SafariTabCloseCommand.descriptor.arguments
     #expect(closeTab.count == 3)
@@ -377,6 +385,14 @@ import SQLite3
     #expect(windowTabs[1].name == "window-id")
     #expect(windowTabs[1].kind == .option)
     #expect(!windowTabs[1].isRequired)
+    #expect(windowTabs[1].valueName == "window-id")
+
+    let closeWindow = SafariWindowCloseCommand.descriptor.arguments
+    #expect(closeWindow.count == 1)
+    #expect(closeWindow[0].name == "window-id")
+    #expect(closeWindow[0].kind == .option)
+    #expect(!closeWindow[0].isRequired)
+    #expect(closeWindow[0].valueName == "window-id")
 
     let ensureTabListURLs = SafariTabListEnsureURLsCommand.descriptor.arguments
     #expect(ensureTabListURLs.count == 5)
@@ -395,6 +411,7 @@ import SQLite3
     #expect(ensureTabListURLs[4].name == "url")
     #expect(ensureTabListURLs[4].kind == .positional)
     #expect(ensureTabListURLs[4].isRequired)
+    #expect(ensureTabListURLs[4].isRepeating)
 
     let reorderTabListURLs = SafariTabListReorderURLsCommand.descriptor.arguments
     #expect(reorderTabListURLs == ensureTabListURLs)
@@ -416,7 +433,7 @@ import SQLite3
     #expect(
         CompletionEngine.suggestions(for: ["safari", "cl", "ignored"], modules: modules) ==
         [
-            CompletionSuggestion(value: "close-window", abstract: "Close the front Safari browser window."),
+            CompletionSuggestion(value: "close-window", abstract: "Close a Safari browser window."),
             CompletionSuggestion(value: "close-tab", abstract: "Close a Safari tab.")
         ]
     )
@@ -517,7 +534,37 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["safari", "close-window", "--help"])
 
     #expect(output.contains("Usage: computer-automation safari close-window"))
-    #expect(output.contains("Close the front Safari browser window."))
+    #expect(output.contains("Close a Safari browser window."))
+}
+
+@Test(arguments: [
+    (
+        ["safari", "open-tab", "--help"],
+        "Usage: computer-automation safari open-tab (--window-id <window-id> | <window-index>) [<url>]"
+    ),
+    (
+        ["safari", "window-tabs", "--help"],
+        "Usage: computer-automation safari window-tabs (--window-id <window-id> | <window-index>)"
+    ),
+    (
+        ["safari", "ensure-tab-list-urls", "--help"],
+        "Usage: computer-automation safari ensure-tab-list-urls (--window-index <window-index> | --window-id <window-id> | --tab-group-profile <profile> --tab-group-name <name>) <url>..."
+    ),
+    (
+        ["safari", "find-tab", "--help"],
+        "Usage: computer-automation safari find-tab <url> [--prefix] [--window-id <window-id>] [--window-index <window-index>] [--profile <profile>]"
+    ),
+    (
+        ["safari", "execute-tab-javascript", "--help"],
+        "Usage: computer-automation safari execute-tab-javascript <window-id> <tab-index> (<javascript> | --stdin | --file <path>)"
+    )
+])
+func cliRendersSafariCommandUsageWithValuesAndAlternatives(
+    input: ([String], String)
+) async throws {
+    let output = try ComputerAutomationCLI.run(arguments: input.0)
+
+    #expect(output.contains(input.1))
 }
 
 @Test func cliRejectsUnknownCommandOptionBeforeDispatch() async throws {
@@ -3167,7 +3214,8 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
         isRunning: { input.0 },
-        closeFrontWindow: { _ in input.1 }
+        closeFrontWindow: { _ in input.1 },
+        closeWindowByIdentifier: { _, _ in Issue.record("closeWindowByIdentifier should not be called") }
     )
 
     #expect(try command.execute(arguments: []) == input.2)
@@ -3177,11 +3225,52 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
-        closeFrontWindow: { _ in throw SafariAppleScriptError.scriptCompilationFailed }
+        closeFrontWindow: { _ in throw SafariAppleScriptError.scriptCompilationFailed },
+        closeWindowByIdentifier: { _, _ in Issue.record("closeWindowByIdentifier should not be called") }
     )
 
     #expect(throws: SafariAppleScriptError.scriptCompilationFailed) {
         try command.execute(arguments: [])
+    }
+}
+
+@Test func safariWindowCloseCommandTargetsWindowIdentifier() async throws {
+    var closedWindowIdentifier: Int?
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in
+            Issue.record("closeFrontWindow should not be called")
+            return "unexpected"
+        },
+        closeWindowByIdentifier: { windowIdentifier, _ in
+            closedWindowIdentifier = windowIdentifier
+        }
+    )
+
+    #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
+    #expect(closedWindowIdentifier == 42)
+}
+
+@Test func safariWindowCloseCommandRejectsInvalidWindowIdentifierArguments() async throws {
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in
+            Issue.record("closeFrontWindow should not be called")
+            return "unexpected"
+        },
+        closeWindowByIdentifier: { _, _ in Issue.record("closeWindowByIdentifier should not be called") }
+    )
+
+    #expect(throws: SafariWindowCommandError.missingWindowIdentifier) {
+        try command.execute(arguments: ["--window-id"])
+    }
+    #expect(throws: SafariWindowCommandError.invalidWindowIdentifier("0")) {
+        try command.execute(arguments: ["--window-id=0"])
+    }
+    #expect(throws: CommandArgumentError.unexpectedArgument(commandName: "close-window", argument: "extra")) {
+        try command.execute(arguments: ["extra"])
     }
 }
 
@@ -4417,6 +4506,123 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup?TabGroup=1001", matchesTabGroupIdentifier: 100))
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup-42-profile-7", matchesTabGroupIdentifier: 7))
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemOther?TabGroup=100", matchesTabGroupIdentifier: 100))
+}
+
+@Test func safariAXElementReaderThrowsDomainErrorForWrongAttributeType() async throws {
+    let root = AXUIElementCreateSystemWide()
+    let wrongValue: CFTypeRef = "not an AX element" as CFString
+
+    #expect(throws: SafariUserInterfaceError.sidebarUnavailable) {
+        try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: root,
+            error: SafariUserInterfaceError.sidebarUnavailable,
+            readAttribute: { _, _ in wrongValue }
+        )
+    }
+}
+
+@Test func safariAXElementReaderThrowsDomainErrorForMissingFocusedWindow() async throws {
+    let root = AXUIElementCreateSystemWide()
+
+    #expect(throws: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)) {
+        try SafariAX.requiredElementValue(
+            for: kAXFocusedWindowAttribute,
+            on: root,
+            error: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0),
+            readAttribute: { _, _ in nil }
+        )
+    }
+}
+
+@Test func safariAXElementArrayFiltersUnexpectedElementTypes() async throws {
+    let root = AXUIElementCreateSystemWide()
+    let child = AXUIElementCreateSystemWide()
+    let mixedValues: CFTypeRef = [child, "unexpected child"] as CFArray
+
+    let elements = SafariAX.elements(
+        for: kAXChildrenAttribute,
+        on: root,
+        readAttribute: { _, _ in mixedValues }
+    )
+
+    #expect(elements.count == 1)
+    #expect(CFEqual(elements[0], child))
+}
+
+@Test func safariSidebarWaitsForDelayedOutlineAvailability() async throws {
+    var didRevealSidebar = false
+    var lookupCount = 0
+    var sleptIntervals: [TimeInterval] = []
+
+    let outline = try SafariSidebar.waitForSidebarOutline(
+        polling: SafariAXPolling(maxAttempts: 4, interval: 0.25, sleep: { sleptIntervals.append($0) }),
+        currentOutline: {
+            lookupCount += 1
+            return lookupCount == 3 ? "outline" : nil
+        },
+        revealSidebar: {
+            didRevealSidebar = true
+        }
+    )
+
+    #expect(outline == "outline")
+    #expect(didRevealSidebar)
+    #expect(lookupCount == 3)
+    #expect(sleptIntervals == [0.25])
+}
+
+@Test func safariMenuWaitsForDelayedMenuAvailability() async throws {
+    var lookupCount = 0
+    var sleptIntervals: [TimeInterval] = []
+
+    let menu = try SafariMenu.waitForMenuElement(
+        menuBarItemIndex: 3,
+        polling: SafariAXPolling(maxAttempts: 4, interval: 0.05, sleep: { sleptIntervals.append($0) }),
+        currentElement: {
+            lookupCount += 1
+            return lookupCount == 3 ? "menu" : nil
+        }
+    )
+
+    #expect(menu == "menu")
+    #expect(lookupCount == 3)
+    #expect(sleptIntervals == [0.05, 0.05])
+}
+
+@Test func safariMenuPollsForDelayedSheetButtonAvailability() async throws {
+    var pressAttempts = 0
+    var sleptIntervals: [TimeInterval] = []
+
+    try SafariMenu.waitForSheetButtonPress(
+        polling: SafariAXPolling(maxAttempts: 4, interval: 0.1, sleep: { sleptIntervals.append($0) }),
+        pressMatchingButton: {
+            pressAttempts += 1
+            return pressAttempts == 3
+        }
+    )
+
+    #expect(pressAttempts == 3)
+    #expect(sleptIntervals == [0.1, 0.1])
+}
+
+@Test func safariMenuPollingThrowsDomainErrorAfterTimeout() async throws {
+    var lookupCount = 0
+    var sleptIntervals: [TimeInterval] = []
+
+    #expect(throws: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 3)) {
+        try SafariMenu.waitForMenuElement(
+            menuBarItemIndex: 3,
+            polling: SafariAXPolling(maxAttempts: 3, interval: 0.2, sleep: { sleptIntervals.append($0) }),
+            currentElement: {
+                lookupCount += 1
+                return Optional<String>.none
+            }
+        )
+    }
+
+    #expect(lookupCount == 3)
+    #expect(sleptIntervals == [0.2, 0.2])
 }
 
 @Test func safariAppleScriptSidebarSelectTabGroupByIdentifierExecutesExpectedScript() async throws {
