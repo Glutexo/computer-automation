@@ -21,6 +21,13 @@ public enum SafariTabList: ModelModel {
         try SafariTab.listWindowTabs(windowIndex: windowIndex, executor: executor)
     }
 
+    static func listWindowTabs(
+        windowIdentifier: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> [SafariWindowTabRecord] {
+        try SafariTab.listWindowTabs(windowIdentifier: windowIdentifier, executor: executor)
+    }
+
     static func listTabGroupTabs(
         tabGroupIdentifier: Int
     ) throws -> [SafariTabGroupTabRecord] {
@@ -36,6 +43,7 @@ public struct SafariTabListContext: Equatable, Sendable, Encodable {
 
     public let kind: Kind
     public let windowIndex: Int?
+    public let windowIdentifier: Int?
     public let tabGroupIdentifier: Int?
     public let profileName: String?
     public let name: String?
@@ -43,12 +51,14 @@ public struct SafariTabListContext: Equatable, Sendable, Encodable {
     public init(
         kind: Kind,
         windowIndex: Int? = nil,
+        windowIdentifier: Int? = nil,
         tabGroupIdentifier: Int? = nil,
         profileName: String? = nil,
         name: String? = nil
     ) {
         self.kind = kind
         self.windowIndex = windowIndex
+        self.windowIdentifier = windowIdentifier
         self.tabGroupIdentifier = tabGroupIdentifier
         self.profileName = profileName
         self.name = name

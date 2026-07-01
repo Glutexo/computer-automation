@@ -16,7 +16,7 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (String, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
@@ -31,7 +31,7 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
+        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
     ) {
         self.executor = executor
         self.listWindows = listWindows
@@ -79,7 +79,7 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
         }
 
         try focusWindow(window.identifier, executor)
-        try selectTabGroup(tabGroup.name, executor)
+        try selectTabGroup(tabGroup, executor)
 
         return "Safari window \(windowIndex) switched to tab group \(tabGroup.name)."
     }

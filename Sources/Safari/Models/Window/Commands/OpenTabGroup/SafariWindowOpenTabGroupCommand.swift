@@ -15,7 +15,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel {
     private let executor: SafariAppleScriptExecuting
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (String, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
@@ -30,7 +30,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel {
         executor: SafariAppleScriptExecuting,
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
-        selectTabGroup: @escaping (String, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
+        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
     ) {
         self.executor = executor
         self.listTabGroups = listTabGroups
@@ -58,7 +58,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel {
             throw SafariWindowCommandError.profileMenuItemNotFound(tabGroup.profileName)
         }
 
-        try selectTabGroup(tabGroup.name, executor)
+        try selectTabGroup(tabGroup, executor)
 
         return "Safari window opened for tab group \(tabGroup.name)."
     }

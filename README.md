@@ -49,12 +49,15 @@ swift run computer-automation safari resolve-tab-group Twisto Focus
 swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
 swift run computer-automation safari ensure-tab-list-urls --window-index 1 https://example.com https://openai.com
+swift run computer-automation safari ensure-tab-list-urls --window-id 42 https://example.com https://openai.com
 swift run computer-automation safari ensure-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://example.com
 swift run computer-automation --json safari ensure-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://example.com
 swift run computer-automation safari reorder-tab-list-urls --window-index 1 https://openai.com https://example.com
+swift run computer-automation safari reorder-tab-list-urls --window-id 42 https://openai.com https://example.com
 swift run computer-automation safari reorder-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://openai.com https://example.com
 swift run computer-automation --json safari reorder-tab-list-urls --window-index 1 https://openai.com https://example.com
 swift run computer-automation safari open-tab 1 https://example.com
+swift run computer-automation safari open-tab --window-id 42 https://example.com
 swift run computer-automation safari tabs
 swift run computer-automation safari find-tab https://example.com
 swift run computer-automation safari find-tab https://example.com --prefix --window-id 42 --profile Twisto
@@ -62,12 +65,15 @@ swift run computer-automation --json safari find-tab https://example.com --prefi
 swift run computer-automation safari resolve-tab https://example.com --window-id 42
 swift run computer-automation --json safari resolve-tab https://example.com --window-id 42
 swift run computer-automation safari window-tabs 1
+swift run computer-automation safari window-tabs --window-id 42
 swift run computer-automation safari execute-tab-javascript 42 2 'document.title'
 printf 'document.readyState' | swift run computer-automation safari execute-tab-javascript 42 2 --stdin
 swift run computer-automation safari execute-tab-javascript 42 2 --file script.js
 swift run computer-automation --json safari execute-tab-javascript 42 2 'document.readyState'
 swift run computer-automation safari set-tab-url 1 1 https://example.com
+swift run computer-automation safari set-tab-url --window-id 42 1 https://example.com
 swift run computer-automation safari close-tab 1 1
+swift run computer-automation safari close-tab --window-id 42 1
 swift run computer-automation safari-ui menu-bar-items
 swift run computer-automation safari-ui menu-items 3
 swift run computer-automation safari-ui file-menu-items
@@ -97,9 +103,11 @@ windowId|windowIndex|tabIndex|url|title
 
 `safari delete-tab-group <identifier>` deletes a saved Safari tab group and verifies through readback that the group disappeared before returning success.
 
-`safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-index <index>` for a live window, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group and reports that status in text and JSON output. If it created the group but cannot subsequently focus, select, or mutate it, the command deletes that newly created group before failing.
+`safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-id <id>` for stable live-window writes, `--window-index <index>` only when you have just re-read the current window order, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For saved groups, the command first creates or reuses the group, selects it through the Safari sidebar by saved group id, and reports that status in text and JSON output. If it created the group but cannot subsequently focus, select, or mutate it, the command deletes that newly created group before failing.
 
-`safari reorder-tab-list-urls` reorders existing matching tabs in a window-backed or saved-tab-group-backed tab list so the requested URL occurrences become the ordered prefix. It does not create missing URLs and does not delete extra tabs; text and JSON output report moved, unchanged, missing, and extra entries. If the saved-group path created a new group and later verification fails, that new group is deleted before the command reports the failure.
+`safari reorder-tab-list-urls` reorders existing matching tabs in a window-backed or saved-tab-group-backed tab list so the requested URL occurrences become the ordered prefix. Use `--window-id <id>` for stable live-window writes; Safari window indexes can change after focus, open-window, and tab-group switching operations. It does not create missing URLs and does not delete extra tabs; text and JSON output report moved, unchanged, missing, and extra entries. If the saved-group path created a new group and later verification fails, that new group is deleted before the command reports the failure.
+
+Window-level tab commands accept either the original positional `window-index` form or `--window-id <id>`. Prefer `--window-id` for `open-tab`, `window-tabs`, `set-tab-url`, and `close-tab` when the command follows any Safari UI operation that may reorder windows.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

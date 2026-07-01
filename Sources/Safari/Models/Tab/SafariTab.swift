@@ -28,6 +28,38 @@ public struct SafariWindowTabRecord: Equatable, Sendable, Encodable {
     }
 }
 
+enum SafariWindowAddress: Equatable, Sendable {
+    case index(Int)
+    case identifier(Int)
+
+    var windowIndex: Int? {
+        switch self {
+        case .index(let value):
+            value
+        case .identifier:
+            nil
+        }
+    }
+
+    var windowIdentifier: Int? {
+        switch self {
+        case .index:
+            nil
+        case .identifier(let value):
+            value
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .index(let value):
+            "window \(value)"
+        case .identifier(let value):
+            "window id \(value)"
+        }
+    }
+}
+
 public struct SafariTabMatchRecord: Equatable, Sendable, Encodable {
     public let windowIdentifier: Int
     public let windowIndex: Int
@@ -154,6 +186,40 @@ public enum SafariTab: ModelModel {
         let liveTabs = try listTabs(executor)
             .filter { $0.windowIndex == windowIndex }
             .map { SafariTabRecord(windowIndex: $0.windowIndex, index: $0.index, url: $0.url) }
+
+        let windowState = try loadWindowStates(databasePath)[windowIdentifier]
+        let selectedTabGroupIdentifier = windowState?.isPrivate == true ? nil : windowState?.selectedTabGroupIdentifier
+        let selectedTabGroupTabs: [SafariTabGroupTabRecord]
+        if let selectedTabGroupIdentifier {
+            selectedTabGroupTabs = try loadTabGroupTabs(selectedTabGroupIdentifier, databasePath)
+        } else {
+            selectedTabGroupTabs = []
+        }
+
+        return matchTabs(liveTabs, againstSelectedTabGroupTabs: selectedTabGroupTabs)
+    }
+
+    static func listWindowTabs(
+        windowIdentifier: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
+        databasePath: String = SafariProfile.databasePath(),
+        isRunning: () -> Bool = { SafariApplication.isRunning() },
+        listTabs: (Int, SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowTabRecord] = { windowIdentifier, executor in
+            try SafariAppleScriptTab.list(windowIdentifier: windowIdentifier, executor: executor)
+        },
+        loadWindowStates: (String) throws -> [Int: SafariWindowState] = { path in
+            try SafariWindow.loadWindowStateByWindowIdentifier(databasePath: path)
+        },
+        loadTabGroupTabs: (Int, String) throws -> [SafariTabGroupTabRecord] = { tabGroupIdentifier, path in
+            try SafariTabGroup.listTabs(tabGroupIdentifier: tabGroupIdentifier, databasePath: path)
+        }
+    ) throws -> [SafariWindowTabRecord] {
+        guard isRunning() else {
+            return []
+        }
+
+        let liveTabs = try listTabs(windowIdentifier, executor)
+            .map { SafariTabRecord(windowIndex: 0, index: $0.index, url: $0.url, title: $0.title) }
 
         let windowState = try loadWindowStates(databasePath)[windowIdentifier]
         let selectedTabGroupIdentifier = windowState?.isPrivate == true ? nil : windowState?.selectedTabGroupIdentifier

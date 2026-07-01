@@ -48,7 +48,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         findTabGroups: @escaping (String, String) throws -> [SafariTabGroupRecord] = { profileName, name in
             try SafariTabGroup.find(profileName: profileName, name: name)
         },
-        listProfiles: @escaping () throws -> [SafariProfileRecord] = { [] },
+        listProfiles: @escaping () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() },
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,

@@ -8,6 +8,7 @@
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
 - `SafariAppleScriptTab.list()` returns each tab as a structured Apple event list containing window index, tab index, URL, and title.
+- `SafariAppleScriptTab.list(windowIdentifier:)` returns tabs from one stable Safari window id without relying on current window order.
 - `SafariAppleScriptTab.executeJavaScript()` targets a Safari tab by stable window id and tab index.
 - `SafariAppleScriptSidebar` represents AppleScript-level access to the opened Safari sidebar and its structurally addressable rows.
 - `SafariAppleScriptApplicationMenuBar` represents AppleScript-level access to Safari's application menu bar.
@@ -22,7 +23,7 @@
 | --- | --- | --- |
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
 | `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()`, `close(windowIdentifier:)` | Read and mutate Safari window state through AppleScript. |
-| `SafariAppleScriptTab` | `list()`, `open()`, `setURL()`, `close()`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
+| `SafariAppleScriptTab` | `list()`, `list(windowIdentifier:)`, `open()`, `open(windowIdentifier:)`, `setURL()`, `setURL(windowIdentifier:)`, `move()`, `move(windowIdentifier:)`, `close()`, `close(windowIdentifier:)`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
 | `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `selectTabGroup(identifier:named:)`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
 | `SafariAppleScriptToolbar` | `listItems()` | Read front-window Safari toolbar items. |
@@ -52,6 +53,7 @@ flowchart TD
     ListTabs["list()"]
     OpenTab["open()"]
     SetTabURL["setURL()"]
+    MoveTab["move()"]
     CloseTab["close()"]
     ExecuteJavaScript["executeJavaScript()"]
     SelectSidebar["selectItem()"]
@@ -82,6 +84,7 @@ flowchart TD
     ScriptTab --> ListTabs
     ScriptTab --> OpenTab
     ScriptTab --> SetTabURL
+    ScriptTab --> MoveTab
     ScriptTab --> CloseTab
     ScriptTab --> ExecuteJavaScript
     ScriptSidebar --> SelectSidebar
@@ -102,6 +105,7 @@ flowchart TD
 - `Safari` and `SafariUserInterface` depend on it through explicit model APIs.
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
+- `SafariAppleScriptTab` provides window-index and window-id variants for listing, opening, moving, setting URLs, and closing tabs. The window-id variants resolve the target through `every window whose id is <window-id>` before touching tabs.
 - `SafariAppleScriptTab.executeJavaScript()` resolves the target through `every window whose id is <window-id>` and then runs `do JavaScript` in the requested tab index of that window.
 - `SafariAppleScriptTab.executeJavaScript()` wraps the caller source so primitive JavaScript results return as text and object/array results return as `JSON.stringify(...)` text.
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.

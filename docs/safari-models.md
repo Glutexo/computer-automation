@@ -209,7 +209,7 @@ ORDER BY id;
 - The `SafariWindow` model delegates user interface work to the `SafariUserInterface` module.
 - `open-window` uses the `SafariFileMenu` model in `SafariUserInterface`.
 - `open-private-window` also uses the `SafariFileMenu` model in `SafariUserInterface`.
-- `open-tab-group-window` and `set-window-tab-group` use reusable toolbar models in `SafariUserInterface`.
+- `open-tab-group-window` and `set-window-tab-group` select existing saved groups through the opened Safari sidebar by saved group identifier, with display-name fallback only when Safari does not expose the identifier.
 - `open-window` accepts an optional profile name argument.
 - When a profile argument is provided, the command:
   - validates the profile name against the `SafariProfile` model
@@ -233,13 +233,13 @@ ORDER BY id;
 - `open-tab-group-window <identifier>`:
   - resolves the saved tab group structurally from the Safari tab-group catalog
   - opens a new window for that group's profile
-  - switches the new front window to the requested saved tab group through Safari's toolbar tab-group picker
+  - switches the new front window to the requested saved tab group through identifier-aware sidebar selection
 - `set-window-tab-group <window-index> <identifier>`:
   - resolves the target window structurally from the Safari window catalog
   - rejects private windows because private windows cannot select saved tab groups
   - requires the target window profile to match the saved tab-group profile
   - brings the target window to the front
-  - switches that front window through Safari's toolbar tab-group picker
+  - switches that front window through identifier-aware sidebar selection
 - `close-window` closes the current front window.
 
 ## Saved tab-group operations
@@ -278,10 +278,11 @@ ORDER BY id;
   - its parent is a Safari profile bookmark
   - it has a child bookmark with `type = 1` and `subtype = 1`
 - This intentionally excludes internal `Local` and `Private` groups.
-- `create-tab-group` rejects duplicate names within the same profile because live Safari selection is still name-based in the toolbar picker.
-- Saved tab-group selection in live windows is currently driven by Safari's toolbar UI:
-  - the target toolbar item is resolved structurally through an accessibility identifier that starts with `TabGroupPickerButton`
-  - the child menu of that toolbar item exposes saved groups by their display names, so duplicate group names within the same profile are treated as ambiguous and rejected by the automation layer
+- `create-tab-group` rejects duplicate names within the same profile because Safari's identifier-bearing sidebar row is not guaranteed to be available for every fallback path.
+- Saved tab-group selection in live windows is currently driven by the opened Safari sidebar:
+  - the target group is selected structurally by saved group identifier when Safari exposes it
+  - display-name selection remains only as a fallback path
+  - duplicate group names within the same profile are treated as ambiguous where fallback selection could otherwise target the wrong row
 - Saved tab-group create/delete uses a different live UI path:
   - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group, preferring the saved group identifier over the localized display name
   - create uses the File-menu item `NewEmptyTabGroupMenuItem`
@@ -306,31 +307,35 @@ ORDER BY id;
   - a saved Safari tab group
 - `SafariWindow` and `SafariTabGroup` provide addressable contexts for tab lists, but URL-oriented collection operations belong to the tab-list surface.
 - Individual URL values remain properties of `SafariTab` or stored tab records; `SafariTabList` owns collection-level operations over those ordered items.
-- `ensure-tab-list-urls --window-index <index> <url>...` reconciles requested URLs against a live window-backed tab list:
+- `ensure-tab-list-urls --window-id <id> <url>...` or `--window-index <index>` reconciles requested URLs against a live window-backed tab list:
   - existing URLs are skipped
   - missing URLs are opened as new tabs in requested order
   - duplicate requested URLs are skipped after the first add or existing match
   - text output reports the window context and one `added|url` or `skipped|url` row per requested URL outcome
   - JSON output returns `context`, `addedURLs`, and `skippedURLs`
+  - `--window-id` is preferred for writes because Safari window indexes can change after focus, open-window, and tab-group switching operations
 - `ensure-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` reconciles requested URLs against a saved-tab-group-backed tab list:
   - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
   - focuses or opens a compatible non-private Safari window
   - selects the saved tab group in that window by its resolved saved group record before opening missing URLs
+  - uses the focused window's stable Safari window id for subsequent tab opens
   - existing stored tab URLs are skipped
   - missing URLs are opened as new tabs in requested order
   - the command does not reorder existing tabs and does not remove extra tabs
   - if the command created the saved group and a later focus, selection, read, or open step fails, it deletes that newly created group before surfacing the failure
-- `reorder-tab-list-urls --window-index <index> <url>...` reorders existing matching tabs in a live window-backed tab list:
+- `reorder-tab-list-urls --window-id <id> <url>...` or `--window-index <index>` reorders existing matching tabs in a live window-backed tab list:
   - each requested URL occurrence consumes the first unused existing tab with the same URL
   - matched requested tabs are moved into the requested order as the list prefix
   - unmatched existing tabs remain after that prefix and keep their previous relative order
   - requested URL occurrences without an existing match are reported as missing
   - the command does not create missing tabs and does not delete extra tabs
   - text and JSON output report moved, unchanged, missing, and extra entries
+  - `--window-id` is preferred for writes because Safari window indexes can change after focus, open-window, and tab-group switching operations
 - `reorder-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` applies the same reorder semantics to a saved-tab-group-backed tab list:
   - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
   - focuses or opens a compatible non-private Safari window
   - selects the saved tab group in that window by its resolved saved group record before moving tabs
+  - uses the focused window's stable Safari window id for subsequent tab moves and reads
   - verifies the saved group's stored tab order after live tab moves
   - fails if Safari does not expose the persisted reordered group order through `tab-group-tabs`
   - if the command created the saved group and a later focus, selection, move, or verification step fails, it deletes that newly created group before surfacing the failure
@@ -338,7 +343,7 @@ ORDER BY id;
   - only child rows with `type = 0` are treated as stored tabs
   - rows are ordered by `order_index`, then `id`
   - the current model reads only the URL property, so output is limited to `index|url`
-- `window-tabs <window-index>` reads a live window-backed tab list and returns one line per tab as:
+- `window-tabs <window-index>` or `window-tabs --window-id <id>` reads a live window-backed tab list and returns one line per tab as:
   - `tabIndex|selectedTabGroupTabIndex|url`
 - `window-tabs` compares live tabs with the currently selected saved tab group of that window.
 - A live tab is currently treated as coming from the selected saved tab group only when:
@@ -352,10 +357,11 @@ ORDER BY id;
 - A tab belongs to a window, and the window owns whether it is private or not.
 - Private mode is therefore a window property, not a tab property.
 - Tabs are addressed structurally by:
+  - `window-id`
   - `window-index`
   - `tab-index`
 - `open-tab` creates a new tab inside a specific window and accepts:
-  - a required `window-index`
+  - a required `window-index`, or `--window-id <id>` instead
   - an optional `url`
 - `tabs` returns one line per tab as:
   - `windowIndex|tabIndex|url`
@@ -376,8 +382,9 @@ ORDER BY id;
 - `--json safari execute-tab-javascript <window-id> <tab-index> <javascript>` returns `windowId`, `tabIndex`, and `result`.
 - Primitive JavaScript results return as text; object and array results return as `JSON.stringify(...)` text.
 - If the target window or tab no longer exists, `execute-tab-javascript` fails with a target-specific error that does not include browser page state or JavaScript error details.
-- `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`.
-- `close-tab` closes a specific tab identified by `window-index` and `tab-index`.
+- `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.
+- `close-tab` closes a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.
+- Prefer `window-id` for writes that follow any Safari UI operation because window indexes are volatile.
 - `find-tab` combines AppleScript tab data with Safari window ids and profile metadata from the `SafariWindow` model.
 - The `SafariTab` model currently delegates tab CRUD work directly to the `SafariAppleScript` module because Safari exposes tab URL mutation directly through AppleScript.
 

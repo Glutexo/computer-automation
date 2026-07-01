@@ -13,6 +13,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         operation: .update,
         arguments: [
             CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false),
+            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false),
             CommandArgumentDescriptor(name: "tab-group-profile", kind: .option, isRequired: false),
             CommandArgumentDescriptor(name: "tab-group-name", kind: .option, isRequired: false),
             CommandArgumentDescriptor(name: "url", kind: .positional)
@@ -21,13 +22,15 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
 
     private let executor: SafariAppleScriptExecuting
     private let ensureTabGroup: (String, String) throws -> SafariTabGroupEnsureSummary
-    private let listWindowTabs: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
+    private let listWindowTabsByIndex: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
+    private let listWindowTabsByIdentifier: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
     private let listTabGroupTabs: (Int) throws -> [SafariTabGroupTabRecord]
     private let listWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
     private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
-    private let moveTab: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
+    private let moveTabByIndex: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
+    private let moveTabByIdentifier: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
     private let deleteTabGroup: (Int) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
@@ -41,8 +44,11 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             )
             .ensure(profileName: profileName, name: name)
         }
-        self.listWindowTabs = { windowIndex, executor in
+        self.listWindowTabsByIndex = { windowIndex, executor in
             try SafariTabList.listWindowTabs(windowIndex: windowIndex, executor: executor)
+        }
+        self.listWindowTabsByIdentifier = { windowIdentifier, executor in
+            try SafariTabList.listWindowTabs(windowIdentifier: windowIdentifier, executor: executor)
         }
         self.listTabGroupTabs = { identifier in
             try SafariTabList.listTabGroupTabs(tabGroupIdentifier: identifier)
@@ -53,7 +59,22 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             try SafariFileMenu.openWindow(profileName: profileName)
         }
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
-        self.moveTab = SafariAppleScriptTab.move
+        self.moveTabByIndex = { windowIndex, sourceIndex, destinationIndex, executor in
+            try SafariAppleScriptTab.move(
+                windowIndex: windowIndex,
+                sourceIndex: sourceIndex,
+                destinationIndex: destinationIndex,
+                executor: executor
+            )
+        }
+        self.moveTabByIdentifier = { windowIdentifier, sourceIndex, destinationIndex, executor in
+            try SafariAppleScriptTab.move(
+                windowIdentifier: windowIdentifier,
+                sourceIndex: sourceIndex,
+                destinationIndex: destinationIndex,
+                executor: executor
+            )
+        }
         self.deleteTabGroup = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
         }
@@ -64,12 +85,30 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
         ensureTabGroup: @escaping (String, String) throws -> SafariTabGroupEnsureSummary,
         listWindowTabs: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord],
+        listWindowTabsByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord] = { windowIdentifier, executor in
+            try SafariTabList.listWindowTabs(windowIdentifier: windowIdentifier, executor: executor)
+        },
         listTabGroupTabs: @escaping (Int) throws -> [SafariTabGroupTabRecord],
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
-        moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptTab.move,
+        moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = { windowIndex, sourceIndex, destinationIndex, executor in
+            try SafariAppleScriptTab.move(
+                windowIndex: windowIndex,
+                sourceIndex: sourceIndex,
+                destinationIndex: destinationIndex,
+                executor: executor
+            )
+        },
+        moveTabByIdentifier: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = { windowIdentifier, sourceIndex, destinationIndex, executor in
+            try SafariAppleScriptTab.move(
+                windowIdentifier: windowIdentifier,
+                sourceIndex: sourceIndex,
+                destinationIndex: destinationIndex,
+                executor: executor
+            )
+        },
         deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
         },
@@ -77,13 +116,15 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
     ) {
         self.executor = executor
         self.ensureTabGroup = ensureTabGroup
-        self.listWindowTabs = listWindowTabs
+        self.listWindowTabsByIndex = listWindowTabs
+        self.listWindowTabsByIdentifier = listWindowTabsByIdentifier
         self.listTabGroupTabs = listTabGroupTabs
         self.listWindows = listWindows
         self.focusWindow = focusWindow
         self.openWindow = openWindow
         self.selectTabGroup = selectTabGroup
-        self.moveTab = moveTab
+        self.moveTabByIndex = moveTab
+        self.moveTabByIdentifier = moveTabByIdentifier
         self.deleteTabGroup = deleteTabGroup
         self.sleep = sleep
     }
@@ -100,11 +141,15 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         let request = try SafariTabListReorderURLsRequest.parse(arguments)
 
         switch request.context {
-        case .window(let windowIndex):
-            let tabs = try listWindowTabs(windowIndex, executor).map(SafariTabListReorderItem.init)
-            let result = try reorder(windowIndex: windowIndex, tabs: tabs, requestedURLs: request.urls)
+        case .window(let address):
+            let tabs = try listWindowTabs(for: address).map(SafariTabListReorderItem.init)
+            let result = try reorder(windowAddress: address, tabs: tabs, requestedURLs: request.urls)
             return SafariTabListReorderURLsSummary(
-                context: SafariTabListContext(kind: .window, windowIndex: windowIndex),
+                context: SafariTabListContext(
+                    kind: .window,
+                    windowIndex: address.windowIndex,
+                    windowIdentifier: address.windowIdentifier
+                ),
                 moved: result.moved,
                 unchanged: result.unchanged,
                 missingURLs: result.missingURLs,
@@ -135,8 +180,9 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         )
         try selectTabGroup(tabGroup, executor)
 
-        let tabs = try listWindowTabs(window.index, executor).map(SafariTabListReorderItem.init)
-        let result = try reorder(windowIndex: window.index, tabs: tabs, requestedURLs: requestedURLs)
+        let windowAddress = SafariWindowAddress.identifier(window.identifier)
+        let tabs = try listWindowTabs(for: windowAddress).map(SafariTabListReorderItem.init)
+        let result = try reorder(windowAddress: windowAddress, tabs: tabs, requestedURLs: requestedURLs)
         try verifySavedTabGroupOrder(
             tabGroupIdentifier: tabGroup.identifier,
             expectedURLs: result.finalURLs,
@@ -147,6 +193,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             context: SafariTabListContext(
                 kind: .tabGroup,
                 windowIndex: window.index,
+                windowIdentifier: window.identifier,
                 tabGroupIdentifier: tabGroup.identifier,
                 profileName: tabGroup.profileName,
                 name: tabGroup.name
@@ -167,8 +214,26 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         try deleteTabGroup(summary.tabGroup.identifier)
     }
 
+    private func listWindowTabs(for address: SafariWindowAddress) throws -> [SafariWindowTabRecord] {
+        switch address {
+        case .index(let windowIndex):
+            try listWindowTabsByIndex(windowIndex, executor)
+        case .identifier(let windowIdentifier):
+            try listWindowTabsByIdentifier(windowIdentifier, executor)
+        }
+    }
+
+    private func moveTab(in address: SafariWindowAddress, sourceIndex: Int, destinationIndex: Int) throws {
+        switch address {
+        case .index(let windowIndex):
+            try moveTabByIndex(windowIndex, sourceIndex, destinationIndex, executor)
+        case .identifier(let windowIdentifier):
+            try moveTabByIdentifier(windowIdentifier, sourceIndex, destinationIndex, executor)
+        }
+    }
+
     private func reorder(
-        windowIndex: Int,
+        windowAddress: SafariWindowAddress,
         tabs: [SafariTabListReorderItem],
         requestedURLs: [String]
     ) throws -> SafariTabListReorderResult {
@@ -205,7 +270,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
                 continue
             }
 
-            try moveTab(windowIndex, sourceIndex, destinationIndex, executor)
+            try moveTab(in: windowAddress, sourceIndex: sourceIndex, destinationIndex: destinationIndex)
             moved.append(
                 SafariTabListReorderURLMove(
                     url: item.url,
@@ -266,7 +331,11 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
 
         switch summary.context.kind {
         case .window:
-            lines.append("context|window|\(summary.context.windowIndex.map(String.init) ?? "")")
+            if let windowIdentifier = summary.context.windowIdentifier, summary.context.windowIndex == nil {
+                lines.append("context|window-id|\(windowIdentifier)")
+            } else {
+                lines.append("context|window|\(summary.context.windowIndex.map(String.init) ?? "")")
+            }
         case .tabGroup:
             lines.append(
                 [
@@ -320,7 +389,7 @@ private struct SafariTabListReorderItem: Equatable {
 
 private struct SafariTabListReorderURLsRequest: Equatable {
     enum Context: Equatable {
-        case window(Int)
+        case window(SafariWindowAddress)
         case tabGroup(profileName: String, name: String)
     }
 
@@ -329,6 +398,7 @@ private struct SafariTabListReorderURLsRequest: Equatable {
 
     static func parse(_ arguments: [String]) throws -> SafariTabListReorderURLsRequest {
         var windowIndex: Int?
+        var windowIdentifier: Int?
         var tabGroupProfile: String?
         var tabGroupName: String?
         var urls: [String] = []
@@ -343,6 +413,12 @@ private struct SafariTabListReorderURLsRequest: Equatable {
                     throw SafariTabCommandError.invalidWindowIndex(rawValue)
                 }
                 windowIndex = value
+            case "--window-id":
+                let rawValue = try optionValue(after: argument, in: arguments, at: &index)
+                guard let value = Int(rawValue), value > 0 else {
+                    throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
+                }
+                windowIdentifier = value
             case "--tab-group-profile":
                 tabGroupProfile = try optionValue(after: argument, in: arguments, at: &index)
             case "--tab-group-name":
@@ -356,6 +432,14 @@ private struct SafariTabListReorderURLsRequest: Equatable {
                         throw SafariTabCommandError.invalidWindowIndex(rawValue)
                     }
                     windowIndex = value
+                } else if let rawValue = argument.optionValue(prefix: "--window-id=") {
+                    guard !rawValue.isEmpty else {
+                        throw SafariTabListCommandError.missingOptionValue("--window-id")
+                    }
+                    guard let value = Int(rawValue), value > 0 else {
+                        throw SafariTabCommandError.invalidWindowIdentifier(rawValue)
+                    }
+                    windowIdentifier = value
                 } else if let value = argument.optionValue(prefix: "--tab-group-profile=") {
                     tabGroupProfile = value
                 } else if let value = argument.optionValue(prefix: "--tab-group-name=") {
@@ -374,12 +458,20 @@ private struct SafariTabListReorderURLsRequest: Equatable {
             throw SafariTabListCommandError.missingURL
         }
 
-        if windowIndex != nil && (tabGroupProfile != nil || tabGroupName != nil) {
+        if windowIndex != nil && windowIdentifier != nil {
+            throw SafariTabListCommandError.multipleContexts
+        }
+
+        if (windowIndex != nil || windowIdentifier != nil) && (tabGroupProfile != nil || tabGroupName != nil) {
             throw SafariTabListCommandError.multipleContexts
         }
 
         if let windowIndex {
-            return SafariTabListReorderURLsRequest(context: .window(windowIndex), urls: urls)
+            return SafariTabListReorderURLsRequest(context: .window(.index(windowIndex)), urls: urls)
+        }
+
+        if let windowIdentifier {
+            return SafariTabListReorderURLsRequest(context: .window(.identifier(windowIdentifier)), urls: urls)
         }
 
         guard let tabGroupProfile else {

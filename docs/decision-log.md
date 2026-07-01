@@ -2,6 +2,13 @@
 
 ## 2026-06-30
 
+### Stable Safari window mutation targeting
+
+- Added `--window-id` targeting to live tab-list and tab mutation commands that previously accepted only volatile `window-index` addresses.
+- Saved-tab-group-backed URL reconciliation and reorder flows now carry the focused Safari window id through follow-up tab opens, tab reads, and tab moves after sidebar or window-focus UI work.
+- `open-tab-group-window` and `set-window-tab-group` now select existing saved groups through identifier-aware sidebar selection by passing the resolved `SafariTabGroupRecord`, superseding the older toolbar-picker switching path for high-level commands.
+- Window indexes remain accepted for backward compatibility and immediate-read workflows, but stable window ids are the preferred write address after any Safari UI operation that can reorder windows.
+
 ### Command argument preflight safety
 
 - Added command-level argument preflight before command dispatch.

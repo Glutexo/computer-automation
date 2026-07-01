@@ -70,7 +70,7 @@ flowchart TD
 
 - `SafariUserInterface` is a separate module so GUI scripting does not mix with Safari domain models.
 - `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
-- `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` and reusable toolbar models through explicit module boundaries.
+- `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` for window creation and `SafariSidebar` for saved tab-group selection through explicit module boundaries.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
 - `SafariSidebar.selectTabGroup(identifier:named:)` prefers accessibility identifiers beginning with `SidebarLibraryItemTabGroup` that contain the saved group identifier; name-only selection remains available for flows that do not have a persisted saved group id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
@@ -81,6 +81,7 @@ flowchart TD
   - File-menu create only where Safari exposes no equivalent sidebar mutation trigger for new empty groups
 - Current verified tab-group flows are:
   - create: File-menu `NewEmptyTabGroupMenuItem`, then inline sidebar text field
+  - select/open existing group: identifier-aware sidebar group selection
   - delete: identifier-aware sidebar group selection, then context-menu `DeleteTabGroupMenuItem`
 - Safari also shows a visual rename affordance for saved tab groups, but the trigger for that affordance is not currently available through a stable accessibility surface, so no standalone rename command is exposed.
 - A create-new-and-delete-old fallback would be a replacement workflow, not a UI rename workflow, because it would create a different saved tab-group identity.
@@ -107,4 +108,4 @@ flowchart TD
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.
 - The currently verified uses of the sidebar inline text field are:
   - the post-create flow for a newly created empty tab group
-- Toolbar models remain in the module because live tab-group switching composes them from the `Safari` window layer, but they are not exposed as standalone CLI surfaces.
+- Toolbar models remain in the module for structured Safari toolbar inspection and older picker research, but current high-level saved tab-group selection uses the sidebar surface rather than the toolbar picker.
