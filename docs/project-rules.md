@@ -45,6 +45,7 @@
 - Cover every model with robust parameterized tests, including UI and AppleScript models.
 - Test not only concrete user-story cases but also general behavior, invariants, and edge conditions.
 - Use mocks freely when they improve coverage, isolation, or reproducibility without weakening the contract being tested.
+- Keep test files organized by module or model under `Tests/computer-automationTests/`, and keep reusable fixtures, builders, and mocks in clearly named test support files.
 - Start with the smallest useful automation slice and validate it end to end.
 - Reuse established tools and protocols where possible before inventing custom abstractions.
 - Apply YAGNI consistently: do not add new models, commands, or AX surfaces until a concrete current workflow needs them.
