@@ -9,6 +9,8 @@
 - `swiftpm-testing-helper`, which hosts Swift Testing bundles, had no visible AppleEvents permission for Safari or System Events.
 - The live Safari regression stalled inside an `NSAppleScript` call reached through `SafariAppleScriptWindow.list()` before any Safari mutation.
 - Live Safari regression should run from a process launched by an explicitly authorized terminal, or from another standalone runner whose responsible process can receive the needed TCC permissions.
+- After Terminal Full Disk Access was corrected, `SAFARI_LIVE_TEST_PROFILE=Glutexo swift run computer-automation-live-safari-regression` completed successfully from Terminal.
+- The same standalone regression also completed successfully from the Air shell against the `Glutexo` profile, confirming that the standalone executable path avoids the `swiftpm-testing-helper` TCC stall for the current environment.
 
 ## 2026-06-30
 
