@@ -48,7 +48,8 @@ public enum SafariTabGroup: ModelModel {
         databasePath: String = SafariProfile.databasePath()
     ) throws -> [SafariTabGroupRecord] {
         do {
-            return try SafariDatabaseTabGroup.list(databasePath: databasePath).map(SafariTabGroupRecord.init)
+            let groups = try SafariDatabaseTabGroup.list(databasePath: databasePath).map(SafariTabGroupRecord.init)
+            return try normalizeDefaultProfileNames(groups, databasePath: databasePath)
         } catch let error as SafariDatabaseError {
             throw SafariTabGroupCommandError(error)
         }
@@ -60,8 +61,9 @@ public enum SafariTabGroup: ModelModel {
         listTabGroups: () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         listProfiles: () throws -> [SafariProfileRecord] = { try SafariProfile.listAvailableProfiles() }
     ) throws -> [SafariTabGroupRecord] {
-        let profileNames = try matchingStoredProfileNames(for: profileName, listProfiles: listProfiles)
-        return try listTabGroups().filter {
+        let profiles = try listProfiles()
+        let profileNames = storedProfileNames(for: profileName, profiles: profiles)
+        return try normalizeDefaultProfileNames(listTabGroups(), profiles: profiles).filter {
             profileNames.contains($0.profileName) && $0.name == name
         }
     }
@@ -104,17 +106,47 @@ public enum SafariTabGroup: ModelModel {
         databasePath: String = SafariProfile.databasePath()
     ) throws -> SafariTabGroupRecord {
         do {
-            return SafariTabGroupRecord(
+            let deletedGroup = SafariTabGroupRecord(
                 try SafariDatabaseTabGroup.delete(
                     tabGroupIdentifier: tabGroupIdentifier,
                     databasePath: databasePath
                 )
             )
+            return try normalizeDefaultProfileNames([deletedGroup], databasePath: databasePath)[0]
         } catch let error as SafariDatabaseError {
             throw SafariTabGroupCommandError(error)
         } catch SafariDatabaseTabGroupError.tabGroupNotFound(let identifier) {
             throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
         }
+    }
+
+    static func normalizeDefaultProfileNames(
+        _ groups: [SafariTabGroupRecord],
+        profiles: [SafariProfileRecord]
+    ) -> [SafariTabGroupRecord] {
+        guard let defaultProfileName = profiles.first?.name else {
+            return groups
+        }
+
+        return groups.map { group in
+            guard group.profileName.isEmpty else {
+                return group
+            }
+
+            return SafariTabGroupRecord(
+                identifier: group.identifier,
+                profileName: defaultProfileName,
+                name: group.name
+            )
+        }
+    }
+
+    private static func normalizeDefaultProfileNames(
+        _ groups: [SafariTabGroupRecord],
+        databasePath: String
+    ) throws -> [SafariTabGroupRecord] {
+        let profiles = try SafariDatabaseProfile.list(databasePath: databasePath).map(SafariProfileRecord.init)
+        return normalizeDefaultProfileNames(groups, profiles: profiles)
     }
 }
 

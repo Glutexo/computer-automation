@@ -260,6 +260,7 @@ ORDER BY id;
   - JSON output returns `status` and `tabGroup`
 - `tab-groups` returns one line per saved group as:
   - `identifier|profile|name`
+- Saved group profile output uses Safari profile display names. When Safari stores a default-profile saved group with an empty profile field, `SafariTabGroup` maps it to the first profile from the profile catalog.
 - `find-tab-group <profile> <name>` returns matching saved groups as:
   - `identifier|profile|name`
 - `resolve-tab-group <profile> <name>` returns the same single row shape and fails unless exactly one saved group matches.
@@ -272,6 +273,7 @@ ORDER BY id;
   - opens the selected group's accessibility context menu
   - invokes `DeleteTabGroupMenuItem`
 - `SafariTabGroup` delegates persisted saved-group records to `SafariDatabaseTabGroup`.
+- `SafariDatabaseTabGroup` preserves the raw storage shape for root/default groups, while `SafariTabGroup` normalizes those records to the default Safari profile name before exposing command output or JSON records.
 - A bookmark is treated as a saved tab group when:
   - `type = 1`
   - `subtype = 0`

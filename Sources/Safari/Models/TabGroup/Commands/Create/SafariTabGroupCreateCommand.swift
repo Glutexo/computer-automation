@@ -124,12 +124,10 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
             throw SafariTabGroupCommandError.privateWindowTabGroupMutationUnsupported(window.index)
         }
 
-        let existingGroups = try listTabGroups()
+        let profiles = try listProfiles()
+        let existingGroups = try SafariTabGroup.normalizeDefaultProfileNames(listTabGroups(), profiles: profiles)
         let effectiveProfileName = resolveEffectiveProfileName(for: window, tabGroups: existingGroups)
-        let matchingProfileNames = try SafariTabGroup.matchingStoredProfileNames(
-            for: effectiveProfileName,
-            listProfiles: listProfiles
-        )
+        let matchingProfileNames = SafariTabGroup.storedProfileNames(for: effectiveProfileName, profiles: profiles)
 
         let hasDuplicateNameInTargetProfile: Bool
         if effectiveProfileName.isEmpty {
@@ -157,7 +155,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
             createdGroup = try waitForCreatedTabGroup(
                 profileName: effectiveProfileName,
                 matchingProfileNames: matchingProfileNames,
-                knownIdentifiers: knownIdentifiers
+                knownIdentifiers: knownIdentifiers,
+                profiles: profiles
             )
         } catch {
             try rollbackNewTabGroups(
@@ -175,7 +174,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
             let renamedGroup = try waitForRenamedTabGroup(
                 identifier: createdGroup.identifier,
-                expectedName: name
+                expectedName: name,
+                profiles: profiles
             )
             return renamedGroup
         } catch {
@@ -208,10 +208,13 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     private func waitForCreatedTabGroup(
         profileName: String,
         matchingProfileNames: Set<String>,
-        knownIdentifiers: Set<Int>
+        knownIdentifiers: Set<Int>,
+        profiles: [SafariProfileRecord]
     ) throws -> SafariTabGroupRecord {
         for attempt in 0..<Self.databaseMutationPollAttempts {
-            let newGroups = try listTabGroups().filter { !knownIdentifiers.contains($0.identifier) }
+            let newGroups = try SafariTabGroup
+                .normalizeDefaultProfileNames(listTabGroups(), profiles: profiles)
+                .filter { !knownIdentifiers.contains($0.identifier) }
 
             if let createdGroup = newGroups
                 .filter({ profileName.isEmpty || matchingProfileNames.contains($0.profileName) })
@@ -230,12 +233,14 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
     private func waitForRenamedTabGroup(
         identifier: Int,
-        expectedName: String
+        expectedName: String,
+        profiles: [SafariProfileRecord]
     ) throws -> SafariTabGroupRecord {
         for attempt in 0..<Self.databaseMutationPollAttempts {
-            if let renamedGroup = try listTabGroups().first(where: {
-                $0.identifier == identifier && $0.name == expectedName
-            }) {
+            if let renamedGroup = try SafariTabGroup
+                .normalizeDefaultProfileNames(listTabGroups(), profiles: profiles)
+                .first(where: { $0.identifier == identifier && $0.name == expectedName })
+            {
                 return renamedGroup
             }
 

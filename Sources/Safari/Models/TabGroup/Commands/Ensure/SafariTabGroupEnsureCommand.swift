@@ -106,7 +106,14 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
                 )
             }
 
-            return SafariTabGroupEnsureSummary(status: .reused, tabGroup: match)
+            return SafariTabGroupEnsureSummary(
+                status: .reused,
+                tabGroup: normalizeDefaultProfileName(
+                    match,
+                    requestedProfileName: profileName,
+                    matchingProfileNames: matchingProfileNames
+                )
+            )
         }
 
         let window = try SafariTabGroupSidebarAccess.openNewWindowForProfile(
@@ -132,7 +139,30 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
                 createdProfileName: createdGroup.profileName
             )
         }
-        return SafariTabGroupEnsureSummary(status: .created, tabGroup: createdGroup)
+        return SafariTabGroupEnsureSummary(
+            status: .created,
+            tabGroup: normalizeDefaultProfileName(
+                createdGroup,
+                requestedProfileName: profileName,
+                matchingProfileNames: matchingProfileNames
+            )
+        )
+    }
+
+    private func normalizeDefaultProfileName(
+        _ group: SafariTabGroupRecord,
+        requestedProfileName: String,
+        matchingProfileNames: Set<String>
+    ) -> SafariTabGroupRecord {
+        guard group.profileName.isEmpty, matchingProfileNames.contains("") else {
+            return group
+        }
+
+        return SafariTabGroupRecord(
+            identifier: group.identifier,
+            profileName: requestedProfileName,
+            name: group.name
+        )
     }
 
     private func rollbackMismatchedCreatedTabGroup(

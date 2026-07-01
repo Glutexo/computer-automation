@@ -1507,7 +1507,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         }
     )
 
-    #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "", name: "Focus")])
+    #expect(groups == [SafariTabGroupRecord(identifier: 10, profileName: "Glutexo", name: "Focus")])
 }
 
 @Test func safariTabGroupEnsureCommandReusesSingleExistingGroup() async throws {
@@ -1741,7 +1741,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         }
     )
 
-    #expect(try command.execute(arguments: ["Glutexo", "Focus"]) == "Safari tab group created.\n99||Focus")
+    #expect(try command.execute(arguments: ["Glutexo", "Focus"]) == "Safari tab group created.\n99|Glutexo|Focus")
     #expect(openedProfileName == "Glutexo")
     #expect(focusedWindowIdentifiers == [42])
 }
@@ -1898,7 +1898,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         sleep: { _ in }
     )
 
-    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001||Inbox")
+    #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Glutexo|Inbox")
     #expect(didCreateEmptyTabGroup)
     #expect(renamedIdentifier == 1001)
 }
@@ -4759,6 +4759,40 @@ func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, St
         [
             SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
             SafariDatabaseTabGroupRecord(identifier: 1008, profileName: "", name: "Root Group")
+        ]
+    )
+}
+
+@Test func safariTabGroupListNormalizesRootGroupsToDefaultProfileName() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        external_uuid TEXT,
+        subtype INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, external_uuid, subtype) VALUES
+        (5, 0, 1, 'Glutexo', 'profile-a', 2),
+        (288, 0, 1, 'Twisto', 'profile-b', 2),
+        (1000, 288, 1, 'Focus', 'group-1', 0),
+        (1001, 1000, 1, 'TopScopedBookmarkList', 'scope-1', 1),
+        (1002, 1000, 0, 'OpenAI', 'page-1', 0),
+        (1008, 0, 1, 'Root Group', 'root-group', 0),
+        (1009, 1008, 1, 'TopScopedBookmarkList', 'root-scope', 1);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariTabGroup.list(databasePath: databasePath) ==
+        [
+            SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+            SafariTabGroupRecord(identifier: 1008, profileName: "Glutexo", name: "Root Group")
         ]
     )
 }

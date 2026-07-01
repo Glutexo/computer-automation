@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-07-01
+
+### Default-profile saved tab-group normalization
+
+- Kept `SafariDatabaseTabGroup` faithful to Safari's storage shape, where root/default saved groups can have an empty profile name.
+- Mapped those empty saved-group profile names to the first persisted Safari profile in the higher-level `SafariTabGroup` model.
+- Command text and JSON output now report the default profile display name instead of leaking the empty storage field.
+
 ## 2026-06-30
 
 ### Stable Safari window mutation targeting
