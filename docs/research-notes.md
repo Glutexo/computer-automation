@@ -11,6 +11,14 @@
 - A later live regression against Twisto still failed when no Twisto window was already open. The File menu contained `Nuova finestra di Twisto` as item 2 with shortcut metadata `N|0`, so the profile item existed. This points to the native AX press path being insufficient even when it reports success; the System Events indexed click path is the next verified candidate because it targets the same structural menu item.
 - Switching to the System Events indexed click path alone still left `open-window Twisto` unresolved. The remaining likely factor is delayed profile-window or database metadata propagation beyond the original 1-second `open-window` polling window, so profile-targeted window creation needs a longer bounded poll than unprofiled AppleScript document creation.
 - Extending the profile-window poll still failed when no Twisto window was open. In the same session, Command-N created a default-profile `Glutexo` window, Command-Option-Shift-2 created no window, and Command-Option-Shift-1 created a `Twisto — Pagina di apertura` window. Safari's profile shortcuts therefore map `0` to the default profile and `1...9` to additional profiles in persisted profile order.
+- Later live Twisto runs showed that the System Events File-menu click path can hang inside `NSAppleScript` before returning control to fallback logic. Prefer the profile keyboard shortcut before File-menu profile opening when profile order is known.
+- A manual live regression passed after switching profile-window creation paths to shortcut-first: saved-group URL ensure added both URLs, reorder reported no missing URLs, persisted order matched the request, and delete readback removed the temporary group.
+
+### Safari saved tab-group selection can lag behind AX row selection
+
+- The Twisto live regression later reached saved tab-group URL operations, but `reorder-tab-list-urls` could report both just-added URLs as missing immediately after `ensure-tab-list-urls`.
+- The likely race is that AX sidebar row selection returns before Safari has loaded the selected saved group into the focused window and before `SafariTabs.db` exposes that window as selected for the group.
+- Saved-group-backed tab-list writes should wait until `safari windows` reports the target group for the stable window id and the live window tabs represent the saved tab-group rows before adding or reordering URLs.
 
 ## 2026-07-01
 

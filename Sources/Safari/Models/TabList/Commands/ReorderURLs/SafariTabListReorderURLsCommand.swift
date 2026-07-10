@@ -187,12 +187,25 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
-            openWindow: openWindow
+            openWindow: openWindow,
+            sleep: sleep
         )
         try selectTabGroup(tabGroup, executor)
 
         let windowAddress = SafariWindowAddress.identifier(window.identifier)
-        let tabs = try listWindowTabs(for: windowAddress).map(SafariTabListReorderItem.init)
+        let tabs = try SafariSavedTabGroupWindowReadiness.waitForLoadedTabs(
+            tabGroup: tabGroup,
+            windowIdentifier: window.identifier,
+            listWindows: listWindows,
+            listWindowTabs: {
+                try listWindowTabs(for: windowAddress)
+            },
+            listTabGroupTabs: {
+                try listTabGroupTabs(tabGroup.identifier)
+            },
+            sleep: sleep
+        )
+        .map(SafariTabListReorderItem.init)
         let result = try reorder(windowAddress: windowAddress, tabs: tabs, requestedURLs: requestedURLs)
         try verifySavedTabGroupOrder(
             tabGroupIdentifier: tabGroup.identifier,

@@ -102,7 +102,9 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     let command = SafariWindowOpenCommand(
         executor: MockAppleScriptExecutor(),
         listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
-        openWindow: { _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") }
+        openWindow: { _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") },
+        listWindows: { _ in [] },
+        openProfileWindowShortcut: { _, _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") }
     )
 
     #expect(throws: SafariWindowCommandError.profileMenuItemNotFound("Twisto")) {
@@ -131,7 +133,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
 }
 
 @Test func safariWindowOpenCommandFormatsProfileLaunchMessage() async throws {
-    var receivedProfileName: String?
+    var shortcutProfiles: [String] = []
     var windowLists = [
         [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
         [
@@ -142,18 +144,22 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     let command = SafariWindowOpenCommand(
         executor: MockAppleScriptExecutor(),
         listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
-        openWindow: { profileName, _ in receivedProfileName = profileName },
+        openWindow: { _, _ in Issue.record("openWindow should not be called when profile shortcut is available") },
         listWindows: { _ in windowLists.removeFirst() },
         listResolvedWindows: {
             [
                 SafariWindowRecord(identifier: 44, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto"),
                 SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Glutexo", name: "Existing")
             ]
+        },
+        openProfileWindowShortcut: { profileName, profileNames, _ in
+            #expect(profileName == "Twisto")
+            shortcutProfiles = profileNames
         }
     )
 
     #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|44")
-    #expect(receivedProfileName == "Twisto")
+    #expect(shortcutProfiles == ["Twisto"])
 }
 
 @Test func safariWindowOpenCommandFallsBackToExistingProfileWindowWhenMenuOpenDoesNotCreateWindow() async throws {
@@ -184,8 +190,39 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     #expect(didOpenNewDocument)
 }
 
-@Test func safariWindowOpenCommandFallsBackToProfileShortcutWhenMenuOpenDoesNotCreateWindow() async throws {
+@Test func safariWindowOpenCommandFallsBackToMenuWhenProfileShortcutIsUnavailable() async throws {
     var receivedProfileName: String?
+    var didTryShortcut = false
+    var windowLists = [
+        [SafariAppleScriptWindowRecord(identifier: 10, name: "Glutexo — Existing work")],
+        [
+            SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto — Start Page"),
+            SafariAppleScriptWindowRecord(identifier: 10, name: "Glutexo — Existing work")
+        ]
+    ]
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: {
+            [
+                SafariProfileRecord(name: "Glutexo", identifier: "1"),
+                SafariProfileRecord(name: "Twisto", identifier: "2")
+            ]
+        },
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in windowLists.removeFirst() },
+        openProfileWindowShortcut: { _, _, _ in
+            didTryShortcut = true
+            throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|42")
+    #expect(didTryShortcut)
+    #expect(receivedProfileName == "Twisto")
+}
+
+@Test func safariWindowOpenCommandPrefersProfileShortcutWhenAvailable() async throws {
     var shortcutProfiles: [String] = []
     var didOpenNewDocument = false
     var rawWindowLists = [
@@ -206,7 +243,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
                 SafariProfileRecord(name: "Twisto", identifier: "2")
             ]
         },
-        openWindow: { profileName, _ in receivedProfileName = profileName },
+        openWindow: { _, _ in Issue.record("openWindow should not be called when profile shortcut succeeds") },
         listWindows: { _ in rawWindowLists[0] },
         listResolvedWindows: { resolvedWindowLists.removeFirst() },
         openNewDocument: { _ in didOpenNewDocument = true },
@@ -222,13 +259,12 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 
     #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|42")
-    #expect(receivedProfileName == "Twisto")
     #expect(shortcutProfiles == ["Glutexo", "Twisto"])
     #expect(!didOpenNewDocument)
 }
 
 @Test func safariWindowOpenCommandRejectsAndRollsBackWrongProfileWindow() async throws {
-    var receivedProfileName: String?
+    var shortcutProfiles: [String] = []
     var closedWindowIdentifiers: [Int] = []
     var windowLists = [
         [SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")],
@@ -244,7 +280,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     let command = SafariWindowOpenCommand(
         executor: MockAppleScriptExecutor(),
         listProfiles: { [SafariProfileRecord(name: "Glutexo", identifier: "1")] },
-        openWindow: { profileName, _ in receivedProfileName = profileName },
+        openWindow: { _, _ in Issue.record("openWindow should not be called when profile shortcut is available") },
         listWindows: { _ in
             if windowLists.count > 1 {
                 return windowLists.removeFirst()
@@ -256,6 +292,10 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
                 SafariWindowRecord(identifier: 45, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto — Start Page"),
                 SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", name: "Existing")
             ]
+        },
+        openProfileWindowShortcut: { profileName, profileNames, _ in
+            #expect(profileName == "Glutexo")
+            shortcutProfiles = profileNames
         },
         closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
         sleep: { _ in }
@@ -269,7 +309,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     ) {
         try command.execute(arguments: ["Glutexo"])
     }
-    #expect(receivedProfileName == "Glutexo")
+    #expect(shortcutProfiles == ["Glutexo"])
     #expect(closedWindowIdentifiers == [45])
 }
 

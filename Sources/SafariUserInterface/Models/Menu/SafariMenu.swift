@@ -72,17 +72,8 @@ public enum SafariMenu: ModelModel {
         }
 
         let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        let focusedWindow = try SafariAX.requiredElementValue(
-            for: kAXFocusedWindowAttribute,
-            on: applicationElement,
-            error: SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
-        )
-
         try waitForSheetButtonPress(polling: polling) {
-            guard
-                let sheet = firstDescendant(in: focusedWindow, matchingRole: kAXSheetRole),
-                let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier)
-            else {
+            guard let button = sheetButton(matchingIdentifier: identifier, in: applicationElement) else {
                 return false
             }
 
@@ -101,6 +92,33 @@ public enum SafariMenu: ModelModel {
 
     static func stringValue(for attribute: String, on element: AXUIElement) -> String {
         SafariAX.stringValue(for: attribute, on: element)
+    }
+
+    private static func sheetButton(
+        matchingIdentifier identifier: String,
+        in applicationElement: AXUIElement
+    ) -> AXUIElement? {
+        let focusedWindow = elementValue(for: kAXFocusedWindowAttribute, on: applicationElement)
+        let windows = unique(
+            [focusedWindow].compactMap { $0 } +
+            elements(for: kAXWindowsAttribute, on: applicationElement)
+        )
+
+        for window in windows {
+            for sheet in sheetElements(attachedTo: window) {
+                if let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier) {
+                    return button
+                }
+            }
+        }
+
+        for sheet in directSheetElements(on: applicationElement) {
+            if let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier) {
+                return button
+            }
+        }
+
+        return nil
     }
 
     private static func menuItemElements(menuBarItemIndex: Int) throws -> [AXUIElement] {
@@ -152,6 +170,23 @@ public enum SafariMenu: ModelModel {
 
     private static func elements(for attribute: String, on element: AXUIElement) -> [AXUIElement] {
         SafariAX.elements(for: attribute, on: element)
+    }
+
+    private static func elementValue(for attribute: String, on element: AXUIElement) -> AXUIElement? {
+        SafariAX.elementValue(for: attribute, on: element)
+    }
+
+    private static func sheetElements(attachedTo window: AXUIElement) -> [AXUIElement] {
+        unique(
+            elements(for: "AXSheets", on: window) +
+            directSheetElements(on: window)
+        )
+    }
+
+    private static func directSheetElements(on element: AXUIElement) -> [AXUIElement] {
+        descendantElements(on: element).filter {
+            stringValue(for: kAXRoleAttribute, on: $0) == kAXSheetRole
+        }
     }
 
     private static func unique(_ elements: [AXUIElement]) -> [AXUIElement] {

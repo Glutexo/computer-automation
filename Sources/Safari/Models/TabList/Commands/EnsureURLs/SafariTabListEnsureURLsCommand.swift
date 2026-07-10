@@ -1,4 +1,5 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
@@ -39,6 +40,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
     private let openTabByIndex: (Int, String?, SafariAppleScriptExecuting) throws -> Void
     private let openTabByIdentifier: (Int, String?, SafariAppleScriptExecuting) throws -> Void
     private let deleteTabGroup: (Int) throws -> Void
+    private let sleep: (TimeInterval) -> Void
 
     public init() {
         let executor = SafariAppleScriptExecutor()
@@ -74,6 +76,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         self.deleteTabGroup = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
         }
+        self.sleep = Thread.sleep
     }
 
     init(
@@ -96,7 +99,8 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         },
         deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
-        }
+        },
+        sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {
         self.executor = executor
         self.ensureTabGroup = ensureTabGroup
@@ -110,6 +114,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         self.openTabByIndex = openTab
         self.openTabByIdentifier = openTabByIdentifier
         self.deleteTabGroup = deleteTabGroup
+        self.sleep = sleep
     }
 
     public func execute(arguments: [String]) throws -> String {
@@ -160,11 +165,24 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
-            openWindow: openWindow
+            openWindow: openWindow,
+            sleep: sleep
         )
         try selectTabGroup(tabGroup, executor)
 
-        let existingURLs = try listTabGroupTabs(tabGroup.identifier).map(\.url)
+        let loadedTabs = try SafariSavedTabGroupWindowReadiness.waitForLoadedTabs(
+            tabGroup: tabGroup,
+            windowIdentifier: window.identifier,
+            listWindows: listWindows,
+            listWindowTabs: {
+                try listWindowTabs(for: .identifier(window.identifier))
+            },
+            listTabGroupTabs: {
+                try listTabGroupTabs(tabGroup.identifier)
+            },
+            sleep: sleep
+        )
+        let existingURLs = loadedTabs.map(\.url)
         let result = try reconcile(requestedURLs: requestedURLs, existingURLs: existingURLs) { url in
             try openTabByIdentifier(window.identifier, url, executor)
         }

@@ -33,9 +33,13 @@ enum SafariTabGroupSidebarAccess {
         executor: SafariAppleScriptExecuting,
         listWindows: () throws -> [SafariWindowRecord],
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
-        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,
+        profileNames: () throws -> [String] = { try SafariProfile.listAvailableProfiles().map(\.name) },
+        openProfileWindowShortcut: (String, [String], SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openProfileWindowShortcut,
+        sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let windows = try listWindows()
+        let existingWindowIdentifiers = Set(windows.map(\.identifier))
 
         if let window = windows.first(where: { !$0.isPrivate && $0.profileName == profileName }) {
             try focusWindow(window.identifier, executor)
@@ -53,14 +57,58 @@ enum SafariTabGroupSidebarAccess {
             return frontUnscopedWindow
         }
 
-        try openWindow(profileName, executor)
+        let knownProfileNames = (try? profileNames()) ?? []
+        if let shortcutWindow = try openProfileWindowWithShortcut(
+            profileName: profileName,
+            profileNames: knownProfileNames,
+            excluding: existingWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openProfileWindowShortcut: openProfileWindowShortcut,
+            sleep: sleep
+        ) {
+            return shortcutWindow
+        }
 
-        guard let openedWindow = try listWindows().first(where: { !$0.isPrivate && $0.profileName == profileName }) else {
+        try openWindow(profileName, executor)
+        var didObserveNewWindow = false
+
+        for attempt in 0..<profileWindowPollAttempts {
+            let currentWindows = try listWindows()
+            let newWindows = currentWindows.filter {
+                !existingWindowIdentifiers.contains($0.identifier) && !$0.isPrivate
+            }
+            didObserveNewWindow = didObserveNewWindow || !newWindows.isEmpty
+
+            if let openedWindow = currentWindows.first(where: { !$0.isPrivate && $0.profileName == profileName }) {
+                try focusWindow(openedWindow.identifier, executor)
+                return openedWindow
+            }
+
+            if attempt < profileWindowPollAttempts - 1 {
+                sleep(profileWindowPollInterval)
+            }
+        }
+
+        guard !didObserveNewWindow else {
             throw SafariTabGroupCommandError.windowForProfileNotFound(profileName)
         }
 
-        try focusWindow(openedWindow.identifier, executor)
-        return openedWindow
+        if knownProfileNames.isEmpty, let shortcutWindow = try openProfileWindowWithShortcut(
+            profileName: profileName,
+            profileNames: (try? profileNames()) ?? [],
+            excluding: existingWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openProfileWindowShortcut: openProfileWindowShortcut,
+            sleep: sleep
+        ) {
+            return shortcutWindow
+        }
+
+        throw SafariTabGroupCommandError.windowForProfileNotFound(profileName)
     }
 
     static func focusWindowForTabGroup(
@@ -68,7 +116,8 @@ enum SafariTabGroupSidebarAccess {
         executor: SafariAppleScriptExecuting,
         listWindows: () throws -> [SafariWindowRecord],
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
-        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+        openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,
+        sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let windows = try listWindows()
 
@@ -93,7 +142,8 @@ enum SafariTabGroupSidebarAccess {
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
-            openWindow: openWindow
+            openWindow: openWindow,
+            sleep: sleep
         )
     }
 
@@ -110,6 +160,19 @@ enum SafariTabGroupSidebarAccess {
         sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
+        if let shortcutWindow = try openProfileWindowWithShortcut(
+            profileName: profileName,
+            profileNames: profileNames,
+            excluding: existingWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openProfileWindowShortcut: openProfileWindowShortcut,
+            sleep: sleep
+        ) {
+            return shortcutWindow
+        }
+
         try openWindow(profileName, executor)
         var didObserveNewWindow = false
 
@@ -142,19 +205,6 @@ enum SafariTabGroupSidebarAccess {
         ) {
             try focusWindow(fallbackWindow.identifier, executor)
             return fallbackWindow
-        }
-
-        if !didObserveNewWindow {
-            try openProfileWindowShortcut(profileName, profileNames, executor)
-            if let shortcutWindow = try SafariProfileWindowOpening.waitForNewProfileWindow(
-                profileName: profileName,
-                excluding: existingWindowIdentifiers,
-                listWindows: listWindows,
-                sleep: sleep
-            ) {
-                try focusWindow(shortcutWindow.identifier, executor)
-                return shortcutWindow
-            }
         }
 
         try rollbackNewWindows(
@@ -223,6 +273,39 @@ enum SafariTabGroupSidebarAccess {
         matchesTabGroupNamed tabGroupName: String
     ) -> Bool {
         title == tabGroupName || title.hasPrefix("\(tabGroupName) —") || title.hasPrefix("\(tabGroupName) -")
+    }
+
+    private static func openProfileWindowWithShortcut(
+        profileName: String,
+        profileNames: [String],
+        excluding existingWindowIdentifiers: Set<Int>,
+        executor: SafariAppleScriptExecuting,
+        listWindows: () throws -> [SafariWindowRecord],
+        focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
+        openProfileWindowShortcut: (String, [String], SafariAppleScriptExecuting) throws -> Void,
+        sleep: (TimeInterval) -> Void
+    ) throws -> SafariWindowRecord? {
+        guard !profileNames.isEmpty else {
+            return nil
+        }
+
+        do {
+            try openProfileWindowShortcut(profileName, profileNames, executor)
+        } catch SafariUserInterfaceError.profileWindowMenuItemNotFound {
+            return nil
+        }
+
+        guard let shortcutWindow = try SafariProfileWindowOpening.waitForNewProfileWindow(
+            profileName: profileName,
+            excluding: existingWindowIdentifiers,
+            listWindows: listWindows,
+            sleep: sleep
+        ) else {
+            return nil
+        }
+
+        try focusWindow(shortcutWindow.identifier, executor)
+        return shortcutWindow
     }
 
     private static func windowTitle(

@@ -493,7 +493,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupEnsureCommandAcceptsDefaultProfileCreatedGroup() async throws {
-    var openedProfileName: String?
+    var shortcutRequests: [String] = []
     var focusedWindowIdentifiers: [Int] = []
     var listWindowCallCount = 0
     let openedWindow = SafariWindowRecord(
@@ -519,7 +519,10 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             return listWindowCallCount == 1 ? [] : [openedWindow]
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
-        openWindow: { profileName, _ in openedProfileName = profileName },
+        openWindow: { _, _ in Issue.record("openWindow should not be called when profile shortcut is available") },
+        openProfileWindowShortcut: { profileName, profileNames, _ in
+            shortcutRequests.append("\(profileName)|\(profileNames.joined(separator: ","))")
+        },
         createTabGroup: { windowIdentifier, name in
             #expect(windowIdentifier == 42)
             #expect(name == "Focus")
@@ -528,7 +531,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     )
 
     #expect(try command.execute(arguments: ["Glutexo", "Focus"]) == "Safari tab group created.\n99|Glutexo|Focus")
-    #expect(openedProfileName == "Glutexo")
+    #expect(shortcutRequests == ["Glutexo|Glutexo,Twisto"])
     #expect(focusedWindowIdentifiers == [42])
 }
 
@@ -1142,6 +1145,56 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(didDelete)
 }
 
+@Test func safariTabGroupSidebarAccessPrefersProfileShortcutWhenAvailable() async throws {
+    let existingWindow = SafariWindowRecord(
+        identifier: 10,
+        index: 1,
+        isPrivate: false,
+        profileName: "Glutexo",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Glutexo — Start Page"
+    )
+    let shortcutWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    var didOpenWindow = false
+    var shortcutRequests: [String] = []
+    var focusedWindowIdentifiers: [Int] = []
+    var sleptIntervals: [TimeInterval] = []
+    var didUseShortcut = false
+
+    let focusedWindow = try SafariTabGroupSidebarAccess.focusWindowForProfile(
+        profileName: "Twisto",
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            didUseShortcut ? [shortcutWindow, existingWindow] : [existingWindow]
+        },
+        focusWindow: { identifier, _ in focusedWindowIdentifiers.append(identifier) },
+        openWindow: { _, _ in didOpenWindow = true },
+        profileNames: {
+            ["Glutexo", "Twisto"]
+        },
+        openProfileWindowShortcut: { profileName, profileNames, _ in
+            shortcutRequests.append("\(profileName)|\(profileNames.joined(separator: ","))")
+            didUseShortcut = true
+        },
+        sleep: { sleptIntervals.append($0) }
+    )
+
+    #expect(focusedWindow == shortcutWindow)
+    #expect(!didOpenWindow)
+    #expect(shortcutRequests == ["Twisto|Glutexo,Twisto"])
+    #expect(focusedWindowIdentifiers == [42])
+    #expect(sleptIntervals.isEmpty)
+}
+
 @Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarSelectionFails() async throws {
     var focusedWindowIdentifier: Int?
     var selectedIdentifier: Int?
@@ -1174,6 +1227,43 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(selectedIdentifier == 1000)
     #expect(selectedName == "Inbox")
     #expect(!didDeleteSelectedGroup)
+    #expect(didDeleteCurrentGroup)
+}
+
+@Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarDeletionFails() async throws {
+    var focusedWindowIdentifier: Int?
+    var selectedIdentifier: Int?
+    var selectedName: String?
+    var didDeleteSelectedGroup = false
+    var didDeleteCurrentGroup = false
+
+    let command = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            didDeleteCurrentGroup ? [] : [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+        },
+        listWindows: {
+            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Inbox — Start Page")]
+        },
+        focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { group, _ in
+            selectedIdentifier = group.identifier
+            selectedName = group.name
+        },
+        deleteSelectedTabGroup: { _ in
+            didDeleteSelectedGroup = true
+            throw SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable
+        },
+        deleteCurrentTabGroup: { _ in didDeleteCurrentGroup = true },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["1000"]) == "1000|Twisto|Inbox")
+    #expect(focusedWindowIdentifier == 10)
+    #expect(selectedIdentifier == 1000)
+    #expect(selectedName == "Inbox")
+    #expect(didDeleteSelectedGroup)
     #expect(didDeleteCurrentGroup)
 }
 

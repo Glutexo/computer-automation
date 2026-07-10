@@ -111,6 +111,29 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         }
 
         let knownWindowIdentifiers = try currentWindowIdentifiers()
+        var didTryProfileShortcut = false
+
+        if !profileNames.isEmpty {
+            didTryProfileShortcut = true
+            do {
+                let windowIdentifier = try openNewWindowWithProfileShortcut(
+                    excluding: knownWindowIdentifiers,
+                    requestedProfileName: profileName,
+                    profileNames: profileNames
+                )
+                return SafariWindowOpenResult(
+                    message: "Safari window opened for profile \(profileName).",
+                    windowIdentifier: windowIdentifier,
+                    profileName: profileName
+                )
+            } catch SafariUserInterfaceError.profileWindowMenuItemNotFound {
+            } catch SafariWindowCommandError.openedWindowIdentifierNotFound {
+            } catch {
+                try rollbackNewWindows(excluding: knownWindowIdentifiers)
+                throw error
+            }
+        }
+
         do {
             try openWindow(profileName, executor)
         } catch {
@@ -129,6 +152,10 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
                     requestedProfileName: profileName
                 )
             } catch {
+                if didTryProfileShortcut {
+                    throw error
+                }
+
                 do {
                     windowIdentifier = try openNewWindowWithProfileShortcut(
                         excluding: knownWindowIdentifiers,

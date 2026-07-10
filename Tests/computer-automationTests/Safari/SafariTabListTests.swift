@@ -156,6 +156,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     var openedProfiles: [String?] = []
     var selectedTabGroups: [String] = []
     var openedTabs: [(Int, String?)] = []
+    var listedWindowTabsCount = 0
+    var sleptIntervals: [TimeInterval] = []
 
     let command = SafariTabListEnsureURLsCommand(
         executor: MockAppleScriptExecutor(),
@@ -168,6 +170,19 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
             )
         },
         listWindowTabs: { _, _ in [] },
+        listWindowTabsByIdentifier: { windowIdentifier, _ in
+            #expect(windowIdentifier == 42)
+            listedWindowTabsCount += 1
+            if listedWindowTabsCount == 1 {
+                return [
+                    SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "favorites://")
+                ]
+            }
+
+            return [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://example.com")
+            ]
+        },
         listTabGroupTabs: { identifier in
             #expect(identifier == 1000)
             return [
@@ -191,7 +206,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         openWindow: { profileName, _ in openedProfiles.append(profileName) },
         selectTabGroup: { group, _ in selectedTabGroups.append("\(group.identifier)|\(group.profileName)|\(group.name)") },
         openTab: { _, _, _ in Issue.record("openTab should not be called") },
-        openTabByIdentifier: { windowIdentifier, url, _ in openedTabs.append((windowIdentifier, url)) }
+        openTabByIdentifier: { windowIdentifier, url, _ in openedTabs.append((windowIdentifier, url)) },
+        sleep: { sleptIntervals.append($0) }
     )
 
     let output = try command.execute(arguments: [
@@ -214,6 +230,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     #expect(focusedWindowIdentifiers == [42])
     #expect(openedProfiles.isEmpty)
     #expect(selectedTabGroups == ["1000|Twisto|Focus"])
+    #expect(listedWindowTabsCount == 2)
+    #expect(sleptIntervals == [0.25])
     #expect(openedTabs.map(\.0) == [42])
     #expect(openedTabs.map(\.1) == ["https://openai.com"])
 }
@@ -259,13 +277,25 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
             )
         },
         listWindowTabs: { _, _ in [] },
+        listWindowTabsByIdentifier: { _, _ in [] },
         listTabGroupTabs: { _ in [] },
         listWindows: {
-            [SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto")]
+            [
+                SafariWindowRecord(
+                    identifier: 42,
+                    index: 1,
+                    isPrivate: false,
+                    profileName: "Twisto",
+                    selectedTabGroupIdentifier: 1000,
+                    tabGroupName: "Focus",
+                    name: "Focus"
+                )
+            ]
         },
         focusWindow: { _, _ in },
         selectTabGroup: { _, _ in },
-        openTab: { _, _, _ in }
+        openTab: { _, _, _ in },
+        openTabByIdentifier: { _, _, _ in }
     )
 
     let output = try command.executeJSON(arguments: [
@@ -498,6 +528,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     var focusedWindowIdentifiers: [Int] = []
     var selectedTabGroups: [String] = []
     var moves: [String] = []
+    var listedWindowTabsCount = 0
+    var sleptIntervals: [TimeInterval] = []
 
     let command = SafariTabListReorderURLsCommand(
         executor: MockAppleScriptExecutor(),
@@ -510,6 +542,13 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         listWindowTabs: { _, _ in Issue.record("listWindowTabs should not be called"); return [] },
         listWindowTabsByIdentifier: { windowIdentifier, _ in
             #expect(windowIdentifier == 42)
+            listedWindowTabsCount += 1
+            if listedWindowTabsCount == 1 {
+                return [
+                    SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: nil, url: "favorites://")
+                ]
+            }
+
             return [
                 SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://a.example"),
                 SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: 2, url: "https://b.example"),
@@ -542,7 +581,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
         moveTab: { _, _, _, _ in Issue.record("moveTab should not be called") },
         moveTabByIdentifier: { windowIdentifier, sourceIndex, destinationIndex, _ in
             moves.append("\(windowIdentifier)|\(sourceIndex)|\(destinationIndex)")
-        }
+        },
+        sleep: { sleptIntervals.append($0) }
     )
 
     let output = try command.execute(arguments: [
@@ -565,6 +605,8 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     )
     #expect(focusedWindowIdentifiers == [42])
     #expect(selectedTabGroups == ["1000|Twisto|Focus"])
+    #expect(listedWindowTabsCount == 2)
+    #expect(sleptIntervals == [0.25])
     #expect(moves == ["42|3|1"])
 }
 

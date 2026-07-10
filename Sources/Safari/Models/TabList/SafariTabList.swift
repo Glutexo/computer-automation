@@ -140,6 +140,7 @@ enum SafariTabListCommandError: Error, Equatable, LocalizedError {
     case emptyTabGroupName
     case missingURL
     case emptyURL
+    case savedTabGroupSelectionNotLoaded(Int)
     case savedTabGroupOrderPersistenceNotVerified(Int)
     case unknownOption(String)
     case missingOptionValue(String)
@@ -162,6 +163,8 @@ enum SafariTabListCommandError: Error, Equatable, LocalizedError {
             "Missing URL."
         case .emptyURL:
             "URL must not be empty."
+        case .savedTabGroupSelectionNotLoaded(let identifier):
+            "Could not verify that Safari loaded saved tab group \(identifier) in the focused window."
         case .savedTabGroupOrderPersistenceNotVerified(let identifier):
             "Could not verify that Safari persisted the reordered tab order for saved tab group \(identifier)."
         case .unknownOption(let option):

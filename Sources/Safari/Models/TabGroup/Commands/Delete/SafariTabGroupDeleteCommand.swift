@@ -96,11 +96,16 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
             executor: executor,
             listWindows: listWindows,
             focusWindow: focusWindow,
-            openWindow: openWindow
+            openWindow: openWindow,
+            sleep: sleep
         )
         do {
             try selectTabGroup(group, executor)
-            try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteSelectedTabGroup)
+            do {
+                try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteSelectedTabGroup)
+            } catch where window(focusedWindow, matches: group) {
+                try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteCurrentTabGroup)
+            }
         } catch SafariTabGroupCommandError.sidebarTabGroupNotFound where window(focusedWindow, matches: group) {
             try deleteAndVerifyTabGroup(identifier: group.identifier, using: deleteCurrentTabGroup)
         } catch SafariTabGroupCommandError.sidebarUnavailable where window(focusedWindow, matches: group) {
