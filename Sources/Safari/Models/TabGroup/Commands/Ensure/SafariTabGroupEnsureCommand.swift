@@ -18,6 +18,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
+    private let openNewDocument: (SafariAppleScriptExecuting) throws -> Void
     private let createTabGroup: (Int, String) throws -> SafariTabGroupRecord
     private let deleteTabGroup: (Int) throws -> Void
     private let sleep: (TimeInterval) -> Void
@@ -34,6 +35,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             try SafariFileMenu.openWindow(profileName: profileName)
         }
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
+        self.openNewDocument = SafariAppleScriptWindow.openNewDocument
         self.createTabGroup = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         }
@@ -53,6 +55,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
+        openNewDocument: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
         createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIdentifier, name in
             try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
         },
@@ -68,6 +71,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         self.focusWindow = focusWindow
         self.openWindow = openWindow
         self.closeWindow = closeWindow
+        self.openNewDocument = openNewDocument
         self.createTabGroup = createTabGroup
         self.deleteTabGroup = deleteTabGroup
         self.sleep = sleep
@@ -123,6 +127,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
             focusWindow: focusWindow,
             openWindow: openWindow,
             closeWindow: closeWindow,
+            openNewDocument: openNewDocument,
             sleep: sleep
         )
         let createdGroup: SafariTabGroupRecord

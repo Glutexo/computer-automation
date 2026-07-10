@@ -101,6 +101,7 @@ enum SafariTabGroupSidebarAccess {
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
         openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,
         closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
+        openNewDocument: (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
         sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
@@ -121,6 +122,19 @@ enum SafariTabGroupSidebarAccess {
             if attempt < 19 {
                 sleep(0.1)
             }
+        }
+
+        if let fallbackWindow = try SafariProfileWindowOpening.openNewDocumentFromExistingProfileWindow(
+            profileName: profileName,
+            excluding: existingWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: focusWindow,
+            openNewDocument: openNewDocument,
+            sleep: sleep
+        ) {
+            try focusWindow(fallbackWindow.identifier, executor)
+            return fallbackWindow
         }
 
         try rollbackNewWindows(

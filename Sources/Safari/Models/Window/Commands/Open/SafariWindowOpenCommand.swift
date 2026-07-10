@@ -22,7 +22,10 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
     private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord]
     private let listResolvedWindows: () throws -> [SafariWindowRecord]
+    private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
+    private let openNewDocument: (SafariAppleScriptExecuting) throws -> Void
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
+    private let sleep: (TimeInterval) -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
@@ -32,7 +35,10 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         }
         self.listWindows = SafariAppleScriptWindow.list
         self.listResolvedWindows = { try SafariWindow.list() }
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
+        self.openNewDocument = SafariAppleScriptWindow.openNewDocument
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
+        self.sleep = Thread.sleep
     }
 
     init(
@@ -41,14 +47,20 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
         listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord] = SafariAppleScriptWindow.list,
         listResolvedWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
-        closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:)
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
+        openNewDocument: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
+        closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
+        sleep: @escaping (TimeInterval) -> Void = Thread.sleep
     ) {
         self.executor = executor
         self.listProfiles = listProfiles
         self.openWindow = openWindow
         self.listWindows = listWindows
         self.listResolvedWindows = listResolvedWindows
+        self.focusWindow = focusWindow
+        self.openNewDocument = openNewDocument
         self.closeWindow = closeWindow
+        self.sleep = sleep
     }
 
     @discardableResult
@@ -99,6 +111,16 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
                 excluding: knownWindowIdentifiers,
                 requestedProfileName: profileName
             )
+        } catch SafariWindowCommandError.openedWindowIdentifierNotFound {
+            do {
+                windowIdentifier = try openNewDocumentFromExistingProfileWindow(
+                    excluding: knownWindowIdentifiers,
+                    requestedProfileName: profileName
+                )
+            } catch {
+                try rollbackNewWindows(excluding: knownWindowIdentifiers)
+                throw error
+            }
         } catch {
             try rollbackNewWindows(excluding: knownWindowIdentifiers)
             throw error
@@ -150,7 +172,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
             }
 
             if attempt < 9 {
-                Thread.sleep(forTimeInterval: 0.1)
+                sleep(0.1)
             }
         }
 
@@ -164,10 +186,33 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         throw SafariWindowCommandError.openedWindowIdentifierNotFound
     }
 
+    private func openNewDocumentFromExistingProfileWindow(
+        excluding knownWindowIdentifiers: Set<Int>,
+        requestedProfileName: String
+    ) throws -> Int {
+        guard let window = try SafariProfileWindowOpening.openNewDocumentFromExistingProfileWindow(
+            profileName: requestedProfileName,
+            excluding: knownWindowIdentifiers,
+            executor: executor,
+            listWindows: listResolvedWindows,
+            focusWindow: focusWindow,
+            openNewDocument: openNewDocument,
+            sleep: sleep
+        ) else {
+            throw SafariWindowCommandError.openedWindowIdentifierNotFound
+        }
+
+        return window.identifier
+    }
+
     private func matchingProfileWindow(
         in newWindows: [SafariAppleScriptWindowRecord],
         requestedProfileName: String
     ) throws -> SafariAppleScriptWindowRecord? {
+        guard !newWindows.isEmpty else {
+            return nil
+        }
+
         if let titleMatchedWindow = newWindows.first(where: {
             windowTitle($0.name, matchesProfileNamed: requestedProfileName)
         }) {

@@ -1,5 +1,14 @@
 # Research Notes
 
+## 2026-07-10
+
+### Safari profile menu can succeed without a resolvable new window id
+
+- GitHub issue #27 captured a Twisto profile failure where `safari open-window Twisto` reported that Safari opened a window but no new window id could be resolved.
+- In the same Safari session, focusing an existing Twisto-profile window and running AppleScript `make new document` created a resolvable Twisto window named `Twisto — Pagina di apertura`.
+- Treat a successful profile File-menu press followed by no new AppleScript id as a recoverable no-new-window case when an existing matching profile window is available.
+- Do not use this fallback for observed wrong-profile windows; those remain a mismatch and should be rolled back.
+
 ## 2026-07-01
 
 ### SwiftPM live Safari test TCC behavior

@@ -305,6 +305,58 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(createdWindowIdentifier == 42)
 }
 
+@Test func safariTabGroupEnsureCommandFallsBackToExistingProfileWindowWhenMenuOpenDoesNotCreateWindow() async throws {
+    var openedProfileName: String?
+    var focusedWindowIdentifiers: [Int] = []
+    var didOpenNewDocument = false
+    var createdWindowIdentifier: Int?
+    let existingWindow = SafariWindowRecord(
+        identifier: 10,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Existing work"
+    )
+    let openedWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listProfiles: { [] },
+        listWindows: {
+            if !didOpenNewDocument {
+                return [existingWindow]
+            }
+            return [openedWindow, existingWindow]
+        },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
+        openWindow: { profileName, _ in openedProfileName = profileName },
+        closeWindow: { _, _ in },
+        openNewDocument: { _ in didOpenNewDocument = true },
+        createTabGroup: { windowIdentifier, name in
+            createdWindowIdentifier = windowIdentifier
+            #expect(name == "Focus")
+            return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "Safari tab group created.\n10|Twisto|Focus")
+    #expect(openedProfileName == "Twisto")
+    #expect(focusedWindowIdentifiers == [10, 42])
+    #expect(didOpenNewDocument)
+    #expect(createdWindowIdentifier == 42)
+}
+
 @Test func safariTabGroupEnsureCommandRejectsWrongProfileNewWindow() async throws {
     var openedProfileName: String?
     var closedWindowIdentifiers: [Int] = []

@@ -156,6 +156,34 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     #expect(receivedProfileName == "Twisto")
 }
 
+@Test func safariWindowOpenCommandFallsBackToExistingProfileWindowWhenMenuOpenDoesNotCreateWindow() async throws {
+    var receivedProfileName: String?
+    var focusedWindowIdentifiers: [Int] = []
+    var didOpenNewDocument = false
+    var resolvedWindowLists = [
+        [SafariWindowRecord(identifier: 10, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto — Existing work")],
+        [
+            SafariWindowRecord(identifier: 42, index: 1, isPrivate: false, profileName: "Twisto", name: "Twisto — Start Page"),
+            SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", name: "Twisto — Existing work")
+        ]
+    ]
+    let command = SafariWindowOpenCommand(
+        executor: MockAppleScriptExecutor(),
+        listProfiles: { [SafariProfileRecord(name: "Twisto", identifier: "1")] },
+        openWindow: { profileName, _ in receivedProfileName = profileName },
+        listWindows: { _ in [SafariAppleScriptWindowRecord(identifier: 10, name: "Twisto — Existing work")] },
+        listResolvedWindows: { resolvedWindowLists.removeFirst() },
+        focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
+        openNewDocument: { _ in didOpenNewDocument = true },
+        sleep: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["Twisto"]) == "Safari window opened for profile Twisto.\nwindow-id|42")
+    #expect(receivedProfileName == "Twisto")
+    #expect(focusedWindowIdentifiers == [10])
+    #expect(didOpenNewDocument)
+}
+
 @Test func safariWindowOpenCommandRejectsAndRollsBackWrongProfileWindow() async throws {
     var receivedProfileName: String?
     var closedWindowIdentifiers: [Int] = []

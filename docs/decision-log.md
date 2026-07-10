@@ -1,5 +1,14 @@
 # Decision Log
 
+## 2026-07-10
+
+### Profile-window fallback after unresolved menu opens
+
+- Added a shared Safari-domain fallback for profile-targeted new-window creation when Safari's profile File-menu item returns successfully but no new AppleScript window id becomes visible.
+- The fallback focuses an already open non-private window that matches the requested profile through persisted profile metadata or profile-prefixed title, then asks Safari to `make new document` so Safari creates the new window in that focused profile context.
+- Kept wrong-profile windows on the existing mismatch path: if Safari exposes a new window for another profile, commands still roll it back and report the profile mismatch instead of trying the fallback.
+- Reused the fallback from both `safari open-window <profile>` and saved-tab-group creation, preserving the rule that profile-targeted saved-tab-group creation mutates only a newly opened window.
+
 ## 2026-07-01
 
 ### Command usage metadata and shared Safari argument parsing
