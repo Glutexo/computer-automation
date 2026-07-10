@@ -4,6 +4,11 @@ import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
+    private static let unprofiledWindowIdentifierPollAttempts = 10
+    private static let unprofiledWindowIdentifierPollInterval: TimeInterval = 0.1
+    private static let profiledWindowIdentifierPollAttempts = SafariProfileWindowOpening.windowPollAttempts
+    private static let profiledWindowIdentifierPollInterval = SafariProfileWindowOpening.windowPollInterval
+
     public static let descriptor = CommandDescriptor(
         name: "open-window",
         abstract: "Open a new Safari browser window.",
@@ -24,6 +29,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     private let listResolvedWindows: () throws -> [SafariWindowRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let openNewDocument: (SafariAppleScriptExecuting) throws -> Void
+    private let openProfileWindowShortcut: (String, [String], SafariAppleScriptExecuting) throws -> Void
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
@@ -37,6 +43,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         self.listResolvedWindows = { try SafariWindow.list() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openNewDocument = SafariAppleScriptWindow.openNewDocument
+        self.openProfileWindowShortcut = SafariFileMenu.openProfileWindowShortcut
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.sleep = Thread.sleep
     }
@@ -49,6 +56,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         listResolvedWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
         openNewDocument: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
+        openProfileWindowShortcut: @escaping (String, [String], SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openProfileWindowShortcut,
         closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
         sleep: @escaping (TimeInterval) -> Void = Thread.sleep
     ) {
@@ -59,6 +67,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         self.listResolvedWindows = listResolvedWindows
         self.focusWindow = focusWindow
         self.openNewDocument = openNewDocument
+        self.openProfileWindowShortcut = openProfileWindowShortcut
         self.closeWindow = closeWindow
         self.sleep = sleep
     }
@@ -89,8 +98,10 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     }
 
     private func openWindow(forProfileNamed profileName: String) throws -> SafariWindowOpenResult {
+        var profileNames: [String] = []
         do {
             let profiles = try listProfiles()
+            profileNames = profiles.map(\.name)
             guard profiles.contains(where: { $0.name == profileName }) else {
                 throw SafariWindowCommandError.profileNotFound(profileName)
             }
@@ -118,8 +129,16 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
                     requestedProfileName: profileName
                 )
             } catch {
-                try rollbackNewWindows(excluding: knownWindowIdentifiers)
-                throw error
+                do {
+                    windowIdentifier = try openNewWindowWithProfileShortcut(
+                        excluding: knownWindowIdentifiers,
+                        requestedProfileName: profileName,
+                        profileNames: profileNames
+                    )
+                } catch {
+                    try rollbackNewWindows(excluding: knownWindowIdentifiers)
+                    throw error
+                }
             }
         } catch {
             try rollbackNewWindows(excluding: knownWindowIdentifiers)
@@ -148,8 +167,14 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         requestedProfileName: String? = nil
     ) throws -> Int {
         var lastObservedMismatchedWindowName: String?
+        let pollAttempts = requestedProfileName == nil
+            ? Self.unprofiledWindowIdentifierPollAttempts
+            : Self.profiledWindowIdentifierPollAttempts
+        let pollInterval = requestedProfileName == nil
+            ? Self.unprofiledWindowIdentifierPollInterval
+            : Self.profiledWindowIdentifierPollInterval
 
-        for attempt in 0..<10 {
+        for attempt in 0..<pollAttempts {
             let windows = try listWindows(executor)
             let newWindows = windows.filter { !knownWindowIdentifiers.contains($0.identifier) }
 
@@ -171,8 +196,8 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
                 lastObservedMismatchedWindowName = window.name
             }
 
-            if attempt < 9 {
-                sleep(0.1)
+            if attempt < pollAttempts - 1 {
+                sleep(pollInterval)
             }
         }
 
@@ -203,6 +228,18 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
         }
 
         return window.identifier
+    }
+
+    private func openNewWindowWithProfileShortcut(
+        excluding knownWindowIdentifiers: Set<Int>,
+        requestedProfileName: String,
+        profileNames: [String]
+    ) throws -> Int {
+        try openProfileWindowShortcut(requestedProfileName, profileNames, executor)
+        return try resolveNewWindowIdentifier(
+            excluding: knownWindowIdentifiers,
+            requestedProfileName: requestedProfileName
+        )
     }
 
     private func matchingProfileWindow(

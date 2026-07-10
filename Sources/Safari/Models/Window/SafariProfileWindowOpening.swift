@@ -2,6 +2,9 @@ import Foundation
 import SafariAppleScript
 
 enum SafariProfileWindowOpening {
+    static let windowPollAttempts = 80
+    static let windowPollInterval: TimeInterval = 0.25
+
     static func openNewDocumentFromExistingProfileWindow(
         profileName: String,
         excluding existingWindowIdentifiers: Set<Int>,
@@ -10,8 +13,8 @@ enum SafariProfileWindowOpening {
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
         openNewDocument: (SafariAppleScriptExecuting) throws -> Void,
         sleep: (TimeInterval) -> Void = Thread.sleep,
-        maxAttempts: Int = 10,
-        interval: TimeInterval = 0.1
+        maxAttempts: Int = windowPollAttempts,
+        interval: TimeInterval = windowPollInterval
     ) throws -> SafariWindowRecord? {
         guard let sourceWindow = try listWindows().first(where: {
             existingWindowIdentifiers.contains($0.identifier) && window($0, matchesProfileName: profileName)
@@ -37,8 +40,8 @@ enum SafariProfileWindowOpening {
         excluding existingWindowIdentifiers: Set<Int>,
         listWindows: () throws -> [SafariWindowRecord],
         sleep: (TimeInterval) -> Void = Thread.sleep,
-        maxAttempts: Int = 10,
-        interval: TimeInterval = 0.1
+        maxAttempts: Int = windowPollAttempts,
+        interval: TimeInterval = windowPollInterval
     ) throws -> SafariWindowRecord? {
         for attempt in 0..<max(1, maxAttempts) {
             if let profileWindow = try listWindows().first(where: {

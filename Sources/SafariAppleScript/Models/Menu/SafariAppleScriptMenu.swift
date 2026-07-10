@@ -57,4 +57,20 @@ public enum SafariAppleScriptMenu: ModelModel {
 
         _ = try executor.execute(script: script)
     }
+
+    public static func pressKeyboardShortcut(
+        key: String,
+        modifiers: String,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        let script = """
+        tell application "Safari" to activate
+        delay 0.1
+        tell application "System Events"
+            keystroke "\(key)" using {\(modifiers)}
+        end tell
+        """
+
+        _ = try executor.execute(script: script)
+    }
 }

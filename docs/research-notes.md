@@ -8,6 +8,9 @@
 - In the same Safari session, focusing an existing Twisto-profile window and running AppleScript `make new document` created a resolvable Twisto window named `Twisto — Pagina di apertura`.
 - Treat a successful profile File-menu press followed by no new AppleScript id as a recoverable no-new-window case when an existing matching profile window is available.
 - Do not use this fallback for observed wrong-profile windows; those remain a mismatch and should be rolled back.
+- A later live regression against Twisto still failed when no Twisto window was already open. The File menu contained `Nuova finestra di Twisto` as item 2 with shortcut metadata `N|0`, so the profile item existed. This points to the native AX press path being insufficient even when it reports success; the System Events indexed click path is the next verified candidate because it targets the same structural menu item.
+- Switching to the System Events indexed click path alone still left `open-window Twisto` unresolved. The remaining likely factor is delayed profile-window or database metadata propagation beyond the original 1-second `open-window` polling window, so profile-targeted window creation needs a longer bounded poll than unprofiled AppleScript document creation.
+- Extending the profile-window poll still failed when no Twisto window was open. In the same session, Command-N created a default-profile `Glutexo` window, Command-Option-Shift-2 created no window, and Command-Option-Shift-1 created a `Twisto — Pagina di apertura` window. Safari's profile shortcuts therefore map `0` to the default profile and `1...9` to additional profiles in persisted profile order.
 
 ## 2026-07-01
 

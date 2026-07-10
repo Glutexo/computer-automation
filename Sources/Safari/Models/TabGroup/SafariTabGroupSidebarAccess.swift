@@ -3,6 +3,9 @@ import SafariAppleScript
 import SafariUserInterface
 
 enum SafariTabGroupSidebarAccess {
+    private static let profileWindowPollAttempts = SafariProfileWindowOpening.windowPollAttempts
+    private static let profileWindowPollInterval = SafariProfileWindowOpening.windowPollInterval
+
     static func resolveUniqueTabGroup(
         identifier: Int,
         from groups: [SafariTabGroupRecord]
@@ -102,13 +105,15 @@ enum SafariTabGroupSidebarAccess {
         openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,
         closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
         openNewDocument: (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
+        openProfileWindowShortcut: (String, [String], SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openProfileWindowShortcut,
+        profileNames: [String] = [],
         sleep: (TimeInterval) -> Void = Thread.sleep
     ) throws -> SafariWindowRecord {
         let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
         try openWindow(profileName, executor)
         var didObserveNewWindow = false
 
-        for attempt in 0..<20 {
+        for attempt in 0..<profileWindowPollAttempts {
             let newWindows = try listWindows().filter {
                 !existingWindowIdentifiers.contains($0.identifier) && !$0.isPrivate
             }
@@ -121,8 +126,8 @@ enum SafariTabGroupSidebarAccess {
                 return profileWindow
             }
 
-            if attempt < 19 {
-                sleep(0.1)
+            if attempt < profileWindowPollAttempts - 1 {
+                sleep(profileWindowPollInterval)
             }
         }
 
@@ -137,6 +142,19 @@ enum SafariTabGroupSidebarAccess {
         ) {
             try focusWindow(fallbackWindow.identifier, executor)
             return fallbackWindow
+        }
+
+        if !didObserveNewWindow {
+            try openProfileWindowShortcut(profileName, profileNames, executor)
+            if let shortcutWindow = try SafariProfileWindowOpening.waitForNewProfileWindow(
+                profileName: profileName,
+                excluding: existingWindowIdentifiers,
+                listWindows: listWindows,
+                sleep: sleep
+            ) {
+                try focusWindow(shortcutWindow.identifier, executor)
+                return shortcutWindow
+            }
         }
 
         try rollbackNewWindows(

@@ -294,6 +294,28 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     }
 }
 
+@Test func safariFileMenuOpenProfileWindowShortcutUsesProfileOrder() async throws {
+    let executor = MockAppleScriptExecutor()
+    try SafariFileMenu.openProfileWindowShortcut(
+        profileName: "Twisto",
+        profileNames: ["Glutexo", "Twisto"],
+        executor: executor
+    )
+
+    #expect(executor.executedScripts.count == 1)
+    #expect(executor.executedScripts[0].contains("keystroke \"1\" using {command down, option down, shift down}"))
+}
+
+@Test func safariFileMenuOpenProfileWindowShortcutRejectsMissingProfile() async throws {
+    #expect(throws: SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto")) {
+        try SafariFileMenu.openProfileWindowShortcut(
+            profileName: "Twisto",
+            profileNames: ["Glutexo"],
+            executor: MockAppleScriptExecutor()
+        )
+    }
+}
+
 @Test func safariFileMenuOpenPrivateWindowClicksShortcutMatchedItem() async throws {
     let executor = MockAppleScriptExecutor(results: [
         .descriptor(makeShortcutList([

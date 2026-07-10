@@ -21,7 +21,10 @@ public enum SafariFileMenu: ModelModel {
     ) throws {
         if let profileName, !profileName.isEmpty {
             do {
-                try clickNewWindowMenuItem(forProfileNamed: profileName)
+                try clickNewWindowMenuItem(
+                    forProfileNamed: profileName,
+                    executor: SafariAppleScriptExecutor()
+                )
             } catch SafariUserInterfaceError.profileWindowMenuItemNotFound {
                 guard visibleWindowCount() == 0 else {
                     throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
@@ -31,7 +34,10 @@ public enum SafariFileMenu: ModelModel {
                 _ = SafariAXPolling().firstResult {
                     visibleWindowCount() > 0 ? true : nil
                 }
-                try clickNewWindowMenuItem(forProfileNamed: profileName)
+                try clickNewWindowMenuItem(
+                    forProfileNamed: profileName,
+                    executor: SafariAppleScriptExecutor()
+                )
             }
             return
         }
@@ -139,16 +145,21 @@ public enum SafariFileMenu: ModelModel {
         )
     }
 
-    private static func clickNewWindowMenuItem(
-        forProfileNamed profileName: String
+    public static func openProfileWindowShortcut(
+        profileName: String,
+        profileNames: [String],
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
-        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
-            stringValue(for: kAXTitleAttribute, on: $0).hasSuffix(profileName)
-        }
-
-        guard didPress else {
+        guard let profileIndex = profileNames.firstIndex(of: profileName), profileIndex <= 9 else {
             throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
         }
+
+        let key = profileIndex == 0 ? "0" : String(profileIndex)
+        try SafariAppleScriptMenu.pressKeyboardShortcut(
+            key: key,
+            modifiers: "command down, option down, shift down",
+            executor: executor
+        )
     }
 
     private static func clickNewWindowMenuItem(
