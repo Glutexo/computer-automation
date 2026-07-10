@@ -106,11 +106,13 @@ enum SafariTabGroupSidebarAccess {
     ) throws -> SafariWindowRecord {
         let existingWindowIdentifiers = Set(try listWindows().map(\.identifier))
         try openWindow(profileName, executor)
+        var didObserveNewWindow = false
 
         for attempt in 0..<20 {
             let newWindows = try listWindows().filter {
                 !existingWindowIdentifiers.contains($0.identifier) && !$0.isPrivate
             }
+            didObserveNewWindow = didObserveNewWindow || !newWindows.isEmpty
 
             if let profileWindow = newWindows.first(where: {
                 $0.profileName == profileName || windowTitle($0.name, matchesProfileNamed: profileName)
@@ -124,7 +126,7 @@ enum SafariTabGroupSidebarAccess {
             }
         }
 
-        if let fallbackWindow = try SafariProfileWindowOpening.openNewDocumentFromExistingProfileWindow(
+        if !didObserveNewWindow, let fallbackWindow = try SafariProfileWindowOpening.openNewDocumentFromExistingProfileWindow(
             profileName: profileName,
             excluding: existingWindowIdentifiers,
             executor: executor,

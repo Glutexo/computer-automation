@@ -397,6 +397,56 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(!didCreateTabGroup)
 }
 
+@Test func safariTabGroupEnsureCommandDoesNotFallbackAfterWrongProfileNewWindow() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    var didOpenNewDocument = false
+    var didCreateTabGroup = false
+    var listWindowCallCount = 0
+    let existingProfileWindow = SafariWindowRecord(
+        identifier: 10,
+        index: 2,
+        isPrivate: false,
+        profileName: "Glutexo",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Glutexo — Existing work"
+    )
+    let wrongProfileWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listProfiles: { [] },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [existingProfileWindow] : [wrongProfileWindow, existingProfileWindow]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { _, _ in },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        openNewDocument: { _ in didOpenNewDocument = true },
+        createTabGroup: { _, _ in
+            didCreateTabGroup = true
+            return SafariTabGroupRecord(identifier: 10, profileName: "Glutexo", name: "Focus")
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.windowForProfileNotFound("Glutexo")) {
+        try command.execute(arguments: ["Glutexo", "Focus"])
+    }
+    #expect(closedWindowIdentifiers == [42])
+    #expect(!didOpenNewDocument)
+    #expect(!didCreateTabGroup)
+}
+
 @Test func safariTabGroupEnsureCommandDeletesWrongProfileCreatedGroup() async throws {
     var deletedTabGroupIdentifiers: [Int] = []
     var closedWindowIdentifiers: [Int] = []
