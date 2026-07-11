@@ -21,23 +21,14 @@ public enum SafariFileMenu: ModelModel {
     ) throws {
         if let profileName, !profileName.isEmpty {
             do {
-                try clickNewWindowMenuItem(
-                    forProfileNamed: profileName,
-                    executor: SafariAppleScriptExecutor()
-                )
-            } catch SafariUserInterfaceError.profileWindowMenuItemNotFound {
-                guard visibleWindowCount() == 0 else {
-                    throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
+                try pressNewWindowMenuItem(forProfileNamed: profileName)
+            } catch let error as SafariUserInterfaceError {
+                switch error {
+                case .profileWindowMenuItemNotFound, .menuUnavailable:
+                    try pressNewWindowMenuItemAfterOpeningBootstrapWindow(forProfileNamed: profileName)
+                default:
+                    throw error
                 }
-
-                try SafariAppleScriptWindow.openNewDocument()
-                _ = SafariAXPolling().firstResult {
-                    visibleWindowCount() > 0 ? true : nil
-                }
-                try clickNewWindowMenuItem(
-                    forProfileNamed: profileName,
-                    executor: SafariAppleScriptExecutor()
-                )
             }
             return
         }
@@ -176,6 +167,32 @@ public enum SafariFileMenu: ModelModel {
             menuItemIndex: menuItem.index,
             executor: executor
         )
+    }
+
+    private static func pressNewWindowMenuItem(
+        forProfileNamed profileName: String
+    ) throws {
+        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
+            SafariMenu.stringValue(for: kAXTitleAttribute, on: $0).hasSuffix(profileName)
+        }
+
+        guard didPress else {
+            throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
+        }
+    }
+
+    private static func pressNewWindowMenuItemAfterOpeningBootstrapWindow(
+        forProfileNamed profileName: String
+    ) throws {
+        guard visibleWindowCount() == 0 else {
+            throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
+        }
+
+        try SafariAppleScriptWindow.openNewDocument()
+        _ = SafariAXPolling().firstResult {
+            visibleWindowCount() > 0 ? true : nil
+        }
+        try pressNewWindowMenuItem(forProfileNamed: profileName)
     }
 
     private static func clickFileMenuItem(

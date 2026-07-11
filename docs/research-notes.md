@@ -1,5 +1,13 @@
 # Research Notes
 
+## 2026-07-11
+
+### Profile File-menu clicks can block profile-window fallback
+
+- GitHub issue #28 captured a `safari open-window Twisto` hang while a review helper tried to update an existing saved tab group.
+- The command already used the profile keyboard shortcut first and bounded the follow-up window polling, so an indefinite block most likely came from the later File-menu fallback that clicked the profile window item through System Events AppleScript.
+- The profile File-menu fallback should use the native accessibility `AXPress` path already used by other real File-menu actions, leaving AppleScript menu-item clicking only for injected test executors.
+
 ## 2026-07-10
 
 ### Safari profile menu can succeed without a resolvable new window id
