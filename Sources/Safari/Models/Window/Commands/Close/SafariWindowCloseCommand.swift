@@ -18,25 +18,33 @@ public struct SafariWindowCloseCommand: CommandModel {
     private let executor: SafariAppleScriptExecuting
     private let isRunning: () -> Bool
     private let closeFrontWindow: (SafariAppleScriptExecuting) throws -> String
+    private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let closeWindowByIdentifier: (Int, SafariAppleScriptExecuting) throws -> Void
+    private let closeFocusedWindow: (() throws -> Void) throws -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
         self.isRunning = SafariApplication.isRunning
         self.closeFrontWindow = SafariAppleScriptWindow.closeFrontWindow
+        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.closeWindowByIdentifier = SafariAppleScriptWindow.close(windowIdentifier:executor:)
+        self.closeFocusedWindow = SafariAccessibilityWindow.closeFocusedWindow
     }
 
     init(
         executor: SafariAppleScriptExecuting,
         isRunning: @escaping () -> Bool = SafariApplication.isRunning,
         closeFrontWindow: @escaping (SafariAppleScriptExecuting) throws -> String = SafariAppleScriptWindow.closeFrontWindow,
-        closeWindowByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:)
+        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
+        closeWindowByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
+        closeFocusedWindow: @escaping (() throws -> Void) throws -> Void = { performClose in try performClose() }
     ) {
         self.executor = executor
         self.isRunning = isRunning
         self.closeFrontWindow = closeFrontWindow
+        self.focusWindow = focusWindow
         self.closeWindowByIdentifier = closeWindowByIdentifier
+        self.closeFocusedWindow = closeFocusedWindow
     }
 
     @discardableResult
@@ -46,7 +54,10 @@ public struct SafariWindowCloseCommand: CommandModel {
         }
 
         if let windowIdentifier = try parseWindowIdentifier(arguments) {
-            try closeWindowByIdentifier(windowIdentifier, executor)
+            try focusWindow(windowIdentifier, executor)
+            try closeFocusedWindow {
+                try closeWindowByIdentifier(windowIdentifier, executor)
+            }
             return "Safari window \(windowIdentifier) closed."
         }
 

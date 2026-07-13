@@ -130,6 +130,7 @@ import SQLite3
     #expect(SafariTabCloseCommand.descriptor.operation == .delete)
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
+        SafariAccessibilityWindow.descriptor,
         SafariSidebar.descriptor,
         SafariMenu.descriptor,
         SafariFileMenu.descriptor,
@@ -184,6 +185,7 @@ import SQLite3
             SafariUserInterfaceModule.descriptor.models,
             [
                 "SafariApplicationMenuBar model",
+                "SafariAccessibilityWindow model",
                 "SafariSidebar model",
                 "SafariMenu model",
                 "SafariFileMenu model",

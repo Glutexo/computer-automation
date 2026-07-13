@@ -156,6 +156,9 @@ func safariTabListErrorsHaveHumanReadableDescriptions(error: SafariTabListComman
 @Test(arguments: [
     SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto"),
     .privateWindowMenuItemNotFound,
+    .focusedWindowUnavailable,
+    .windowCloseButtonUnavailable,
+    .windowCloseNotVerified,
     .sidebarUnavailable,
     .sidebarTabGroupNotFound("Focus"),
     .sidebarSelectedItemRenameUnavailable,

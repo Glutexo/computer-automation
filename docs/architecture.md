@@ -31,6 +31,7 @@ flowchart TD
     ScriptMenu["SafariAppleScriptMenu model"]
     ScriptMenuItem["SafariAppleScriptMenuItem model"]
     SafariMenuBar["SafariApplicationMenuBar model"]
+    SafariAccessibilityWindow["SafariAccessibilityWindow model"]
     SafariSidebar["SafariSidebar model"]
     SafariMenu["SafariMenu model"]
     SafariFileMenu["SafariFileMenu model"]
@@ -101,6 +102,7 @@ flowchart TD
     SafariScript --> ScriptMenu
     SafariScript --> ScriptMenuItem
     SafariUI --> SafariMenuBar
+    SafariUI --> SafariAccessibilityWindow
     SafariUI --> SafariSidebar
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
@@ -147,6 +149,7 @@ flowchart TD
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
     WindowOpenPrivate --> SafariFileMenu
+    WindowClose --> SafariAccessibilityWindow
     WindowOpenTabGroup --> SafariFileMenu
     WindowOpenTabGroup --> SafariSidebar
     WindowSetTabGroup --> SafariSidebar

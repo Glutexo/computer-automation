@@ -104,6 +104,65 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     }
 }
 
+@Test func safariAccessibilityWindowAcceptsNormalCloseReadback() async throws {
+    var isVisible = true
+    var didPressCloseButton = false
+
+    try SafariAccessibilityWindow.closeCapturedWindow(
+        performClose: { isVisible = false },
+        isVisible: { isVisible },
+        pressCloseButton: {
+            didPressCloseButton = true
+            return true
+        },
+        sleep: { _ in },
+        maxAttempts: 1
+    )
+
+    #expect(!didPressCloseButton)
+}
+
+@Test func safariAccessibilityWindowFallsBackToExactCloseButton() async throws {
+    var isVisible = true
+    var didPressCloseButton = false
+
+    try SafariAccessibilityWindow.closeCapturedWindow(
+        performClose: {},
+        isVisible: { isVisible },
+        pressCloseButton: {
+            didPressCloseButton = true
+            isVisible = false
+            return true
+        },
+        sleep: { _ in },
+        maxAttempts: 1
+    )
+
+    #expect(didPressCloseButton)
+}
+
+@Test func safariAccessibilityWindowReportsUnverifiedVisibleWindows() async throws {
+    #expect(throws: SafariUserInterfaceError.windowCloseButtonUnavailable) {
+        try SafariAccessibilityWindow.closeCapturedWindow(
+            performClose: {},
+            isVisible: { true },
+            pressCloseButton: { false },
+            sleep: { _ in },
+            maxAttempts: 1
+        )
+    }
+
+    #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
+        try SafariAccessibilityWindow.closeCapturedWindow(
+            performClose: {},
+            isVisible: { true },
+            pressCloseButton: { true },
+            sleep: { _ in },
+            maxAttempts: 1
+        )
+    }
+}
+
 @Test func safariSidebarMatchesWholeTabGroupIdentifierTokens() async throws {
     #expect(SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup?TabGroup=100", matchesTabGroupIdentifier: 100))
     #expect(SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup-42-profile-7", matchesTabGroupIdentifier: 42))

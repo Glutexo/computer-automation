@@ -153,6 +153,7 @@ flowchart TD
 - `windows` is the read operation for the browser window model.
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
+- `close-window --window-id <id>` reports success only after the exact focused Accessibility window is no longer visible; a still-visible zero-tab window receives an `AXPress` fallback on its own close button, followed by a second readback.
 - `create-tab-group` is the create operation for the saved tab-group model.
 - `ensure-tab-group` is a create-or-reuse operation for the saved tab-group model and reports whether it created or reused the target group.
 - `tab-groups` is the read operation for the saved tab-group model.

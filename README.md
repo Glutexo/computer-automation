@@ -112,7 +112,7 @@ Saved tab-group outputs report the Safari profile display name. Safari may store
 
 Window-level tab commands accept either the original positional `window-index` form or `--window-id <id>`. Prefer `--window-id` for `open-tab`, `window-tabs`, `set-tab-url`, and `close-tab` when the command follows any Safari UI operation that may reorder windows.
 
-`safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier.
+`safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier. Identifier-targeted close verifies that the exact focused Accessibility window is no longer visible; if Safari leaves a visible zero-tab window, it presses that window's structural close button and verifies again before reporting success.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

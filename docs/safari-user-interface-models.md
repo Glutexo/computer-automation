@@ -4,8 +4,9 @@
 
 - The `SafariUserInterface` module owns Safari GUI scripting and menu-level automation.
 - Direct AppleScript access is delegated to the separate `SafariAppleScript` module.
-- It currently exposes five models: `SafariApplicationMenuBar`, `SafariSidebar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
+- It currently exposes six models: `SafariApplicationMenuBar`, `SafariAccessibilityWindow`, `SafariSidebar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
 - `SafariApplicationMenuBar` represents Safari's top-level application menu bar.
+- `SafariAccessibilityWindow` captures the focused Safari window for visibility readback and exact close-button fallback.
 - `SafariSidebar` represents the opened front-window Safari sidebar as a reusable structural targeting surface.
 - `SafariMenu` represents an arbitrary top-level Safari application menu addressed by structure.
 - `SafariFileMenu` represents a thin specialization of `SafariMenu` for Safari's `File` menu.
@@ -16,6 +17,7 @@
 | Model | Command | CRUD | Description |
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
+| `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Verify a focused window disappeared after normal close and press that exact window's close button only when it remains visible. |
 | `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row in the Safari sidebar by saved group identifier when available, with display-name fallback. |
 | `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
 | `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |
@@ -33,6 +35,7 @@
 flowchart TD
     SafariUI["SafariUserInterface module"]
     SafariMenuBar["SafariApplicationMenuBar model"]
+    SafariAccessibilityWindow["SafariAccessibilityWindow model"]
     SafariSidebar["SafariSidebar model"]
     SafariMenu["SafariMenu model"]
     SafariFileMenu["SafariFileMenu model"]
@@ -45,6 +48,7 @@ flowchart TD
     OpenPrivateWindow["openPrivateWindow() API (C)"]
 
     SafariUI --> SafariMenuBar
+    SafariUI --> SafariAccessibilityWindow
     SafariUI --> SafariSidebar
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
@@ -66,6 +70,7 @@ flowchart TD
 - `SafariUserInterface` is a separate module so GUI scripting does not mix with Safari domain models.
 - `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` for window creation and `SafariSidebar` for saved tab-group selection through explicit module boundaries.
+- Identifier-targeted window closing focuses the stable Safari id, captures that exact focused AX window, verifies it is no longer visible after the normal close request, and presses its structural close button only as a fallback.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
 - `SafariSidebar.selectTabGroup(identifier:named:)` prefers accessibility identifiers beginning with `SidebarLibraryItemTabGroup` that contain the saved group identifier; name-only selection remains available for flows that do not have a persisted saved group id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.

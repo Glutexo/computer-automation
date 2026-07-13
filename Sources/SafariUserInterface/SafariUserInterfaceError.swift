@@ -3,6 +3,9 @@ import Foundation
 public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
     case profileWindowMenuItemNotFound(String)
     case privateWindowMenuItemNotFound
+    case focusedWindowUnavailable
+    case windowCloseButtonUnavailable
+    case windowCloseNotVerified
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)
     case sidebarSelectedItemRenameUnavailable
@@ -19,6 +22,12 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
             "Safari's File menu does not contain a new-window item for profile \(profileName). Verify the profile exists and retry."
         case .privateWindowMenuItemNotFound:
             "Safari's File menu does not expose the private-window command. Verify private browsing is available and retry."
+        case .focusedWindowUnavailable:
+            "The targeted Safari window could not be resolved through Accessibility. Grant Accessibility permission and retry."
+        case .windowCloseButtonUnavailable:
+            "Safari kept the targeted window visible and its Accessibility close button was unavailable. Close that exact window manually."
+        case .windowCloseNotVerified:
+            "Safari kept the targeted window visible after both the normal close action and Accessibility close-button fallback. Close that exact window manually."
         case .sidebarUnavailable:
             "Safari's visible sidebar could not be opened or inspected. Grant Accessibility permission to the calling app, then retry."
         case .sidebarTabGroupNotFound(let tabGroupName):

@@ -748,6 +748,8 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
 
 @Test func safariWindowCloseCommandTargetsWindowIdentifier() async throws {
     var closedWindowIdentifier: Int?
+    var focusedWindowIdentifier: Int?
+    var didVerifyClose = false
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
@@ -755,13 +757,40 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
             Issue.record("closeFrontWindow should not be called")
             return "unexpected"
         },
+        focusWindow: { windowIdentifier, _ in
+            focusedWindowIdentifier = windowIdentifier
+        },
         closeWindowByIdentifier: { windowIdentifier, _ in
             closedWindowIdentifier = windowIdentifier
+        },
+        closeFocusedWindow: { performClose in
+            try performClose()
+            didVerifyClose = true
         }
     )
 
     #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
     #expect(closedWindowIdentifier == 42)
+    #expect(focusedWindowIdentifier == 42)
+    #expect(didVerifyClose)
+}
+
+@Test func safariWindowCloseCommandRejectsVisibleWindowAfterFallback() async throws {
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in "unused" },
+        focusWindow: { _, _ in },
+        closeWindowByIdentifier: { _, _ in },
+        closeFocusedWindow: { performClose in
+            try performClose()
+            throw SafariUserInterfaceError.windowCloseNotVerified
+        }
+    )
+
+    #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
+        try command.execute(arguments: ["--window-id", "42"])
+    }
 }
 
 @Test func safariWindowCloseCommandRejectsInvalidWindowIdentifierArguments() async throws {

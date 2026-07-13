@@ -6,6 +6,7 @@ public enum SafariUserInterfaceModule: ModuleModel {
         abstract: "Safari user interface automation models.",
         models: [
             SafariApplicationMenuBar.descriptor,
+            SafariAccessibilityWindow.descriptor,
             SafariSidebar.descriptor,
             SafariMenu.descriptor,
             SafariFileMenu.descriptor,
