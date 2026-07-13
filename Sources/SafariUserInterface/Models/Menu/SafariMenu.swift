@@ -1,4 +1,3 @@
-import AppKit
 import ApplicationServices
 import AutomationFoundation
 import SafariAppleScript
@@ -13,31 +12,58 @@ public enum SafariMenu: ModelModel {
     )
 
     public static func listItems(
-        menuBarItemIndex: Int,
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+        menuBarItemIndex: Int
     ) throws -> [SafariMenuItemRecord] {
-        if executor is SafariAppleScriptExecutor {
-            return try listItems(menuBarItemIndex: menuBarItemIndex)
-        }
+        try listItems(
+            menuBarItemIndex: menuBarItemIndex,
+            backend: .accessibility(.live)
+        )
+    }
 
-        do {
-            return try SafariAppleScriptMenu.listItems(
+    public static func listItems(
+        menuBarItemIndex: Int,
+        executor: SafariAppleScriptExecuting
+    ) throws -> [SafariMenuItemRecord] {
+        try listItems(
+            menuBarItemIndex: menuBarItemIndex,
+            backend: .appleScript(executor)
+        )
+    }
+
+    static func listItems(
+        menuBarItemIndex: Int,
+        backend: SafariUserInterfaceBackend
+    ) throws -> [SafariMenuItemRecord] {
+        switch backend {
+        case .accessibility(let accessibility):
+            return try listItems(
                 menuBarItemIndex: menuBarItemIndex,
-                executor: executor
-            ).map(SafariMenuItemRecord.init)
-        } catch {
-            throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
+                accessibility: accessibility
+            )
+        case .appleScript(let executor):
+            do {
+                return try SafariAppleScriptMenu.listItems(
+                    menuBarItemIndex: menuBarItemIndex,
+                    executor: executor
+                ).map(SafariMenuItemRecord.init)
+            } catch {
+                throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
+            }
         }
     }
 
     static func listItems(
-        menuBarItemIndex: Int
+        menuBarItemIndex: Int,
+        accessibility: SafariAccessibilityBackend
     ) throws -> [SafariMenuItemRecord] {
-        let menuItems = try menuItemElements(menuBarItemIndex: menuBarItemIndex)
+        let menuItems = try menuItemElements(
+            menuBarItemIndex: menuBarItemIndex,
+            accessibility: accessibility
+        )
 
         return menuItems.enumerated().compactMap { offset, element in
-            let title = stringValue(for: kAXTitleAttribute, on: element)
-            let commandCharacter = stringValue(for: "AXMenuItemCmdChar", on: element)
+            let title = accessibility.stringValue(for: kAXTitleAttribute, on: element)
+            let commandCharacter = accessibility.stringValue(for: "AXMenuItemCmdChar", on: element)
 
             guard !title.isEmpty || !commandCharacter.isEmpty else {
                 return nil
@@ -47,37 +73,47 @@ public enum SafariMenu: ModelModel {
                 index: offset + 1,
                 title: title,
                 commandCharacter: normalized(commandCharacter),
-                commandModifiers: normalized(stringValue(for: "AXMenuItemCmdModifiers", on: element))
+                commandModifiers: normalized(accessibility.stringValue(for: "AXMenuItemCmdModifiers", on: element))
             )
         }
     }
 
     static func pressFirstMenuItem(
         menuBarItemIndex: Int,
+        accessibility: SafariAccessibilityBackend = .live,
         matching predicate: (AXUIElement) -> Bool
     ) throws -> Bool {
-        guard let menuItem = try menuItemElements(menuBarItemIndex: menuBarItemIndex).first(where: predicate) else {
+        guard let menuItem = try menuItemElements(
+            menuBarItemIndex: menuBarItemIndex,
+            accessibility: accessibility
+        ).first(where: predicate) else {
             return false
         }
 
-        return AXUIElementPerformAction(menuItem, kAXPressAction as CFString) == .success
+        return accessibility.perform(kAXPressAction, on: menuItem)
     }
 
     static func pressFrontWindowSheetButton(
         matchingIdentifier identifier: String,
-        polling: SafariAXPolling = SafariAXPolling()
+        accessibility: SafariAccessibilityBackend = .live
     ) throws {
-        guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
+        let applications = accessibility.applications()
+        guard !applications.isEmpty else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: 0)
         }
 
-        let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        try waitForSheetButtonPress(polling: polling) {
-            guard let button = sheetButton(matchingIdentifier: identifier, in: applicationElement) else {
-                return false
+        try waitForSheetButtonPress(polling: accessibility.polling) {
+            for application in applications {
+                if let button = sheetButton(
+                    matchingIdentifier: identifier,
+                    in: application.element,
+                    accessibility: accessibility
+                ) {
+                    return accessibility.perform(kAXPressAction, on: button)
+                }
             }
 
-            return AXUIElementPerformAction(button, kAXPressAction as CFString) == .success
+            return false
         }
     }
 
@@ -90,30 +126,37 @@ public enum SafariMenu: ModelModel {
         }
     }
 
-    static func stringValue(for attribute: String, on element: AXUIElement) -> String {
-        SafariAX.stringValue(for: attribute, on: element)
-    }
-
     private static func sheetButton(
         matchingIdentifier identifier: String,
-        in applicationElement: AXUIElement
+        in applicationElement: AXUIElement,
+        accessibility: SafariAccessibilityBackend
     ) -> AXUIElement? {
-        let focusedWindow = elementValue(for: kAXFocusedWindowAttribute, on: applicationElement)
+        let focusedWindow = accessibility.elementValue(for: kAXFocusedWindowAttribute, on: applicationElement)
         let windows = unique(
             [focusedWindow].compactMap { $0 } +
-            elements(for: kAXWindowsAttribute, on: applicationElement)
+            accessibility.elements(for: kAXWindowsAttribute, on: applicationElement)
         )
 
         for window in windows {
-            for sheet in sheetElements(attachedTo: window) {
-                if let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier) {
+            for sheet in sheetElements(attachedTo: window, accessibility: accessibility) {
+                if let button = firstDescendant(
+                    in: sheet,
+                    matchingRole: kAXButtonRole,
+                    matchingIdentifier: identifier,
+                    accessibility: accessibility
+                ) {
                     return button
                 }
             }
         }
 
-        for sheet in directSheetElements(on: applicationElement) {
-            if let button = firstDescendant(in: sheet, matchingRole: kAXButtonRole, matchingIdentifier: identifier) {
+        for sheet in directSheetElements(on: applicationElement, accessibility: accessibility) {
+            if let button = firstDescendant(
+                in: sheet,
+                matchingRole: kAXButtonRole,
+                matchingIdentifier: identifier,
+                accessibility: accessibility
+            ) {
                 return button
             }
         }
@@ -121,38 +164,57 @@ public enum SafariMenu: ModelModel {
         return nil
     }
 
-    private static func menuItemElements(menuBarItemIndex: Int) throws -> [AXUIElement] {
-        guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
+    private static func menuItemElements(
+        menuBarItemIndex: Int,
+        accessibility: SafariAccessibilityBackend
+    ) throws -> [AXUIElement] {
+        let applications = accessibility.applications()
+        guard !applications.isEmpty else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
 
-        safariApplication.activate(options: [.activateIgnoringOtherApps])
+        let (application, menuBar) = try waitForMenuElement(
+            menuBarItemIndex: menuBarItemIndex,
+            polling: accessibility.polling
+        ) {
+            for application in applications {
+                if let menuBar = firstDescendant(
+                    in: application.element,
+                    matchingRole: kAXMenuBarRole,
+                    accessibility: accessibility
+                ) {
+                    return (application, menuBar)
+                }
+            }
 
-        let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        let menuBar = try waitForMenuElement(menuBarItemIndex: menuBarItemIndex) {
-            firstDescendant(in: applicationElement, matchingRole: kAXMenuBarRole)
+            return nil
         }
+        application.activate()
 
-        let menuBarItems = elements(for: kAXChildrenAttribute, on: menuBar)
+        let menuBarItems = accessibility.elements(for: kAXChildrenAttribute, on: menuBar)
         guard menuBarItems.indices.contains(menuBarItemIndex - 1) else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
 
         let menuBarItem = menuBarItems[menuBarItemIndex - 1]
-        guard AXUIElementPerformAction(menuBarItem, kAXPressAction as CFString) == .success else {
+        guard accessibility.perform(kAXPressAction, on: menuBarItem) else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
 
-        let menu = try waitForMenuElement(menuBarItemIndex: menuBarItemIndex) {
-            elements(for: kAXChildrenAttribute, on: menuBarItem).first(where: {
-                stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuRole
+        let menu = try waitForMenuElement(
+            menuBarItemIndex: menuBarItemIndex,
+            polling: accessibility.polling
+        ) {
+            accessibility.elements(for: kAXChildrenAttribute, on: menuBarItem).first(where: {
+                accessibility.stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuRole
             })
         }
 
         return unique(
-            elements(for: kAXChildrenAttribute, on: menu) + elements(for: "AXVisibleChildren", on: menu)
+            accessibility.elements(for: kAXChildrenAttribute, on: menu) +
+                accessibility.elements(for: "AXVisibleChildren", on: menu)
         ).filter {
-            stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuItemRole
+            accessibility.stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuItemRole
         }
     }
 
@@ -168,24 +230,22 @@ public enum SafariMenu: ModelModel {
         return element
     }
 
-    private static func elements(for attribute: String, on element: AXUIElement) -> [AXUIElement] {
-        SafariAX.elements(for: attribute, on: element)
-    }
-
-    private static func elementValue(for attribute: String, on element: AXUIElement) -> AXUIElement? {
-        SafariAX.elementValue(for: attribute, on: element)
-    }
-
-    private static func sheetElements(attachedTo window: AXUIElement) -> [AXUIElement] {
+    private static func sheetElements(
+        attachedTo window: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) -> [AXUIElement] {
         unique(
-            elements(for: "AXSheets", on: window) +
-            directSheetElements(on: window)
+            accessibility.elements(for: "AXSheets", on: window) +
+                directSheetElements(on: window, accessibility: accessibility)
         )
     }
 
-    private static func directSheetElements(on element: AXUIElement) -> [AXUIElement] {
-        descendantElements(on: element).filter {
-            stringValue(for: kAXRoleAttribute, on: $0) == kAXSheetRole
+    private static func directSheetElements(
+        on element: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) -> [AXUIElement] {
+        descendantElements(on: element, accessibility: accessibility).filter {
+            accessibility.stringValue(for: kAXRoleAttribute, on: $0) == kAXSheetRole
         }
     }
 
@@ -205,16 +265,23 @@ public enum SafariMenu: ModelModel {
         return uniqueElements
     }
 
-    private static func descendantElements(on element: AXUIElement) -> [AXUIElement] {
-        unique(elements(for: kAXChildrenAttribute, on: element) + elements(for: "AXVisibleChildren", on: element))
+    private static func descendantElements(
+        on element: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) -> [AXUIElement] {
+        unique(
+            accessibility.elements(for: kAXChildrenAttribute, on: element) +
+                accessibility.elements(for: "AXVisibleChildren", on: element)
+        )
     }
 
     private static func firstDescendant(
         in root: AXUIElement,
         matchingRole role: String,
+        accessibility: SafariAccessibilityBackend,
         depth: Int = 0
     ) -> AXUIElement? {
-        if stringValue(for: kAXRoleAttribute, on: root) == role {
+        if accessibility.stringValue(for: kAXRoleAttribute, on: root) == role {
             return root
         }
 
@@ -222,8 +289,13 @@ public enum SafariMenu: ModelModel {
             return nil
         }
 
-        for child in descendantElements(on: root) {
-            if let match = firstDescendant(in: child, matchingRole: role, depth: depth + 1) {
+        for child in descendantElements(on: root, accessibility: accessibility) {
+            if let match = firstDescendant(
+                in: child,
+                matchingRole: role,
+                accessibility: accessibility,
+                depth: depth + 1
+            ) {
                 return match
             }
         }
@@ -235,11 +307,12 @@ public enum SafariMenu: ModelModel {
         in root: AXUIElement,
         matchingRole role: String,
         matchingIdentifier identifier: String,
+        accessibility: SafariAccessibilityBackend,
         depth: Int = 0
     ) -> AXUIElement? {
         if
-            stringValue(for: kAXRoleAttribute, on: root) == role,
-            stringValue(for: kAXIdentifierAttribute, on: root) == identifier
+            accessibility.stringValue(for: kAXRoleAttribute, on: root) == role,
+            accessibility.stringValue(for: kAXIdentifierAttribute, on: root) == identifier
         {
             return root
         }
@@ -248,11 +321,12 @@ public enum SafariMenu: ModelModel {
             return nil
         }
 
-        for child in descendantElements(on: root) {
+        for child in descendantElements(on: root, accessibility: accessibility) {
             if let match = firstDescendant(
                 in: child,
                 matchingRole: role,
                 matchingIdentifier: identifier,
+                accessibility: accessibility,
                 depth: depth + 1
             ) {
                 return match

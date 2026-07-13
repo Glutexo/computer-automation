@@ -1,4 +1,3 @@
-import AppKit
 import AutomationFoundation
 import ApplicationServices
 import SafariAppleScript
@@ -19,13 +18,32 @@ public enum SafariFileMenu: ModelModel {
     public static func openWindow(
         profileName: String?
     ) throws {
+        try openWindow(
+            profileName: profileName,
+            accessibility: .live,
+            openNewDocument: { try SafariAppleScriptWindow.openNewDocument() }
+        )
+    }
+
+    static func openWindow(
+        profileName: String?,
+        accessibility: SafariAccessibilityBackend,
+        openNewDocument: () throws -> Void
+    ) throws {
         if let profileName, !profileName.isEmpty {
             do {
-                try pressNewWindowMenuItem(forProfileNamed: profileName)
+                try pressNewWindowMenuItem(
+                    forProfileNamed: profileName,
+                    accessibility: accessibility
+                )
             } catch let error as SafariUserInterfaceError {
                 switch error {
                 case .profileWindowMenuItemNotFound, .menuUnavailable:
-                    try pressNewWindowMenuItemAfterOpeningBootstrapWindow(forProfileNamed: profileName)
+                    try pressNewWindowMenuItemAfterOpeningBootstrapWindow(
+                        forProfileNamed: profileName,
+                        accessibility: accessibility,
+                        openNewDocument: openNewDocument
+                    )
                 default:
                     throw error
                 }
@@ -33,18 +51,13 @@ public enum SafariFileMenu: ModelModel {
             return
         }
 
-        try SafariAppleScriptWindow.openNewDocument()
+        try openNewDocument()
     }
 
     public static func openWindow(
         profileName: String?,
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+        executor: SafariAppleScriptExecuting
     ) throws {
-        if executor is SafariAppleScriptExecutor {
-            try openWindow(profileName: profileName)
-            return
-        }
-
         if let profileName, !profileName.isEmpty {
             try clickNewWindowMenuItem(forProfileNamed: profileName, executor: executor)
             return
@@ -53,13 +66,8 @@ public enum SafariFileMenu: ModelModel {
     }
 
     public static func openPrivateWindow(
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+        executor: SafariAppleScriptExecuting
     ) throws {
-        if executor is SafariAppleScriptExecutor {
-            try openPrivateWindow()
-            return
-        }
-
         let menuItems = try listItems(executor: executor)
 
         guard let menuItem = menuItems.first(where: {
@@ -76,11 +84,18 @@ public enum SafariFileMenu: ModelModel {
     }
 
     public static func openPrivateWindow() throws {
-        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
-            SafariMenu.stringValue(for: kAXIdentifierAttribute, on: $0) == "NewPrivateWindow" ||
+        try openPrivateWindow(accessibility: .live)
+    }
+
+    static func openPrivateWindow(accessibility: SafariAccessibilityBackend) throws {
+        let didPress = try SafariMenu.pressFirstMenuItem(
+            menuBarItemIndex: menuBarItemIndex,
+            accessibility: accessibility
+        ) {
+            accessibility.stringValue(for: kAXIdentifierAttribute, on: $0) == "NewPrivateWindow" ||
             (
-                SafariMenu.stringValue(for: "AXMenuItemCmdChar", on: $0) == "N" &&
-                SafariMenu.stringValue(for: "AXMenuItemCmdModifiers", on: $0) == "1"
+                accessibility.stringValue(for: "AXMenuItemCmdChar", on: $0) == "N" &&
+                accessibility.stringValue(for: "AXMenuItemCmdModifiers", on: $0) == "1"
             )
         }
 
@@ -91,17 +106,19 @@ public enum SafariFileMenu: ModelModel {
 
     public static func createEmptyTabGroup(
     ) throws {
-        try clickFileMenuItem(matchingIdentifier: createEmptyTabGroupMenuItemIdentifier)
+        try createEmptyTabGroup(accessibility: .live)
+    }
+
+    static func createEmptyTabGroup(accessibility: SafariAccessibilityBackend) throws {
+        try clickFileMenuItem(
+            matchingIdentifier: createEmptyTabGroupMenuItemIdentifier,
+            accessibility: accessibility
+        )
     }
 
     public static func createEmptyTabGroup(
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+        executor: SafariAppleScriptExecuting
     ) throws {
-        if executor is SafariAppleScriptExecutor {
-            try createEmptyTabGroup()
-            return
-        }
-
         try clickFileMenuItem(
             matchingIdentifier: createEmptyTabGroupMenuItemIdentifier,
             executor: executor
@@ -109,18 +126,23 @@ public enum SafariFileMenu: ModelModel {
     }
 
     public static func deleteCurrentTabGroup() throws {
-        try clickFileMenuItem(matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier)
-        try SafariMenu.pressFrontWindowSheetButton(matchingIdentifier: "action-button-2")
+        try deleteCurrentTabGroup(accessibility: .live)
+    }
+
+    static func deleteCurrentTabGroup(accessibility: SafariAccessibilityBackend) throws {
+        try clickFileMenuItem(
+            matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier,
+            accessibility: accessibility
+        )
+        try SafariMenu.pressFrontWindowSheetButton(
+            matchingIdentifier: "action-button-2",
+            accessibility: accessibility
+        )
     }
 
     public static func deleteCurrentTabGroup(
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+        executor: SafariAppleScriptExecuting
     ) throws {
-        if executor is SafariAppleScriptExecutor {
-            try deleteCurrentTabGroup()
-            return
-        }
-
         try clickFileMenuItem(
             matchingIdentifier: deleteCurrentTabGroupMenuItemIdentifier,
             executor: executor
@@ -128,7 +150,12 @@ public enum SafariFileMenu: ModelModel {
     }
 
     public static func listItems(
-        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> [SafariMenuItemRecord] {
+        try SafariMenu.listItems(menuBarItemIndex: menuBarItemIndex)
+    }
+
+    public static func listItems(
+        executor: SafariAppleScriptExecuting
     ) throws -> [SafariMenuItemRecord] {
         try SafariMenu.listItems(
             menuBarItemIndex: menuBarItemIndex,
@@ -170,10 +197,14 @@ public enum SafariFileMenu: ModelModel {
     }
 
     private static func pressNewWindowMenuItem(
-        forProfileNamed profileName: String
+        forProfileNamed profileName: String,
+        accessibility: SafariAccessibilityBackend
     ) throws {
-        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
-            SafariMenu.stringValue(for: kAXTitleAttribute, on: $0).hasSuffix(profileName)
+        let didPress = try SafariMenu.pressFirstMenuItem(
+            menuBarItemIndex: menuBarItemIndex,
+            accessibility: accessibility
+        ) {
+            accessibility.stringValue(for: kAXTitleAttribute, on: $0).hasSuffix(profileName)
         }
 
         guard didPress else {
@@ -182,24 +213,33 @@ public enum SafariFileMenu: ModelModel {
     }
 
     private static func pressNewWindowMenuItemAfterOpeningBootstrapWindow(
-        forProfileNamed profileName: String
+        forProfileNamed profileName: String,
+        accessibility: SafariAccessibilityBackend,
+        openNewDocument: () throws -> Void
     ) throws {
-        guard visibleWindowCount() == 0 else {
+        guard visibleWindowCount(accessibility: accessibility) == 0 else {
             throw SafariUserInterfaceError.profileWindowMenuItemNotFound(profileName)
         }
 
-        try SafariAppleScriptWindow.openNewDocument()
-        _ = SafariAXPolling().firstResult {
-            visibleWindowCount() > 0 ? true : nil
+        try openNewDocument()
+        _ = accessibility.polling.firstResult {
+            visibleWindowCount(accessibility: accessibility) > 0 ? true : nil
         }
-        try pressNewWindowMenuItem(forProfileNamed: profileName)
+        try pressNewWindowMenuItem(
+            forProfileNamed: profileName,
+            accessibility: accessibility
+        )
     }
 
     private static func clickFileMenuItem(
-        matchingIdentifier identifier: String
+        matchingIdentifier identifier: String,
+        accessibility: SafariAccessibilityBackend
     ) throws {
-        let didPress = try SafariMenu.pressFirstMenuItem(menuBarItemIndex: menuBarItemIndex) {
-            stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
+        let didPress = try SafariMenu.pressFirstMenuItem(
+            menuBarItemIndex: menuBarItemIndex,
+            accessibility: accessibility
+        ) {
+            accessibility.stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
         }
 
         guard didPress else {
@@ -234,17 +274,10 @@ public enum SafariFileMenu: ModelModel {
         _ = try executor.execute(script: script)
     }
 
-    private static func stringValue(for attribute: String, on element: AXUIElement) -> String {
-        SafariAX.stringValue(for: attribute, on: element)
-    }
-
-    private static func visibleWindowCount() -> Int {
-        guard let safariApplication = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first else {
-            return 0
+    private static func visibleWindowCount(accessibility: SafariAccessibilityBackend) -> Int {
+        accessibility.applications().reduce(into: 0) { count, application in
+            count += accessibility.elements(for: kAXWindowsAttribute, on: application.element).count
         }
-
-        let applicationElement = AXUIElementCreateApplication(safariApplication.processIdentifier)
-        return SafariAX.elements(for: kAXWindowsAttribute, on: applicationElement).count
     }
 
 }

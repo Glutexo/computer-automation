@@ -100,11 +100,15 @@ flowchart TD
 - `menu-item-children <menu-bar-item-index> <menu-item-index>` returns one line per child item in the form `index|title|commandCharacter|commandModifiers`.
 - `SafariMenu` owns the shared implementation for reading top-level menu items.
 - `SafariMenu` waits for menu and sheet accessibility elements through bounded polling instead of fixed sleeps.
-- `SafariUserInterface` uses `SafariAppleScript` as its script transport and parsing layer.
+- Native menu, File-menu, sidebar, and focused-window operations use an explicit `SafariAccessibilityBackend` dependency that owns application lookup, attribute reads and writes, actions, and polling.
+- Production entry points select the live Accessibility backend explicitly. Executor-taking fallback entry points select the AppleScript transport explicitly; backend choice never depends on a concrete executor type check.
+- Native application lookup examines the available Safari application elements for the relevant menu bar or focused window instead of unconditionally using the first running Safari process.
+- Tests inject synthetic AX element graphs through the same backend boundary, so no unit test launches, focuses, reads, or mutates real Safari.
+- `SafariUserInterface` uses `SafariAppleScript` as its explicit fallback script transport and parsing layer.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
-- `SafariFileMenu.openPrivateWindow()` first reads the File menu structure and then identifies the private-window entry through shortcut metadata (`N` with modifier value `1`) instead of localized title text.
+- `SafariFileMenu.openPrivateWindow()` identifies the native File-menu entry through its stable identifier or shortcut metadata (`N` with modifier value `1`) instead of localized title text.
 - `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.

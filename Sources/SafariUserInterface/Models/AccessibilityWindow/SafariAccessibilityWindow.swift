@@ -1,4 +1,3 @@
-import AppKit
 import ApplicationServices
 import AutomationFoundation
 import Foundation
@@ -13,25 +12,38 @@ public enum SafariAccessibilityWindow: ModelModel {
     public static func closeFocusedWindow(
         performClose: () throws -> Void
     ) throws {
-        guard let focusedWindow = focusedSafariWindow() else {
+        try closeFocusedWindow(
+            performClose: performClose,
+            accessibility: .live
+        )
+    }
+
+    static func closeFocusedWindow(
+        performClose: () throws -> Void,
+        accessibility: SafariAccessibilityBackend
+    ) throws {
+        guard let focusedWindow = focusedSafariWindow(accessibility: accessibility) else {
             throw SafariUserInterfaceError.focusedWindowUnavailable
         }
 
         try closeCapturedWindow(
             performClose: performClose,
             isVisible: {
-                SafariAX.booleanValue(for: "AXVisible", on: focusedWindow)
+                accessibility.booleanValue(for: "AXVisible", on: focusedWindow)
             },
             pressCloseButton: {
-                guard let closeButton = SafariAX.elementValue(
+                guard let closeButton = accessibility.elementValue(
                     for: kAXCloseButtonAttribute,
                     on: focusedWindow
                 ) else {
                     return false
                 }
 
-                return AXUIElementPerformAction(closeButton, kAXPressAction as CFString) == .success
-            }
+                return accessibility.perform(kAXPressAction, on: closeButton)
+            },
+            sleep: accessibility.polling.sleep,
+            maxAttempts: accessibility.polling.maxAttempts,
+            interval: accessibility.polling.interval
         )
     }
 
@@ -68,16 +80,11 @@ public enum SafariAccessibilityWindow: ModelModel {
         }
     }
 
-    private static func focusedSafariWindow() -> AXUIElement? {
-        let applications = NSRunningApplication
-            .runningApplications(withBundleIdentifier: "com.apple.Safari")
-            .sorted { lhs, rhs in lhs.isActive && !rhs.isActive }
-
-        for application in applications {
-            let applicationElement = AXUIElementCreateApplication(application.processIdentifier)
-            if let focusedWindow = SafariAX.elementValue(
+    private static func focusedSafariWindow(accessibility: SafariAccessibilityBackend) -> AXUIElement? {
+        for application in accessibility.applications() {
+            if let focusedWindow = accessibility.elementValue(
                 for: kAXFocusedWindowAttribute,
-                on: applicationElement
+                on: application.element
             ) {
                 return focusedWindow
             }

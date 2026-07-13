@@ -33,13 +33,13 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.listTabGroups = { try SafariTabGroup.list() }
         self.listProfiles = { try SafariProfile.listAvailableProfiles() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
-        self.createEmptyTabGroup = { executor in
-            try SafariFileMenu.createEmptyTabGroup(executor: executor)
+        self.createEmptyTabGroup = { _ in
+            try SafariFileMenu.createEmptyTabGroup()
         }
         self.renameTabGroup = { group, newName, _ in
             try SafariSidebar.renameTabGroup(identifier: group.identifier, named: group.name, to: newName)
         }
-        self.deleteCurrentTabGroup = SafariFileMenu.deleteCurrentTabGroup
+        self.deleteCurrentTabGroup = { _ in try SafariFileMenu.deleteCurrentTabGroup() }
         self.sleep = Thread.sleep
     }
 

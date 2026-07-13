@@ -183,6 +183,7 @@ flowchart TD
 - Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.
 - Replacing a tab group by creating a new group and deleting the old group is a possible future workaround, not a rename implementation, because it changes identity and can lose Safari-owned metadata.
 - Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
+- Native Safari UI automation receives application lookup, Accessibility attribute reads and writes, actions, and polling through the shared injectable `SafariAccessibilityBackend`; production and AppleScript-fallback transport selection must be explicit rather than inferred from an executor's runtime type.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - A `find-*` command is a read command that returns a collection of matches; a `resolve-*` command is a read command that shares the lookup semantics but requires exactly one match and fails on none or ambiguity.

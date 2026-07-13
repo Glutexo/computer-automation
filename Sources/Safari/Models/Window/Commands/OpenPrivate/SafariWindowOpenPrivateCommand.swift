@@ -20,7 +20,7 @@ public struct SafariWindowOpenPrivateCommand: CommandModel, JSONCommandModel {
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
-        self.openPrivateWindow = SafariFileMenu.openPrivateWindow
+        self.openPrivateWindow = { _ in try SafariFileMenu.openPrivateWindow() }
         self.listWindows = SafariAppleScriptWindow.list
         self.resolvePrivateState = { windowIdentifier in
             try? SafariWindow.loadWindowStateByWindowIdentifier()[windowIdentifier]?.isPrivate

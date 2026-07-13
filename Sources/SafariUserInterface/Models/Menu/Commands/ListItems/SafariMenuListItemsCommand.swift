@@ -14,22 +14,21 @@ public struct SafariMenuListItemsCommand: CommandModel, JSONCommandModel {
         ]
     )
 
-    private let executor: SafariAppleScriptExecuting
+    private let listItems: (Int) throws -> [SafariMenuItemRecord]
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
+        self.listItems = { try SafariMenu.listItems(menuBarItemIndex: $0) }
     }
 
     init(executor: SafariAppleScriptExecuting) {
-        self.executor = executor
+        self.listItems = {
+            try SafariMenu.listItems(menuBarItemIndex: $0, executor: executor)
+        }
     }
 
     public func execute(arguments: [String]) throws -> String {
         let menuBarItemIndex = try parseMenuBarItemIndex(arguments)
-        let items = try SafariMenu.listItems(
-            menuBarItemIndex: menuBarItemIndex,
-            executor: executor
-        )
+        let items = try listItems(menuBarItemIndex)
 
         return items.map(SafariMenuItem.format).joined(separator: "\n")
     }
@@ -39,7 +38,7 @@ public struct SafariMenuListItemsCommand: CommandModel, JSONCommandModel {
         return try CommandJSONEncoder.encode(
             SafariMenuItemsJSONOutput(
                 menuBarItemIndex: menuBarItemIndex,
-                items: SafariMenu.listItems(menuBarItemIndex: menuBarItemIndex, executor: executor)
+                items: try listItems(menuBarItemIndex)
             )
         )
     }

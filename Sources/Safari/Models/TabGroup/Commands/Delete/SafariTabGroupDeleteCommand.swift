@@ -39,7 +39,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         self.deleteSelectedTabGroup = { _ in
             try SafariSidebar.deleteSelectedTabGroup()
         }
-        self.deleteCurrentTabGroup = SafariFileMenu.deleteCurrentTabGroup
+        self.deleteCurrentTabGroup = { _ in try SafariFileMenu.deleteCurrentTabGroup() }
         self.sleep = Thread.sleep
     }
 

@@ -8,23 +8,23 @@ public struct SafariFileMenuListCommand: CommandModel, JSONCommandModel {
         operation: .read
     )
 
-    private let executor: SafariAppleScriptExecuting
+    private let listItems: () throws -> [SafariMenuItemRecord]
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
+        self.listItems = SafariFileMenu.listItems
     }
 
     init(executor: SafariAppleScriptExecuting) {
-        self.executor = executor
+        self.listItems = { try SafariFileMenu.listItems(executor: executor) }
     }
 
     public func execute(arguments: [String]) throws -> String {
-        let items = try SafariFileMenu.listItems(executor: executor)
+        let items = try listItems()
         return items.map(SafariMenuItem.format).joined(separator: "\n")
     }
 
     public func executeJSON(arguments: [String]) throws -> String {
-        try CommandJSONEncoder.encode(SafariFileMenuItemsJSONOutput(items: SafariFileMenu.listItems(executor: executor)))
+        try CommandJSONEncoder.encode(SafariFileMenuItemsJSONOutput(items: listItems()))
     }
 }
 

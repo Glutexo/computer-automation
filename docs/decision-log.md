@@ -2,6 +2,13 @@
 
 ## 2026-07-13
 
+### Explicit injectable Safari Accessibility backend
+
+- Production menu, File-menu, sidebar, and focused-window operations select the native Accessibility backend explicitly; executor-taking overloads select the AppleScript transport explicitly and never infer a backend from the executor's concrete type.
+- `SafariAccessibilityBackend` centralizes running-application lookup, attribute reads and writes, actions, and polling so the production control flow can be exercised with synthetic AX element graphs.
+- Native lookup scans the available Safari application elements for the relevant menu bar or focused window, avoiding an unconditional dependency on the first `com.apple.Safari` process.
+- Unit tests cover native menu discovery and timeout, stable File-menu selection, sidebar reveal and identifier/name selection, rename discovery and confirmation, context-menu deletion and sheet confirmation, and focused-window close fallback without launching or mutating Safari.
+
 ### Authoritative saved tab-group identifiers
 
 - Exact saved tab-group identifiers remain unambiguous even when multiple groups in one profile share a display name.
