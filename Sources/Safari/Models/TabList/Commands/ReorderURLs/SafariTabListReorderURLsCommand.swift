@@ -32,13 +32,13 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
     )
 
     private let executor: SafariAppleScriptExecuting
-    private let ensureTabGroup: (String, String) throws -> SafariTabGroupEnsureSummary
+    private let ensureTabGroup: (String, String) throws -> SafariTabGroupEnsureOperationResult
     private let listWindowTabsByIndex: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
     private let listWindowTabsByIdentifier: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
     private let listTabGroupTabs: (Int) throws -> [SafariTabGroupTabRecord]
     private let listWindows: () throws -> [SafariWindowRecord]
-    private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let openWindow: (String?, SafariAppleScriptExecuting) throws -> Void
+    private let openNewWindowForProfile: (String) throws -> SafariWindowRecord
+    private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
     private let moveTabByIndex: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
     private let moveTabByIdentifier: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
@@ -47,13 +47,14 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
 
     public init() {
         let executor = SafariAppleScriptExecutor()
+        let listWindows = { try SafariWindow.list(executor: executor) }
         self.executor = executor
         self.ensureTabGroup = { profileName, name in
             try SafariTabGroupEnsureCommand(
                 executor: executor,
-                listWindows: { try SafariWindow.list(executor: executor) }
+                listWindows: listWindows
             )
-            .ensure(profileName: profileName, name: name)
+            .ensureOperation(profileName: profileName, name: name)
         }
         self.listWindowTabsByIndex = { windowIndex, executor in
             try SafariTabList.listWindowTabs(windowIndex: windowIndex, executor: executor)
@@ -64,11 +65,15 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         self.listTabGroupTabs = { identifier in
             try SafariTabList.listTabGroupTabs(tabGroupIdentifier: identifier)
         }
-        self.listWindows = { try SafariWindow.list(executor: executor) }
-        self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
-        self.openWindow = { profileName, _ in
-            try SafariFileMenu.openWindow(profileName: profileName)
+        self.listWindows = listWindows
+        self.openNewWindowForProfile = { profileName in
+            try SafariTabGroupSidebarAccess.openNewWindowForProfile(
+                profileName: profileName,
+                executor: executor,
+                listWindows: listWindows
+            )
         }
+        self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
         self.moveTabByIndex = { windowIndex, sourceIndex, destinationIndex, executor in
             try SafariAppleScriptTab.move(
@@ -94,15 +99,17 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
 
     init(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
-        ensureTabGroup: @escaping (String, String) throws -> SafariTabGroupEnsureSummary,
+        ensureTabGroup: @escaping (String, String) throws -> SafariTabGroupEnsureOperationResult,
         listWindowTabs: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord],
         listWindowTabsByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord] = { windowIdentifier, executor in
             try SafariTabList.listWindowTabs(windowIdentifier: windowIdentifier, executor: executor)
         },
         listTabGroupTabs: @escaping (Int) throws -> [SafariTabGroupTabRecord],
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
-        focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
-        openWindow: @escaping (String?, SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openWindow,
+        openNewWindowForProfile: @escaping (String) throws -> SafariWindowRecord = {
+            throw SafariTabGroupCommandError.windowForProfileNotFound($0)
+        },
+        closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
         selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
         moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = { windowIndex, sourceIndex, destinationIndex, executor in
             try SafariAppleScriptTab.move(
@@ -131,8 +138,8 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         self.listWindowTabsByIdentifier = listWindowTabsByIdentifier
         self.listTabGroupTabs = listTabGroupTabs
         self.listWindows = listWindows
-        self.focusWindow = focusWindow
-        self.openWindow = openWindow
+        self.openNewWindowForProfile = openNewWindowForProfile
+        self.closeWindow = closeWindow
         self.selectTabGroup = selectTabGroup
         self.moveTabByIndex = moveTab
         self.moveTabByIdentifier = moveTabByIdentifier
@@ -167,29 +174,30 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
                 extra: result.extra
             )
         case .tabGroup(let profileName, let name):
-            let tabGroupSummary = try ensureTabGroup(profileName, name)
+            let ensureResult = try ensureTabGroup(profileName, name)
+            let context = try SafariSavedTabGroupMutationContext.prepare(
+                ensureResult: ensureResult,
+                openNewWindowForProfile: openNewWindowForProfile
+            )
             do {
-                return try reorderTabGroupURLs(tabGroupSummary: tabGroupSummary, requestedURLs: request.urls)
+                return try reorderTabGroupURLs(context: context, requestedURLs: request.urls)
             } catch {
-                try rollbackCreatedTabGroup(tabGroupSummary)
+                try context.rollback(
+                    deleteTabGroup: deleteTabGroup,
+                    closeWindow: { try closeWindow($0, executor) }
+                )
                 throw error
             }
         }
     }
 
     private func reorderTabGroupURLs(
-        tabGroupSummary: SafariTabGroupEnsureSummary,
+        context: SafariSavedTabGroupMutationContext,
         requestedURLs: [String]
     ) throws -> SafariTabListReorderURLsSummary {
+        let tabGroupSummary = context.summary
         let tabGroup = tabGroupSummary.tabGroup
-        let window = try SafariTabGroupSidebarAccess.focusWindowForTabGroup(
-            tabGroup,
-            executor: executor,
-            listWindows: listWindows,
-            focusWindow: focusWindow,
-            openWindow: openWindow,
-            sleep: sleep
-        )
+        let window = context.window
         try selectTabGroup(tabGroup, executor)
 
         let windowAddress = SafariWindowAddress.identifier(window.identifier)
@@ -228,14 +236,6 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             missingURLs: result.missingURLs,
             extra: result.extra
         )
-    }
-
-    private func rollbackCreatedTabGroup(_ summary: SafariTabGroupEnsureSummary) throws {
-        guard summary.status == .created else {
-            return
-        }
-
-        try deleteTabGroup(summary.tabGroup.identifier)
     }
 
     private func listWindowTabs(for address: SafariWindowAddress) throws -> [SafariWindowTabRecord] {

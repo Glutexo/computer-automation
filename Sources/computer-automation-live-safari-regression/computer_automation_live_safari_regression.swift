@@ -121,6 +121,14 @@ private struct LiveSafariRegression {
         ])
         try expectEqual(try stringValue(javaScriptOutput, forKey: "result"), "42", "JavaScript result")
 
+        let windowsBeforeGroupCreation = try objectArray(
+            cleanup.runCLIJSON(["--json", "safari", "windows"]),
+            forKey: "windows"
+        )
+        let windowIdentifiersBeforeGroupCreation = Set(try windowsBeforeGroupCreation.map {
+            try intValue($0, forKey: "identifier")
+        })
+
         let createdGroupOutput = try cleanup.runCLIJSON([
             "--json",
             "safari",
@@ -155,6 +163,34 @@ private struct LiveSafariRegression {
             "reused tab-group identifier"
         )
 
+        let windowsAfterGroupCreation = try objectArray(
+            cleanup.runCLIJSON(["--json", "safari", "windows"]),
+            forKey: "windows"
+        )
+        let groupCreationWindowIdentifiers = Set(try windowsAfterGroupCreation.map {
+            try intValue($0, forKey: "identifier")
+        })
+        .subtracting(windowIdentifiersBeforeGroupCreation)
+        let groupCreationWindowIdentifier = try required(
+            groupCreationWindowIdentifiers.first,
+            "new saved tab-group creation window"
+        )
+        try expectEqual(groupCreationWindowIdentifiers.count, 1, "saved tab-group creation window count")
+        _ = try cleanup.runCLI([
+            "safari",
+            "close-window",
+            "--window-id",
+            String(groupCreationWindowIdentifier)
+        ])
+        cleanup.forgetWindow(identifier: groupCreationWindowIdentifier)
+
+        let baselineWindows = try liveSafariWindowStates(
+            try objectArray(
+                cleanup.runCLIJSON(["--json", "safari", "windows"]),
+                forKey: "windows"
+            )
+        )
+
         let ensuredURLsOutput = try cleanup.runCLIJSON([
             "--json",
             "safari",
@@ -171,6 +207,29 @@ private struct LiveSafariRegression {
             addedURLs.isSuperset(of: [urls.first, urls.second]),
             "Expected ensured URLs to include both live regression URLs."
         )
+        let ensuredURLsContext = try objectValue(ensuredURLsOutput, forKey: "context")
+        let ensuredURLsWindowIdentifier = try intValue(ensuredURLsContext, forKey: "windowIdentifier")
+        try require(
+            baselineWindows[ensuredURLsWindowIdentifier] == nil,
+            "Expected saved-group URL ensure to use a new operation-owned Safari window."
+        )
+        try expectBaselineWindowStatesUnchanged(
+            baselineWindows,
+            currentWindows: try liveSafariWindowStates(
+                try objectArray(
+                    cleanup.runCLIJSON(["--json", "safari", "windows"]),
+                    forKey: "windows"
+                )
+            ),
+            operation: "saved-group URL ensure"
+        )
+        _ = try cleanup.runCLI([
+            "safari",
+            "close-window",
+            "--window-id",
+            String(ensuredURLsWindowIdentifier)
+        ])
+        cleanup.forgetWindow(identifier: ensuredURLsWindowIdentifier)
 
         let reorderedURLsOutput = try cleanup.runCLIJSON([
             "--json",
@@ -186,6 +245,22 @@ private struct LiveSafariRegression {
         try require(
             try stringArray(reorderedURLsOutput, forKey: "missingURLs").isEmpty,
             "Expected reordered saved tab group to report no missing URLs."
+        )
+        let reorderedURLsContext = try objectValue(reorderedURLsOutput, forKey: "context")
+        let reorderedURLsWindowIdentifier = try intValue(reorderedURLsContext, forKey: "windowIdentifier")
+        try require(
+            baselineWindows[reorderedURLsWindowIdentifier] == nil,
+            "Expected saved-group URL reorder to use a new operation-owned Safari window."
+        )
+        try expectBaselineWindowStatesUnchanged(
+            baselineWindows,
+            currentWindows: try liveSafariWindowStates(
+                try objectArray(
+                    cleanup.runCLIJSON(["--json", "safari", "windows"]),
+                    forKey: "windows"
+                )
+            ),
+            operation: "saved-group URL reorder"
         )
 
         let tabGroupTabsOutput = try cleanup.runCLIJSON([
@@ -488,6 +563,10 @@ private struct LiveSafariCleanup {
         tabGroupIdentifiers.remove(identifier)
     }
 
+    mutating func forgetWindow(identifier: Int) {
+        windowIdentifiers.remove(identifier)
+    }
+
     func run() {
         for tabGroupIdentifier in tabGroupIdentifiers {
             do {
@@ -529,6 +608,41 @@ private struct LiveSafariCleanup {
             window["identifier"] as? Int
         })
     }
+}
+
+private struct LiveSafariWindowState: Equatable {
+    let identifier: Int
+    let profileName: String?
+    let selectedTabGroupIdentifier: Int?
+    let tabGroupName: String?
+}
+
+private func liveSafariWindowStates(_ windows: [[String: Any]]) throws -> [Int: LiveSafariWindowState] {
+    try Dictionary(uniqueKeysWithValues: windows.map { window in
+        let identifier = try intValue(window, forKey: "identifier")
+        return (
+            identifier,
+            LiveSafariWindowState(
+                identifier: identifier,
+                profileName: window["profileName"] as? String,
+                selectedTabGroupIdentifier: window["selectedTabGroupIdentifier"] as? Int,
+                tabGroupName: window["tabGroupName"] as? String
+            )
+        )
+    })
+}
+
+private func expectBaselineWindowStatesUnchanged(
+    _ baselineWindows: [Int: LiveSafariWindowState],
+    currentWindows: [Int: LiveSafariWindowState],
+    operation: String
+) throws {
+    let currentBaselineWindows = currentWindows.filter { baselineWindows[$0.key] != nil }
+    try expectEqual(
+        currentBaselineWindows,
+        baselineWindows,
+        "baseline Safari windows after \(operation)"
+    )
 }
 
 private enum LiveSafariRegressionError: Error, CustomStringConvertible {

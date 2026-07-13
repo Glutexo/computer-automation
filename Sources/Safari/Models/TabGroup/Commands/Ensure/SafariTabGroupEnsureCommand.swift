@@ -99,6 +99,10 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     }
 
     func ensure(profileName: String, name: String) throws -> SafariTabGroupEnsureSummary {
+        try ensureOperation(profileName: profileName, name: name).summary
+    }
+
+    func ensureOperation(profileName: String, name: String) throws -> SafariTabGroupEnsureOperationResult {
         let profiles = try listProfiles()
         let profileNames = profiles.map(\.name)
         let matchingProfileNames = SafariTabGroup.storedProfileNames(for: profileName, profiles: profiles)
@@ -113,12 +117,14 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
                 )
             }
 
-            return SafariTabGroupEnsureSummary(
-                status: .reused,
-                tabGroup: normalizeDefaultProfileName(
-                    match,
-                    requestedProfileName: profileName,
-                    matchingProfileNames: matchingProfileNames
+            return SafariTabGroupEnsureOperationResult(
+                summary: SafariTabGroupEnsureSummary(
+                    status: .reused,
+                    tabGroup: normalizeDefaultProfileName(
+                        match,
+                        requestedProfileName: profileName,
+                        matchingProfileNames: matchingProfileNames
+                    )
                 )
             )
         }
@@ -149,13 +155,16 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
                 createdProfileName: createdGroup.profileName
             )
         }
-        return SafariTabGroupEnsureSummary(
-            status: .created,
-            tabGroup: normalizeDefaultProfileName(
-                createdGroup,
-                requestedProfileName: profileName,
-                matchingProfileNames: matchingProfileNames
-            )
+        return SafariTabGroupEnsureOperationResult(
+            summary: SafariTabGroupEnsureSummary(
+                status: .created,
+                tabGroup: normalizeDefaultProfileName(
+                    createdGroup,
+                    requestedProfileName: profileName,
+                    matchingProfileNames: matchingProfileNames
+                )
+            ),
+            createdWindow: window
         )
     }
 
@@ -198,5 +207,15 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         if let cleanupError {
             throw cleanupError
         }
+    }
+}
+
+struct SafariTabGroupEnsureOperationResult {
+    let summary: SafariTabGroupEnsureSummary
+    let createdWindow: SafariWindowRecord?
+
+    init(summary: SafariTabGroupEnsureSummary, createdWindow: SafariWindowRecord? = nil) {
+        self.summary = summary
+        self.createdWindow = createdWindow
     }
 }

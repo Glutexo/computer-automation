@@ -150,6 +150,24 @@ enum SafariTabGroupSidebarAccess {
     static func openNewWindowForProfile(
         profileName: String,
         executor: SafariAppleScriptExecuting,
+        listWindows: @escaping () throws -> [SafariWindowRecord]
+    ) throws -> SafariWindowRecord {
+        try openNewWindowForProfile(
+            profileName: profileName,
+            executor: executor,
+            listWindows: listWindows,
+            focusWindow: SafariAppleScriptWindow.focus(windowIdentifier:executor:),
+            openWindow: { profileName, _ in
+                try SafariFileMenu.openWindow(profileName: profileName)
+            },
+            closeWindow: SafariAppleScriptWindow.close(windowIdentifier:executor:),
+            profileNames: try SafariProfile.listAvailableProfiles().map(\.name)
+        )
+    }
+
+    static func openNewWindowForProfile(
+        profileName: String,
+        executor: SafariAppleScriptExecuting,
         listWindows: () throws -> [SafariWindowRecord],
         focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void,
         openWindow: (String?, SafariAppleScriptExecuting) throws -> Void,

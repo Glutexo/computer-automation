@@ -1,5 +1,14 @@
 # Decision Log
 
+## 2026-07-13
+
+### Operation-owned windows for saved tab-group mutations
+
+- Saved-group-backed `ensure-tab-list-urls` and `reorder-tab-list-urls` must never select their target group in a pre-existing Safari window, even when that window already belongs to the requested profile or currently shows the target group.
+- A missing group carries the stable identifier of the new profile window opened by `ensure-tab-group`; a reused group opens another brand-new profile window before any sidebar selection or tab mutation.
+- Both mutation commands carry that operation-owned stable window identifier through tab reads and writes.
+- Failure cleanup deletes only a group created by the operation and closes only the operation-owned window, leaving all baseline windows and their selected groups unchanged.
+
 ## 2026-07-10
 
 ### Profile-window fallback after unresolved menu opens

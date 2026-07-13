@@ -1,5 +1,14 @@
 # Research Notes
 
+## 2026-07-13
+
+### Reused saved groups can repurpose unrelated profile windows
+
+- GitHub issue #29 captured a saved-tab-group kickoff that reused an existing group, focused the only open Twisto window, and switched that unrelated window from `⏳ TSD-9309` to `🧾 TSD-9500`.
+- `ensure-tab-list-urls` and `reorder-tab-list-urls` both delegated reused groups to `focusWindowForTabGroup`, whose fallback intentionally selected an existing window with the same profile before selecting the target sidebar row.
+- The existing unit tests encoded that behavior by asserting that a reused group did not open a new profile window.
+- Saved-tab-group mutation safety requires explicit ownership, not best-match window lookup: carry the exact newly created window from group creation, and open a separate new profile window for every reused-group mutation.
+
 ## 2026-07-11
 
 ### Profile File-menu clicks can block profile-window fallback

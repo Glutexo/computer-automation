@@ -299,7 +299,10 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         }
     )
 
-    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "Safari tab group created.\n10|Twisto|Focus")
+    let result = try command.ensureOperation(profileName: "Twisto", name: "Focus")
+    #expect(result.summary.status == .created)
+    #expect(result.summary.tabGroup == SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus"))
+    #expect(result.createdWindow == openedWindow)
     #expect(openedProfileName == "Twisto")
     #expect(focusedWindowIdentifiers == [42])
     #expect(createdWindowIdentifier == 42)
