@@ -145,49 +145,4 @@ public enum SafariDatabaseTabGroup: ModelModel {
         return tabs
     }
 
-    public static func delete(
-        tabGroupIdentifier: Int,
-        databasePath: String = SafariTabsDatabase.databasePath()
-    ) throws -> SafariDatabaseTabGroupRecord {
-        let groups = try list(databasePath: databasePath)
-        guard let group = groups.first(where: { $0.identifier == tabGroupIdentifier }) else {
-            throw SafariDatabaseTabGroupError.tabGroupNotFound(tabGroupIdentifier)
-        }
-
-        let database = try SafariTabsDatabase.openReadWrite(databasePath: databasePath)
-        defer { sqlite3_close(database) }
-
-        let query = """
-        WITH RECURSIVE descendants(id) AS (
-            SELECT id
-            FROM bookmarks
-            WHERE id = ?
-            UNION ALL
-            SELECT child.id
-            FROM bookmarks child
-            JOIN descendants parentDescendant ON child.parent = parentDescendant.id
-        )
-        DELETE FROM bookmarks
-        WHERE id IN descendants;
-        """
-
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK else {
-            defer { sqlite3_finalize(statement) }
-            throw SafariDatabaseError.queryPreparationFailed(modelName: modelName)
-        }
-        defer { sqlite3_finalize(statement) }
-
-        sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
-
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw SafariDatabaseError.queryExecutionFailed(modelName: modelName)
-        }
-
-        return group
-    }
-}
-
-public enum SafariDatabaseTabGroupError: Error, Equatable {
-    case tabGroupNotFound(Int)
 }

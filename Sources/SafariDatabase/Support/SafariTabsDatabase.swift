@@ -14,10 +14,6 @@ public enum SafariTabsDatabase {
         try open(databasePath: databasePath, flags: SQLITE_OPEN_READONLY)
     }
 
-    static func openReadWrite(databasePath: String) throws -> OpaquePointer {
-        try open(databasePath: databasePath, flags: SQLITE_OPEN_READWRITE)
-    }
-
     static func stepRows(
         _ statement: OpaquePointer?,
         modelName: String,

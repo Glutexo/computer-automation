@@ -101,25 +101,6 @@ public enum SafariTabGroup: ModelModel {
         }
     }
 
-    static func delete(
-        tabGroupIdentifier: Int,
-        databasePath: String = SafariProfile.databasePath()
-    ) throws -> SafariTabGroupRecord {
-        do {
-            let deletedGroup = SafariTabGroupRecord(
-                try SafariDatabaseTabGroup.delete(
-                    tabGroupIdentifier: tabGroupIdentifier,
-                    databasePath: databasePath
-                )
-            )
-            return try normalizeDefaultProfileNames([deletedGroup], databasePath: databasePath)[0]
-        } catch let error as SafariDatabaseError {
-            throw SafariTabGroupCommandError(error)
-        } catch SafariDatabaseTabGroupError.tabGroupNotFound(let identifier) {
-            throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
-        }
-    }
-
     static func normalizeDefaultProfileNames(
         _ groups: [SafariTabGroupRecord],
         profiles: [SafariProfileRecord]

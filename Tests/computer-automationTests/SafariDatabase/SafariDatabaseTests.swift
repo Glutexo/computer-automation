@@ -365,48 +365,6 @@ import SQLite3
     )
 }
 
-@Test func safariTabGroupDeleteRemovesGroupAndDescendants() async throws {
-    let databasePath = try makeTemporaryDatabase()
-    defer { try? FileManager.default.removeItem(atPath: databasePath) }
-
-    let setupSQL = """
-    CREATE TABLE bookmarks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        parent INTEGER,
-        type INTEGER,
-        title TEXT,
-        url TEXT,
-        order_index INTEGER NOT NULL,
-        subtype INTEGER
-    );
-    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
-        (288, 0, 1, 'Twisto', NULL, 0, 2),
-        (1000, 288, 1, 'Focus', NULL, 0, 0),
-        (1001, 1000, 1, 'TopScopedBookmarkList', NULL, 0, 1),
-        (1002, 1000, 0, 'OpenAI', 'https://openai.com', 1, 0),
-        (2000, 288, 1, 'Inbox', NULL, 1, 0),
-        (2001, 2000, 1, 'TopScopedBookmarkList', NULL, 0, 1);
-    """
-
-    try executeSQL(setupSQL, at: databasePath)
-
-    #expect(
-        try SafariDatabaseTabGroup.delete(tabGroupIdentifier: 1000, databasePath: databasePath) ==
-        SafariDatabaseTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
-    )
-    #expect(try SafariDatabaseTabGroup.list(databasePath: databasePath) == [
-        SafariDatabaseTabGroupRecord(identifier: 2000, profileName: "Twisto", name: "Inbox")
-    ])
-
-    let database = try #require(openDatabase(at: databasePath))
-    defer { sqlite3_close(database) }
-    var statement: OpaquePointer?
-    #expect(sqlite3_prepare_v2(database, "SELECT count(*) FROM bookmarks WHERE id IN (1000, 1001, 1002);", -1, &statement, nil) == SQLITE_OK)
-    defer { sqlite3_finalize(statement) }
-    #expect(sqlite3_step(statement) == SQLITE_ROW)
-    #expect(sqlite3_column_int(statement, 0) == 0)
-}
-
 @Test func safariProfileListsSubtypeTwoRootBookmarks() async throws {
     let temporaryDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)
