@@ -139,9 +139,8 @@ public enum SafariSidebar: ModelModel {
         try waitForSidebarOutline(
             polling: accessibility.polling,
             currentOutline: {
-                firstDescendant(
+                sidebarOutline(
                     in: focusedWindow,
-                    matchingRole: kAXOutlineRole,
                     accessibility: accessibility
                 )
             },
@@ -445,9 +444,8 @@ public enum SafariSidebar: ModelModel {
             accessibility: accessibility,
             error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         )
-        guard let outline = firstDescendant(
+        guard let outline = sidebarOutline(
             in: focusedWindow,
-            matchingRole: kAXOutlineRole,
             accessibility: accessibility
         ) else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
@@ -506,6 +504,7 @@ public enum SafariSidebar: ModelModel {
                 for: kAXFocusedWindowAttribute,
                 on: application.element
             ) {
+                application.activate()
                 return (application.element, window)
             }
         }
@@ -551,6 +550,35 @@ public enum SafariSidebar: ModelModel {
             if let match = firstDescendant(
                 in: child,
                 matchingRole: role,
+                accessibility: accessibility,
+                depth: depth + 1
+            ) {
+                return match
+            }
+        }
+
+        return nil
+    }
+
+    private static func sidebarOutline(
+        in root: AXUIElement,
+        accessibility: SafariAccessibilityBackend,
+        depth: Int = 0
+    ) -> AXUIElement? {
+        if
+            accessibility.stringValue(for: kAXRoleAttribute, on: root) == kAXOutlineRole,
+            accessibility.stringValue(for: kAXIdentifierAttribute, on: root) == "Sidebar"
+        {
+            return root
+        }
+
+        if depth > 18 {
+            return nil
+        }
+
+        for child in descendantElements(on: root, accessibility: accessibility) {
+            if let match = sidebarOutline(
+                in: child,
                 accessibility: accessibility,
                 depth: depth + 1
             ) {

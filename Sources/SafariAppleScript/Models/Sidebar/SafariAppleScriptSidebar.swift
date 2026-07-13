@@ -195,14 +195,46 @@ public enum SafariAppleScriptSidebar: ModelModel {
     }
 
     private static let sidebarBootstrapScript = """
+    on firstSidebarOutline(rootElement, currentDepth)
+        if currentDepth > 18 then return missing value
+
+        tell application "System Events"
+            try
+                if value of attribute "AXRole" of rootElement is "AXOutline" and value of attribute "AXIdentifier" of rootElement is "Sidebar" then
+                    return rootElement
+                end if
+            end try
+
+            set childElements to {}
+            try
+                set childElements to UI elements of rootElement
+            end try
+        end tell
+
+        repeat with childElement in childElements
+            set matchedOutline to my firstSidebarOutline(contents of childElement, currentDepth + 1)
+            if matchedOutline is not missing value then return matchedOutline
+        end repeat
+
+        return missing value
+    end firstSidebarOutline
+
     tell application "System Events"
         tell process "Safari"
             if (count of windows) is 0 then
                 error "Safari has no open windows."
             end if
-            if not (exists UI element 1 of UI element 1 of UI element 1 of front window) then
+
+            set targetWindow to missing value
+            try
+                set targetWindow to value of attribute "AXFocusedWindow"
+            end try
+            if targetWindow is missing value then set targetWindow to front window
+
+            set outlineItem to my firstSidebarOutline(targetWindow, 0)
+            if outlineItem is missing value then
                 set sidebarButton to missing value
-                repeat with toolbarChild in UI elements of toolbar 1 of front window
+                repeat with toolbarChild in UI elements of toolbar 1 of targetWindow
                     try
                         if value of attribute "AXIdentifier" of toolbarChild is "SidebarButton" then
                             set sidebarButton to toolbarChild
@@ -222,13 +254,18 @@ public enum SafariAppleScriptSidebar: ModelModel {
                 if sidebarButton is missing value then
                     error "Safari sidebar button not found."
                 end if
-                click sidebarButton
-                delay 0.1
+
+                perform action "AXPress" of sidebarButton
+                repeat with attempt from 1 to 20
+                    set outlineItem to my firstSidebarOutline(targetWindow, 0)
+                    if outlineItem is not missing value then exit repeat
+                    if attempt < 20 then delay 0.1
+                end repeat
             end if
-            if not (exists UI element 1 of UI element 1 of UI element 1 of front window) then
+
+            if outlineItem is missing value then
                 error "Safari sidebar not available."
             end if
-            set outlineItem to UI element 1 of UI element 1 of UI element 1 of front window
     """
 
     private static let sidebarIdentifierHandlerScript = """

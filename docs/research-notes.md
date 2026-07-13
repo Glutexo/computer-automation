@@ -2,6 +2,14 @@
 
 ## 2026-07-13
 
+### Sidebar discovery must qualify the structural outline
+
+- GitHub issue #30 reproduced saved-tab-group selection failures when Safari exposed accessibility outlines other than the actual `AXOutline` with identifier `Sidebar`.
+- Safari reports `AXVisible=false` even for an open, populated sidebar outline, so sidebar state must be determined by structural presence rather than that attribute.
+- Sidebar selection, rename, and deletion must recursively resolve the outline by role and identifier instead of accepting the first outline or assuming a fixed three-element hierarchy.
+- When several Safari processes exist, the process owning the focused window must be activated before revealing or mutating its sidebar; activating Safari generically can target a different process with no windows.
+- The System Events fallback must resolve the focused window structurally, reveal the sidebar through `SidebarButton`, and poll for the qualified outline because Safari can publish it after the button action returns.
+
 ### Reused saved groups can repurpose unrelated profile windows
 
 - GitHub issue #29 captured a saved-tab-group kickoff that reused an existing group, focused the only open Twisto window, and switched that unrelated window from `⏳ TSD-9309` to `🧾 TSD-9500`.

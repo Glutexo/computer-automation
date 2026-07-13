@@ -296,7 +296,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(kAXIdentifierAttribute, on: sidebarButton, to: "SidebarButton" as CFString)
     fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
     fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
-    fake.set("AXVisible", on: outline, to: kCFBooleanTrue)
+    fake.set("AXVisible", on: outline, to: kCFBooleanFalse)
     fake.setElements(kAXRowsAttribute, on: outline, to: [firstRow, secondRow])
     fake.setElements(kAXChildrenAttribute, on: firstRow, to: [firstCell])
     fake.setElements(kAXChildrenAttribute, on: secondRow, to: [secondCell])
@@ -319,6 +319,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let identifierSelection = fake.writtenAttributes.first(where: { $0.name == kAXSelectedRowsAttribute })
     #expect((identifierSelection?.value as? [AXUIElement])?.first.map { sameElement($0, secondRow) } == true)
     #expect(fake.performedActions.contains(where: { $0.action == kAXPressAction && sameElement($0.element, sidebarButton) }))
+    #expect(fake.activationCount == 1)
 
     fake.writtenAttributes.removeAll()
     fake.set(kAXIdentifierAttribute, on: firstCell, to: "SidebarLibraryItemTabGroup" as CFString)
@@ -327,6 +328,55 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 
     let nameSelection = fake.writtenAttributes.first(where: { $0.name == kAXSelectedRowsAttribute })
     #expect((nameSelection?.value as? [AXUIElement])?.first.map { sameElement($0, firstRow) } == true)
+    #expect(fake.activationCount == 2)
+}
+
+@Test func safariSidebarAccessibilityBackendSkipsDecoyAndAcceptsFalseAXVisible() async throws {
+    let application = testAXElement(95_100)
+    let window = testAXElement(95_101)
+    let decoyOutline = testAXElement(95_102)
+    let splitGroup = testAXElement(95_104)
+    let scrollArea = testAXElement(95_105)
+    let sidebarOutline = testAXElement(95_106)
+    let sidebarButton = testAXElement(95_107)
+    let row = testAXElement(95_108)
+    let cell = testAXElement(95_109)
+    let title = testAXElement(95_110)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.setElements(
+        kAXChildrenAttribute,
+        on: window,
+        to: [decoyOutline, splitGroup, sidebarButton]
+    )
+    fake.set(kAXRoleAttribute, on: decoyOutline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: decoyOutline, to: "OtherOutline" as CFString)
+    fake.set("AXVisible", on: decoyOutline, to: kCFBooleanTrue)
+    fake.setElements(kAXChildrenAttribute, on: splitGroup, to: [scrollArea])
+    fake.setElements(kAXChildrenAttribute, on: scrollArea, to: [sidebarOutline])
+    fake.set(kAXRoleAttribute, on: sidebarOutline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: sidebarOutline, to: "Sidebar" as CFString)
+    fake.set("AXVisible", on: sidebarOutline, to: kCFBooleanFalse)
+    fake.setElements(kAXRowsAttribute, on: sidebarOutline, to: [row])
+    fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
+    fake.set(kAXIdentifierAttribute, on: cell, to: "SidebarLibraryItemTabGroup-42" as CFString)
+    fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+    fake.set(kAXValueAttribute, on: title, to: "Focus" as CFString)
+    fake.set(kAXIdentifierAttribute, on: sidebarButton, to: "SidebarButton" as CFString)
+
+    try SafariSidebar.selectTabGroup(
+        identifier: 42,
+        named: "Focus",
+        accessibility: fake.backend()
+    )
+
+    let selection = fake.writtenAttributes.first(where: { $0.name == kAXSelectedRowsAttribute })
+    #expect(sameElement(selection?.element ?? decoyOutline, sidebarOutline))
+    #expect((selection?.value as? [AXUIElement])?.first.map { sameElement($0, row) } == true)
+    #expect(!fake.performedActions.contains(where: {
+        $0.action == kAXPressAction && sameElement($0.element, sidebarButton)
+    }))
 }
 
 @Test func safariSidebarAccessibilityBackendDiscoversAndConfirmsRename() async throws {
@@ -345,7 +395,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
     fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
     fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
-    fake.set("AXVisible", on: outline, to: kCFBooleanTrue)
+    fake.set("AXVisible", on: outline, to: kCFBooleanFalse)
     fake.setElements(kAXRowsAttribute, on: outline, to: [row])
     fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
     fake.set(kAXIdentifierAttribute, on: cell, to: "SidebarLibraryItemTabGroup-42" as CFString)
@@ -386,11 +436,15 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let deleteMenuItem = testAXElement(97_006)
     let sheet = testAXElement(97_007)
     let confirmationButton = testAXElement(97_008)
+    let decoyOutline = testAXElement(97_009)
     let fake = FakeSafariAccessibility(applicationElements: [application])
 
     fake.set(kAXFocusedWindowAttribute, on: application, to: window)
     fake.setElements(kAXChildrenAttribute, on: application, to: [window, deleteMenuItem])
-    fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+    fake.setElements(kAXChildrenAttribute, on: window, to: [decoyOutline, outline])
+    fake.set(kAXRoleAttribute, on: decoyOutline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: decoyOutline, to: "OtherOutline" as CFString)
+    fake.set("AXVisible", on: decoyOutline, to: kCFBooleanTrue)
     fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
     fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
     fake.set("AXVisible", on: outline, to: kCFBooleanTrue)
