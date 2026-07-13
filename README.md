@@ -83,14 +83,14 @@ swift run computer-automation safari-ui menu-item-children 3 27
 
 Running the executable launches Safari on macOS.
 
-`safari open-window` prints a human-readable success line followed by a stable machine-readable window identifier line:
+Safari window-creation commands print a human-readable success line followed by a stable machine-readable window identifier line:
 
 ```text
 Safari window opened.
 window-id|42
 ```
 
-When a profile name is provided, `open-window` verifies that the resolved new window belongs to that profile and closes newly created wrong-profile windows before reporting failure.
+`open-window`, `open-private-window`, and `open-tab-group-window` all resolve and report the exact newly created window as `window-id|<id>` in text mode and `windowId` in JSON mode. Profile opening verifies the requested profile. Private opening verifies private state when Safari database metadata is available. Saved-group opening carries the exact id through focus and sidebar selection, verifies the selected group by readback, and rolls back only its operation-owned window on failure.
 
 `safari find-tab <url>` searches open Safari tabs by exact URL. Add `--prefix` for prefix matching, `--window-id <id>` or `--window-index <index>` to limit the search to one window, and `--profile <name>` to limit matches to a Safari profile when window profile metadata is available. It prints one machine-readable row per match:
 

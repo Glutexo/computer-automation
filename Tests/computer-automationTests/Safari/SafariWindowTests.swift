@@ -328,19 +328,67 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
 
 @Test func safariWindowOpenPrivateCommandFormatsSuccessMessage() async throws {
     var didOpen = false
+    let existingWindow = SafariAppleScriptWindowRecord(identifier: 10, name: "Existing")
+    let privateWindow = SafariAppleScriptWindowRecord(identifier: 42, name: "Private")
     let command = SafariWindowOpenPrivateCommand(
         executor: MockAppleScriptExecutor(),
-        openPrivateWindow: { _ in didOpen = true }
+        openPrivateWindow: { _ in didOpen = true },
+        listWindows: { _ in didOpen ? [privateWindow, existingWindow] : [existingWindow] },
+        resolvePrivateState: { $0 == 42 },
+        sleep: { _ in }
     )
 
-    #expect(try command.execute(arguments: []) == "Safari private window opened.")
+    #expect(try command.execute(arguments: []) == "Safari private window opened.\nwindow-id|42")
     #expect(didOpen)
+}
+
+@Test func safariWindowOpenPrivateCommandReturnsVerifiedWindowJSON() async throws {
+    var didOpen = false
+    let command = SafariWindowOpenPrivateCommand(
+        executor: MockAppleScriptExecutor(),
+        openPrivateWindow: { _ in didOpen = true },
+        listWindows: { _ in
+            didOpen
+                ? [SafariAppleScriptWindowRecord(identifier: 42, name: "Private")]
+                : []
+        },
+        resolvePrivateState: { $0 == 42 },
+        sleep: { _ in }
+    )
+
+    let object = try jsonObject(try command.executeJSON(arguments: []))
+    #expect(object["windowId"] as? Int == 42)
+    #expect(object["isPrivate"] as? Bool == true)
+}
+
+@Test func safariWindowOpenPrivateCommandRollsBackMismatchedWindow() async throws {
+    var didOpen = false
+    var closedWindowIdentifiers: [Int] = []
+    let command = SafariWindowOpenPrivateCommand(
+        executor: MockAppleScriptExecutor(),
+        openPrivateWindow: { _ in didOpen = true },
+        listWindows: { _ in
+            didOpen
+                ? [SafariAppleScriptWindowRecord(identifier: 42, name: "Start Page")]
+                : []
+        },
+        resolvePrivateState: { _ in false },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariWindowCommandError.openedPrivateWindowStateMismatch(42)) {
+        try command.execute(arguments: [])
+    }
+    #expect(closedWindowIdentifiers == [42])
 }
 
 @Test func safariWindowOpenPrivateCommandWrapsUiFailure() async throws {
     let command = SafariWindowOpenPrivateCommand(
         executor: MockAppleScriptExecutor(),
-        openPrivateWindow: { _ in throw SafariUserInterfaceError.privateWindowMenuItemNotFound }
+        openPrivateWindow: { _ in throw SafariUserInterfaceError.privateWindowMenuItemNotFound },
+        listWindows: { _ in [] },
+        sleep: { _ in }
     )
 
     #expect(throws: SafariWindowCommandError.privateWindowMenuItemNotFound) {
@@ -350,28 +398,128 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
 
 @Test func safariWindowOpenTabGroupCommandOpensProfileWindowAndSelectsGroup() async throws {
     var receivedProfileName: String?
+    var focusedWindowIdentifier: Int?
     var selectedTabGroup: SafariTabGroupRecord?
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 2,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
     let command = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: {
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
         },
-        openWindow: { profileName, _ in receivedProfileName = profileName },
-        selectTabGroup: { tabGroup, _ in selectedTabGroup = tabGroup }
+        openNewWindowForProfile: { profileName, _ in
+            receivedProfileName = profileName
+            return operationWindow
+        },
+        focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
+        selectTabGroup: { tabGroup, _ in selectedTabGroup = tabGroup },
+        listWindows: { _ in [operationWindow] },
+        sleep: { _ in }
     )
 
-    #expect(try command.execute(arguments: ["1000"]) == "Safari window opened for tab group Focus.")
+    #expect(try command.execute(arguments: ["1000"]) == "Safari window opened for tab group Focus.\nwindow-id|42")
     #expect(receivedProfileName == "Twisto")
+    #expect(focusedWindowIdentifier == 42)
     #expect(selectedTabGroup?.identifier == 1000)
     #expect(selectedTabGroup?.profileName == "Twisto")
     #expect(selectedTabGroup?.name == "Focus")
+}
+
+@Test func safariWindowOpenTabGroupCommandReturnsWindowJSONAfterReadback() async throws {
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in operationWindow },
+        selectTabGroup: { _, _ in },
+        listWindows: { _ in [operationWindow] },
+        sleep: { _ in }
+    )
+
+    let object = try jsonObject(try command.executeJSON(arguments: ["1000"]))
+    #expect(object["windowId"] as? Int == 42)
+    #expect(object["profileName"] as? String == "Twisto")
+}
+
+@Test func safariWindowOpenTabGroupCommandRollsBackOnlyOperationWindowOnSelectionFailure() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 2,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in operationWindow },
+        selectTabGroup: { _, _ in throw SafariTabGroupCommandError.sidebarUnavailable },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.sidebarUnavailable) {
+        try command.execute(arguments: ["1000"])
+    }
+    #expect(closedWindowIdentifiers == [42])
+}
+
+@Test func safariWindowOpenTabGroupCommandRejectsUnverifiedSelectionAndRollsBack() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 2,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in operationWindow },
+        selectTabGroup: { _, _ in },
+        listWindows: { _ in [operationWindow] },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(
+        throws: SafariWindowCommandError.tabGroupSelectionNotVerified(
+            windowIdentifier: 42,
+            tabGroupIdentifier: 1000
+        )
+    ) {
+        try command.execute(arguments: ["1000"])
+    }
+    #expect(closedWindowIdentifiers == [42])
 }
 
 @Test func safariWindowOpenTabGroupCommandRejectsMissingOrInvalidTabGroupIdentifier() async throws {
     let command = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: { [] },
-        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        openNewWindowForProfile: { _, _ in
+            Issue.record("openNewWindowForProfile should not be called")
+            throw SafariWindowCommandError.openedWindowIdentifierNotFound
+        },
         selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
     )
 
@@ -388,7 +536,10 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     let missingCommand = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: { [] },
-        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        openNewWindowForProfile: { _, _ in
+            Issue.record("openNewWindowForProfile should not be called")
+            throw SafariWindowCommandError.openedWindowIdentifierNotFound
+        },
         selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
     )
 
@@ -404,7 +555,10 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Focus")
             ]
         },
-        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        openNewWindowForProfile: { _, _ in
+            Issue.record("openNewWindowForProfile should not be called")
+            throw SafariWindowCommandError.openedWindowIdentifierNotFound
+        },
         selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
     )
 
@@ -419,7 +573,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
         listTabGroups: {
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
         },
-        openWindow: { _, _ in throw SafariUserInterfaceError.profileWindowMenuItemNotFound("Twisto") },
+        openNewWindowForProfile: { _, _ in throw SafariWindowCommandError.profileMenuItemNotFound("Twisto") },
         selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
     )
 

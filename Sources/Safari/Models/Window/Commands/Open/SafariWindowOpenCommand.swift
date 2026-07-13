@@ -74,30 +74,27 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
 
     @discardableResult
     public func execute(arguments: [String] = []) throws -> String {
-        let result = try openWindowResult(arguments: arguments)
-        return formatSuccessMessage(result.message, windowIdentifier: result.windowIdentifier)
+        try openWindowResult(arguments: arguments).text
     }
 
     public func executeJSON(arguments: [String] = []) throws -> String {
-        let result = try openWindowResult(arguments: arguments)
-        return try CommandJSONEncoder.encode(
-            SafariWindowOpenJSONOutput(
-                message: result.message,
-                windowId: result.windowIdentifier,
-                profileName: result.profileName
-            )
-        )
+        try CommandJSONEncoder.encode(openWindowResult(arguments: arguments))
     }
 
-    private func openWindowResult(arguments: [String]) throws -> SafariWindowOpenResult {
+    private func openWindowResult(arguments: [String]) throws -> SafariWindowCreationResult {
         if let requestedProfile = arguments.first, !requestedProfile.isEmpty {
             return try openWindow(forProfileNamed: requestedProfile)
         }
         let windowIdentifier = try openWindowAndResolveIdentifier(profileName: nil)
-        return SafariWindowOpenResult(message: "Safari window opened.", windowIdentifier: windowIdentifier, profileName: nil)
+        return SafariWindowCreationResult(
+            message: "Safari window opened.",
+            windowId: windowIdentifier,
+            profileName: nil,
+            isPrivate: false
+        )
     }
 
-    private func openWindow(forProfileNamed profileName: String) throws -> SafariWindowOpenResult {
+    private func openWindow(forProfileNamed profileName: String) throws -> SafariWindowCreationResult {
         var profileNames: [String] = []
         do {
             let profiles = try listProfiles()
@@ -121,10 +118,11 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
                     requestedProfileName: profileName,
                     profileNames: profileNames
                 )
-                return SafariWindowOpenResult(
+                return SafariWindowCreationResult(
                     message: "Safari window opened for profile \(profileName).",
-                    windowIdentifier: windowIdentifier,
-                    profileName: profileName
+                    windowId: windowIdentifier,
+                    profileName: profileName,
+                    isPrivate: false
                 )
             } catch SafariUserInterfaceError.profileWindowMenuItemNotFound {
             } catch SafariWindowCommandError.openedWindowIdentifierNotFound {
@@ -172,10 +170,11 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
             throw error
         }
 
-        return SafariWindowOpenResult(
+        return SafariWindowCreationResult(
             message: "Safari window opened for profile \(profileName).",
-            windowIdentifier: windowIdentifier,
-            profileName: profileName
+            windowId: windowIdentifier,
+            profileName: profileName,
+            isPrivate: false
         )
     }
 
@@ -186,7 +185,7 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     }
 
     private func currentWindowIdentifiers() throws -> Set<Int> {
-        Set(try listWindows(executor).map(\.identifier))
+        try SafariWindowCreation.currentWindowIdentifiers(executor: executor, listWindows: listWindows)
     }
 
     private func resolveNewWindowIdentifier(
@@ -294,32 +293,16 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     }
 
     private func rollbackNewWindows(excluding knownWindowIdentifiers: Set<Int>) throws {
-        let newWindows = try listWindows(executor).filter {
-            !knownWindowIdentifiers.contains($0.identifier)
-        }
-
-        for window in newWindows {
-            try closeWindow(window.identifier, executor)
-        }
+        try SafariWindowCreation.rollbackNewWindows(
+            excluding: knownWindowIdentifiers,
+            executor: executor,
+            listWindows: listWindows,
+            closeWindow: closeWindow
+        )
     }
 
     private func windowTitle(_ title: String, matchesProfileNamed profileName: String) -> Bool {
         title == profileName || title.hasPrefix("\(profileName) —") || title.hasPrefix("\(profileName) -")
     }
 
-    private func formatSuccessMessage(_ message: String, windowIdentifier: Int) -> String {
-        "\(message)\nwindow-id|\(windowIdentifier)"
-    }
-}
-
-private struct SafariWindowOpenResult {
-    let message: String
-    let windowIdentifier: Int
-    let profileName: String?
-}
-
-private struct SafariWindowOpenJSONOutput: Encodable {
-    let message: String
-    let windowId: Int
-    let profileName: String?
 }

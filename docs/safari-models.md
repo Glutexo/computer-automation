@@ -147,6 +147,9 @@ flowchart TD
 - `open-window` is the create operation for the browser window model.
 - `open-private-window` is an additional create operation for the browser window model.
 - `open-tab-group-window` is another create operation for the browser window model.
+- Every window create command resolves the newly created stable window id and reports it as `window-id|<id>` in text output and `windowId` in JSON output.
+- `open-private-window` validates private state when persisted window metadata is available and closes a newly created normal window before failing.
+- `open-tab-group-window` opens a new profile window, focuses that exact stable id, selects the group, verifies the selected group on that same window by readback, and closes only that operation-owned window on failure.
 - `windows` is the read operation for the browser window model.
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.

@@ -196,6 +196,8 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case windowTabGroupProfileMismatch(windowProfileName: String, tabGroupProfileName: String)
     case openedWindowIdentifierNotFound
     case openedWindowProfileMismatch(requestedProfileName: String, observedWindowName: String)
+    case openedPrivateWindowStateMismatch(Int)
+    case tabGroupSelectionNotVerified(windowIdentifier: Int, tabGroupIdentifier: Int)
 
     var errorDescription: String? {
         switch self {
@@ -209,6 +211,10 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
             "Safari opened a window, but computer-automation could not resolve its window id."
         case .openedWindowProfileMismatch(let requestedProfileName, let observedWindowName):
             "Safari opened a window for \(observedWindowName), not requested profile \(requestedProfileName)."
+        case .openedPrivateWindowStateMismatch(let windowIdentifier):
+            "Safari window \(windowIdentifier) was created by the private-window action, but Safari reported it as a normal window. The new window was closed."
+        case .tabGroupSelectionNotVerified(let windowIdentifier, let tabGroupIdentifier):
+            "Safari window \(windowIdentifier) did not confirm saved tab group \(tabGroupIdentifier). The new window was closed."
         default:
             nil
         }
