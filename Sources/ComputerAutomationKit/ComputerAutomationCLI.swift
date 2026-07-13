@@ -1,4 +1,5 @@
 import AutomationFoundation
+import Foundation
 import Safari
 import SafariUserInterface
 
@@ -90,5 +91,19 @@ public enum ComputerAutomationCLI {
         default:
             throw CLIError.unknownModule(moduleName)
         }
+    }
+}
+
+public enum ComputerAutomationErrorRenderer {
+    public static func message(for error: Error) -> String {
+        if
+            let description = (error as? LocalizedError)?.errorDescription?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !description.isEmpty
+        {
+            return description
+        }
+
+        return "An unexpected error occurred."
     }
 }

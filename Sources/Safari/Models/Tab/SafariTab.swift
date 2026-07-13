@@ -303,6 +303,22 @@ enum SafariTabCommandError: Error, Equatable {
 extension SafariTabCommandError: LocalizedError {
     var errorDescription: String? {
         switch self {
+        case .missingWindowIndex:
+            "Missing Safari window index. Provide a positive window index or --window-id; run the command with --help for usage."
+        case .missingWindowIdentifier:
+            "Missing value for --window-id. Provide a positive Safari window identifier."
+        case .invalidWindowIndex(let value):
+            "Invalid Safari window index \(value). Use a positive integer."
+        case .invalidWindowIdentifier(let value):
+            "Invalid Safari window identifier \(value). Use a positive integer."
+        case .missingTabAddress:
+            "Missing Safari tab index. Provide a positive tab index; run the command with --help for usage."
+        case .invalidTabAddress(let windowValue, let tabValue):
+            "Invalid Safari tab address \(windowValue), \(tabValue). Window and tab indexes must be positive integers."
+        case .missingURL:
+            "Missing URL. Run the command with --help for usage."
+        case .missingJavaScript:
+            "Missing JavaScript source. Provide inline JavaScript, --stdin, or --file."
         case .multipleJavaScriptSources:
             "Provide JavaScript from exactly one source: inline argument, --stdin, or --file."
         case .javaScriptFileReadFailed(let path):
@@ -319,8 +335,12 @@ extension SafariTabCommandError: LocalizedError {
             "JavaScript result in Safari window \(windowIdentifier) tab \(tabIndex) could not be converted to text. Return a primitive value, or use JSON.stringify(...) before returning objects."
         case .javaScriptExecutionFailed(let windowIdentifier, let tabIndex):
             "Could not execute JavaScript in Safari window \(windowIdentifier) tab \(tabIndex)."
-        default:
-            nil
+        case .unknownOption(let option):
+            "Unknown option \(option). Run the command with --help for supported options."
+        case .missingOptionValue(let option):
+            "Missing value for option \(option)."
+        case .unexpectedArgument(let argument):
+            "Unexpected argument \(argument). Run the command with --help for usage."
         }
     }
 }

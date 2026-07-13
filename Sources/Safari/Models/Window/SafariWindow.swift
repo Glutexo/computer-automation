@@ -207,6 +207,32 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
             "Could not prepare the Safari window query. The Safari database schema may have changed."
         case .queryExecutionFailed:
             "Could not finish the Safari window query before the short busy timeout. Close Safari or retry after Safari finishes writing its database."
+        case .profileNotFound(let profileName):
+            "No Safari profile named \(profileName) exists."
+        case .profileMenuItemNotFound(let profileName):
+            "Safari's File menu does not contain a new-window item for profile \(profileName). Verify the profile exists and retry."
+        case .privateWindowMenuItemNotFound:
+            "Safari's File menu does not expose the private-window command."
+        case .missingWindowIndex:
+            "Missing Safari window index. Provide a positive index; run the command with --help for usage."
+        case .missingWindowIdentifier:
+            "Missing value for --window-id. Provide a positive Safari window identifier."
+        case .invalidWindowIndex(let value):
+            "Invalid Safari window index \(value). Use a positive integer."
+        case .invalidWindowIdentifier(let value):
+            "Invalid Safari window identifier \(value). Use a positive integer."
+        case .missingTabGroupIdentifier:
+            "Missing saved tab-group identifier. Provide a positive identifier; run the command with --help for usage."
+        case .invalidTabGroupIdentifier(let value):
+            "Invalid saved tab-group identifier \(value). Use a positive integer."
+        case .tabGroupNotFound(let identifier):
+            "No saved Safari tab group has identifier \(identifier)."
+        case .ambiguousTabGroupName(let profileName, let tabGroupName):
+            "Profile \(profileName) contains multiple saved tab groups named \(tabGroupName); use a stable identifier."
+        case .privateWindowTabGroupSelectionUnsupported(let windowIndex):
+            "Safari window \(windowIndex) is private and cannot select a saved tab group."
+        case .windowTabGroupProfileMismatch(let windowProfileName, let tabGroupProfileName):
+            "The Safari window belongs to profile \(windowProfileName), but the saved tab group belongs to profile \(tabGroupProfileName)."
         case .openedWindowIdentifierNotFound:
             "Safari opened a window, but computer-automation could not resolve its window id."
         case .openedWindowProfileMismatch(let requestedProfileName, let observedWindowName):
@@ -215,8 +241,6 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
             "Safari window \(windowIdentifier) was created by the private-window action, but Safari reported it as a normal window. The new window was closed."
         case .tabGroupSelectionNotVerified(let windowIdentifier, let tabGroupIdentifier):
             "Safari window \(windowIdentifier) did not confirm saved tab group \(tabGroupIdentifier). The new window was closed."
-        default:
-            nil
         }
     }
 

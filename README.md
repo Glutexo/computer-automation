@@ -122,6 +122,8 @@ swift run computer-automation --json safari find-tab https://example.com --prefi
 
 Append `--help` to a module command to print its usage without running the command.
 
+CLI failures use human-readable messages for validation, Safari state, permissions, UI availability, database access, and AppleScript transport errors. Unexpected internal errors use a generic fallback instead of exposing Swift enum case names or sensitive JavaScript/transport details.
+
 `safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. The JavaScript source can be an inline argument, `--stdin`, or `--file <path>` / `--file=<path>`. Provide exactly one source. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
 
 ```json

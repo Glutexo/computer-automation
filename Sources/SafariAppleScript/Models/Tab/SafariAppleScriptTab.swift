@@ -29,11 +29,24 @@ public struct SafariAppleScriptWindowTabRecord: Equatable, Sendable {
     }
 }
 
-public enum SafariAppleScriptTabJavaScriptError: Error, Equatable {
+public enum SafariAppleScriptTabJavaScriptError: Error, Equatable, LocalizedError {
     case windowNotFound(Int)
     case tabNotFound(windowIdentifier: Int, tabIndex: Int)
     case unsupportedResult(windowIdentifier: Int, tabIndex: Int)
     case executionFailed(windowIdentifier: Int, tabIndex: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .windowNotFound(let windowIdentifier):
+            "Safari window \(windowIdentifier) does not exist."
+        case .tabNotFound(let windowIdentifier, let tabIndex):
+            "Safari window \(windowIdentifier) does not contain tab \(tabIndex)."
+        case .unsupportedResult(let windowIdentifier, let tabIndex):
+            "JavaScript result in Safari window \(windowIdentifier) tab \(tabIndex) could not be converted to text."
+        case .executionFailed(let windowIdentifier, let tabIndex):
+            "Could not execute JavaScript in Safari window \(windowIdentifier) tab \(tabIndex). Verify Safari allows JavaScript from Apple Events."
+        }
+    }
 }
 
 public enum SafariAppleScriptTab: ModelModel {

@@ -197,14 +197,46 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
             "Missing Safari profile name."
         case .emptyProfileName:
             "Safari profile name must not be empty."
+        case .missingWindowIndex:
+            "Missing Safari window index. Provide a positive index; run the command with --help for usage."
+        case .invalidWindowIndex(let value):
+            "Invalid Safari window index \(value). Use a positive integer."
+        case .missingTabGroupIdentifier:
+            "Missing saved tab-group identifier. Provide a positive identifier; run the command with --help for usage."
+        case .invalidTabGroupIdentifier(let value):
+            "Invalid saved tab-group identifier \(value). Use a positive integer."
+        case .missingTabGroupName:
+            "Missing saved tab-group name. Run the command with --help for usage."
+        case .emptyTabGroupName:
+            "Saved tab-group name must not be empty."
+        case .tabGroupNotFound(let identifier):
+            "No saved Safari tab group has identifier \(identifier)."
         case .tabGroupLookupNotFound(let profileName, let tabGroupName):
             "No Safari tab group named \(tabGroupName) exists in profile \(profileName)."
         case .tabGroupLookupAmbiguous(let profileName, let tabGroupName, let count):
             "Safari tab group lookup for \(tabGroupName) in profile \(profileName) matched \(count) groups."
+        case .ambiguousTabGroupName(let profileName, let tabGroupName):
+            "Profile \(profileName) contains multiple saved tab groups named \(tabGroupName); use a stable identifier."
+        case .duplicateTabGroupName(let profileName, let tabGroupName):
+            "Profile \(profileName) already contains a saved tab group named \(tabGroupName)."
+        case .privateWindowTabGroupMutationUnsupported(let windowIndex):
+            "Safari window \(windowIndex) is private and cannot own saved tab groups. Use a normal profile window."
+        case .createdTabGroupNotFound(let profileName):
+            "Safari did not persist the newly created tab group in profile \(profileName)."
         case .createdTabGroupProfileMismatch(let requestedProfileName, let createdProfileName):
             "Safari created the tab group in profile \(createdProfileName), not requested profile \(requestedProfileName)."
-        default:
-            nil
+        case .tabGroupDeletionNotVerified(let identifier):
+            "Safari did not confirm deletion of saved tab group \(identifier)."
+        case .windowForProfileNotFound(let profileName):
+            "Safari did not create a new window for profile \(profileName). No existing window was repurposed."
+        case .sidebarUnavailable:
+            "Safari's visible sidebar could not be opened or inspected. Grant Accessibility permission and retry."
+        case .sidebarTabGroupNotFound(let tabGroupName):
+            "Safari's sidebar does not contain saved tab group \(tabGroupName) in the expected profile window."
+        case .sidebarSelectedItemRenameUnavailable:
+            "Safari did not expose the inline name field for the newly created tab group."
+        case .unexpectedArgument(let argument):
+            "Unexpected argument \(argument). Run the command with --help for usage."
         }
     }
 

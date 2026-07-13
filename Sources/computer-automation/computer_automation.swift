@@ -11,7 +11,7 @@ struct ComputerAutomationApp {
                 print(output)
             }
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+            let message = ComputerAutomationErrorRenderer.message(for: error)
             fputs("CLI error: \(message)\n", stderr)
             exit(1)
         }

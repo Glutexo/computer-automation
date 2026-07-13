@@ -34,6 +34,10 @@ public struct SafariApplicationQuitCommand: CommandModel {
     }
 }
 
-public enum SafariApplicationCommandError: Error, Equatable {
+public enum SafariApplicationCommandError: Error, Equatable, LocalizedError {
     case applicationNotFound
+
+    public var errorDescription: String? {
+        "Safari could not be found in the system Applications directory."
+    }
 }

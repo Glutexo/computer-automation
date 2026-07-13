@@ -34,7 +34,7 @@ struct ComputerAutomationLiveSafariRegressionApp {
                 print(output)
             }
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+            let message = ComputerAutomationErrorRenderer.message(for: error)
             fputs("CLI error: \(message)\n", stderr)
             exit(1)
         }
@@ -718,5 +718,14 @@ private func expectEqual<T: Equatable>(_ actual: T, _ expected: T, _ description
 }
 
 private func errorDescription(_ error: Error) -> String {
-    (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+    if let error = error as? LiveSafariTestConfigurationError {
+        return error.description
+    }
+    if let error = error as? LiveSafariCommandRunnerError {
+        return error.description
+    }
+    if let error = error as? LiveSafariRegressionError {
+        return error.description
+    }
+    return ComputerAutomationErrorRenderer.message(for: error)
 }

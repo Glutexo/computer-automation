@@ -24,7 +24,16 @@ public struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
     }
 }
 
-public enum SafariAppleScriptError: Error, Equatable {
+public enum SafariAppleScriptError: Error, Equatable, LocalizedError {
     case scriptCompilationFailed
     case executionFailed(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .scriptCompilationFailed:
+            "Could not prepare the Safari automation request."
+        case .executionFailed:
+            "Safari automation failed. Ensure the calling app has Automation permission for Safari and System Events, then retry."
+        }
+    }
 }
