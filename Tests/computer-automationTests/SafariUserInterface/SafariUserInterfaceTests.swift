@@ -97,32 +97,6 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     }
 }
 
-@Test func safariToolbarMapsAppleScriptItemsIntoUiModel() async throws {
-    let executor = MockAppleScriptExecutor(results: [.descriptor(makeToolbarList([(1, "AXMenuButton", "TabGroupPickerButton?TabGroup=Focus", "", "")]))])
-    let items = try SafariToolbar.listItems(executor: executor)
-    #expect(items == [SafariToolbarItemRecord(index: 1, role: "AXMenuButton", identifier: "TabGroupPickerButton?TabGroup=Focus")])
-}
-
-@Test func safariToolbarWrapsAppleScriptFailure() async throws {
-    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
-    #expect(throws: SafariUserInterfaceError.toolbarUnavailable) {
-        try SafariToolbar.listItems(executor: executor)
-    }
-}
-
-@Test func safariToolbarItemMapsAppleScriptChildItemsIntoUiModel() async throws {
-    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Focus", "", "")]))])
-    let items = try SafariToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
-    #expect(items == [SafariMenuItemRecord(index: 1, title: "Focus")])
-}
-
-@Test func safariToolbarItemWrapsAppleScriptFailure() async throws {
-    let executor = MockAppleScriptExecutor(error: SafariAppleScriptError.scriptCompilationFailed)
-    #expect(throws: SafariUserInterfaceError.toolbarItemChildrenUnavailable(toolbarItemIndex: 2)) {
-        try SafariToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
-    }
-}
-
 @Test func safariSidebarWrapsLookupFailures() async throws {
     let missingExecutor = MockAppleScriptExecutor(error: SafariAppleScriptError.executionFailed("not found"))
     #expect(throws: SafariUserInterfaceError.sidebarTabGroupNotFound("Focus")) {

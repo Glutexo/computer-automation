@@ -3,7 +3,7 @@
 ## Overview
 
 - The `SafariAppleScript` module owns direct AppleScript access to Safari.
-- It currently exposes nine models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptSidebar`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptToolbar`, `SafariAppleScriptToolbarItem`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
+- It currently exposes seven models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptSidebar`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
@@ -12,8 +12,6 @@
 - `SafariAppleScriptTab.executeJavaScript()` targets a Safari tab by stable window id and tab index.
 - `SafariAppleScriptSidebar` represents AppleScript-level access to the opened Safari sidebar and its structurally addressable rows.
 - `SafariAppleScriptApplicationMenuBar` represents AppleScript-level access to Safari's application menu bar.
-- `SafariAppleScriptToolbar` represents AppleScript-level access to the toolbar of Safari's front window.
-- `SafariAppleScriptToolbarItem` represents AppleScript-level access to a Safari toolbar item and its child menu items.
 - `SafariAppleScriptMenu` represents AppleScript-level access to a top-level Safari menu.
 - `SafariAppleScriptMenuItem` represents AppleScript-level access to a Safari menu item and its child items.
 
@@ -26,8 +24,6 @@
 | `SafariAppleScriptTab` | `list()`, `list(windowIdentifier:)`, `open()`, `open(windowIdentifier:)`, `setURL()`, `setURL(windowIdentifier:)`, `move()`, `move(windowIdentifier:)`, `close()`, `close(windowIdentifier:)`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
 | `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `selectTabGroup(identifier:named:)`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
-| `SafariAppleScriptToolbar` | `listItems()` | Read front-window Safari toolbar items. |
-| `SafariAppleScriptToolbarItem` | `listChildItems()`, `clickChildItem()` | Read and invoke child items of a Safari toolbar item. |
 | `SafariAppleScriptMenu` | `listItems()`, `clickItem()` | Read and invoke items of a top-level Safari menu. |
 | `SafariAppleScriptMenuItem` | `listChildItems()` | Read submenu items for a specific Safari menu item. |
 
@@ -41,8 +37,6 @@ flowchart TD
     ScriptTab["SafariAppleScriptTab model"]
     ScriptSidebar["SafariAppleScriptSidebar model"]
     ScriptMenuBar["SafariAppleScriptApplicationMenuBar model"]
-    ScriptToolbar["SafariAppleScriptToolbar model"]
-    ScriptToolbarItem["SafariAppleScriptToolbarItem model"]
     ScriptMenu["SafariAppleScriptMenu model"]
     ScriptMenuItem["SafariAppleScriptMenuItem model"]
     Activate["activate()"]
@@ -60,9 +54,6 @@ flowchart TD
     SelectTabGroup["selectTabGroup()"]
     RenameTabGroup["renameTabGroup()"]
     ListMenuBar["listItems()"]
-    ListToolbar["listItems()"]
-    ListToolbarChildren["listChildItems()"]
-    ClickToolbarChild["clickChildItem()"]
     ListMenu["listItems()"]
     ClickMenuItem["clickItem()"]
     ListChildren["listChildItems()"]
@@ -72,8 +63,6 @@ flowchart TD
     SafariAppleScript --> ScriptTab
     SafariAppleScript --> ScriptSidebar
     SafariAppleScript --> ScriptMenuBar
-    SafariAppleScript --> ScriptToolbar
-    SafariAppleScript --> ScriptToolbarItem
     SafariAppleScript --> ScriptMenu
     SafariAppleScript --> ScriptMenuItem
     ScriptApp --> Activate
@@ -91,9 +80,6 @@ flowchart TD
     ScriptSidebar --> SelectTabGroup
     ScriptSidebar --> RenameTabGroup
     ScriptMenuBar --> ListMenuBar
-    ScriptToolbar --> ListToolbar
-    ScriptToolbarItem --> ListToolbarChildren
-    ScriptToolbarItem --> ClickToolbarChild
     ScriptMenu --> ListMenu
     ScriptMenu --> ClickMenuItem
     ScriptMenuItem --> ListChildren

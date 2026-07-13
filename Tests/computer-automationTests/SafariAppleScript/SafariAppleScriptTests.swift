@@ -393,49 +393,6 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(items == expected)
 }
 
-@Test(arguments: [
-    [(1, "AXButton", "", "", "Toggle sidebar"), (2, "AXMenuButton", "TabGroupPickerButton?TabGroup=Focus", "", "")],
-    []
-])
-func safariAppleScriptToolbarListsItems(rows: [(Int, String, String, String, String)]) async throws {
-    let executor = MockAppleScriptExecutor(results: [.descriptor(makeToolbarList(rows))])
-    let items = try SafariAppleScriptToolbar.listItems(executor: executor)
-    let expected = rows.map {
-        SafariAppleScriptToolbarItemRecord(
-            index: $0.0,
-            role: $0.1,
-            identifier: emptyToNil($0.2),
-            title: emptyToNil($0.3),
-            description: emptyToNil($0.4)
-        )
-    }
-    #expect(items == expected)
-    #expect(executor.executedScripts[0].contains("toolbar 1 of front window"))
-}
-
-@Test(arguments: [
-    [(1, "Twisto", "", ""), (2, "Focus", "", "")],
-    []
-])
-func safariAppleScriptToolbarItemListsChildItems(rows: [(Int, String, String, String)]) async throws {
-    let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList(rows))])
-    let items = try SafariAppleScriptToolbarItem.listChildItems(toolbarItemIndex: 2, executor: executor)
-    let expected = rows.map {
-        SafariAppleScriptMenuItemRecord(index: $0.0, title: $0.1, commandCharacter: emptyToNil($0.2), commandModifiers: emptyToNil($0.3))
-    }
-    #expect(items == expected)
-    #expect(executor.executedScripts[0].contains("UI element 2 of toolbar 1"))
-    #expect(executor.executedScripts[0].contains("AXShowMenu"))
-}
-
-@Test func safariAppleScriptToolbarItemClickChildItemExecutesExpectedScript() async throws {
-    let executor = MockAppleScriptExecutor()
-    try SafariAppleScriptToolbarItem.clickChildItem(toolbarItemIndex: 2, childItemIndex: 7, executor: executor)
-    #expect(executor.executedScripts.count == 1)
-    #expect(executor.executedScripts[0].contains("UI element 2 of toolbar 1"))
-    #expect(executor.executedScripts[0].contains("click menu item 7"))
-}
-
 @Test func safariAppleScriptSidebarSelectTabGroupByIdentifierExecutesExpectedScript() async throws {
     let executor = MockAppleScriptExecutor()
     try SafariAppleScriptSidebar.selectTabGroup(identifier: 57189, named: "名称未設定", executor: executor)

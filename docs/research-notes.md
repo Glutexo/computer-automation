@@ -143,6 +143,7 @@
 - Safari's active tab-group picker appears in the front-window toolbar as an `AXMenuButton` with an accessibility identifier that starts with `TabGroupPickerButton`.
 - The picker menu lists saved tab groups by display name, includes a mark character on the current group, and does not expose the saved-group bookmark identifier directly.
 - Because the picker menu is name-based, duplicate saved tab-group names inside one profile are not safely distinguishable through the current accessibility surface.
+- The executable toolbar-picker model stack was removed after saved-tab-group selection moved to identifier-aware sidebar rows; these findings remain as historical evidence rather than a supported automation path.
 
 ### Open questions
 

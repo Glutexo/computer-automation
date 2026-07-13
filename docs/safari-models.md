@@ -402,7 +402,7 @@ ORDER BY id;
 - Profile-specific window opening resolves the target File-menu item through `SafariUserInterface` without depending on the localized menu title.
 - Private-window opening resolves the target File-menu item through shortcut metadata instead of localized menu titles.
 - Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
-- Saved tab-group switching currently routes through reusable toolbar and toolbar-item models in `SafariUserInterface`.
+- Saved tab-group switching routes through identifier-aware sidebar selection in `SafariUserInterface`.
 - Saved tab-group creation currently resolves Safari's built-in "new empty tab group" command through the stable File-menu accessibility identifier `NewEmptyTabGroupMenuItem`.
 - Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.
-- Direct `SafariTabs.db` reads and writes live in the separate `SafariDatabase` module.
+- Direct read-only `SafariTabs.db` access lives in the separate `SafariDatabase` module.

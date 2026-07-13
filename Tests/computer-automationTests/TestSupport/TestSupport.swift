@@ -63,22 +63,6 @@ func makeShortcutList(_ rows: [(Int, String, String, String)]) -> NSAppleEventDe
     return listDescriptor
 }
 
-func makeToolbarList(_ rows: [(Int, String, String, String, String)]) -> NSAppleEventDescriptor {
-    let listDescriptor = NSAppleEventDescriptor.list()
-
-    for (offset, row) in rows.enumerated() {
-        let item = NSAppleEventDescriptor.list()
-        item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
-        item.insert(NSAppleEventDescriptor(string: row.1), at: 2)
-        item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
-        item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
-        item.insert(NSAppleEventDescriptor(string: row.4), at: 5)
-        listDescriptor.insert(item, at: offset + 1)
-    }
-
-    return listDescriptor
-}
-
 func makeSidebarList(_ rows: [(Int, String, String, String, Bool)]) -> NSAppleEventDescriptor {
     let listDescriptor = NSAppleEventDescriptor.list()
 

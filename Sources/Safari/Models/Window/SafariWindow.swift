@@ -194,8 +194,6 @@ enum SafariWindowCommandError: Error, Equatable, LocalizedError {
     case ambiguousTabGroupName(profileName: String, tabGroupName: String)
     case privateWindowTabGroupSelectionUnsupported(Int)
     case windowTabGroupProfileMismatch(windowProfileName: String, tabGroupProfileName: String)
-    case tabGroupPickerUnavailable
-    case tabGroupPickerItemNotFound(String)
     case openedWindowIdentifierNotFound
     case openedWindowProfileMismatch(requestedProfileName: String, observedWindowName: String)
 

@@ -4,10 +4,9 @@
 
 - The `SafariUserInterface` module owns Safari GUI scripting and menu-level automation.
 - Direct AppleScript access is delegated to the separate `SafariAppleScript` module.
-- It currently exposes seven models: `SafariApplicationMenuBar`, `SafariSidebar`, `SafariToolbar`, `SafariToolbarItem`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
+- It currently exposes five models: `SafariApplicationMenuBar`, `SafariSidebar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
 - `SafariApplicationMenuBar` represents Safari's top-level application menu bar.
 - `SafariSidebar` represents the opened front-window Safari sidebar as a reusable structural targeting surface.
-- `SafariToolbar` and `SafariToolbarItem` represent reusable toolbar structures used by higher-level Safari commands.
 - `SafariMenu` represents an arbitrary top-level Safari application menu addressed by structure.
 - `SafariFileMenu` represents a thin specialization of `SafariMenu` for Safari's `File` menu.
 - `SafariMenuItem` represents an individual menu item addressable through GUI scripting.
@@ -35,8 +34,6 @@ flowchart TD
     SafariUI["SafariUserInterface module"]
     SafariMenuBar["SafariApplicationMenuBar model"]
     SafariSidebar["SafariSidebar model"]
-    SafariToolbar["SafariToolbar model"]
-    SafariToolbarItem["SafariToolbarItem model"]
     SafariMenu["SafariMenu model"]
     SafariFileMenu["SafariFileMenu model"]
     SafariMenuItem["SafariMenuItem model"]
@@ -49,8 +46,6 @@ flowchart TD
 
     SafariUI --> SafariMenuBar
     SafariUI --> SafariSidebar
-    SafariUI --> SafariToolbar
-    SafariUI --> SafariToolbarItem
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
     SafariUI --> SafariMenuItem
@@ -112,4 +107,3 @@ flowchart TD
 - Sidebar reveal, rename, context-menu, and delete-confirmation flows wait for the specific accessibility element or action result they need instead of sleeping for a fixed delay.
 - The currently verified uses of the sidebar inline text field are:
   - the post-create flow for a newly created empty tab group
-- Toolbar models remain in the module for structured Safari toolbar inspection and older picker research, but current high-level saved tab-group selection uses the sidebar surface rather than the toolbar picker.

@@ -131,8 +131,6 @@ import SQLite3
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
         SafariSidebar.descriptor,
-        SafariToolbar.descriptor,
-        SafariToolbarItem.descriptor,
         SafariMenu.descriptor,
         SafariFileMenu.descriptor,
         SafariMenuItem.descriptor
@@ -140,8 +138,6 @@ import SQLite3
     #expect(SafariApplicationMenuBar.descriptor.commands == [SafariApplicationMenuBarListCommand.descriptor])
     #expect(SafariApplicationMenuBarListCommand.descriptor.operation == .read)
     #expect(SafariSidebar.descriptor.commands.isEmpty)
-    #expect(SafariToolbar.descriptor.commands.isEmpty)
-    #expect(SafariToolbarItem.descriptor.commands.isEmpty)
     #expect(SafariMenu.descriptor.commands == [SafariMenuListItemsCommand.descriptor])
     #expect(SafariMenuListItemsCommand.descriptor.operation == .read)
     #expect(SafariMenuListItemsCommand.descriptor.arguments.count == 1)
@@ -156,8 +152,6 @@ import SQLite3
         SafariAppleScriptTab.descriptor,
         SafariAppleScriptSidebar.descriptor,
         SafariAppleScriptApplicationMenuBar.descriptor,
-        SafariAppleScriptToolbar.descriptor,
-        SafariAppleScriptToolbarItem.descriptor,
         SafariAppleScriptMenu.descriptor,
         SafariAppleScriptMenuItem.descriptor
     ])
