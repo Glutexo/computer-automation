@@ -79,7 +79,11 @@ public enum SafariDatabaseTabGroup: ModelModel {
 
             groups.append(
                 SafariDatabaseTabGroupRecord(
-                    identifier: Int(sqlite3_column_int(statement, 0)),
+                    identifier: try SafariTabsDatabase.identifier(
+                        in: statement,
+                        column: 0,
+                        modelName: modelName
+                    ),
                     profileName: String(cString: rawProfileName),
                     name: String(cString: rawName)
                 )
@@ -132,7 +136,12 @@ public enum SafariDatabaseTabGroup: ModelModel {
         }
         defer { sqlite3_finalize(statement) }
 
-        sqlite3_bind_int(statement, 1, Int32(tabGroupIdentifier))
+        try SafariTabsDatabase.bindIdentifier(
+            tabGroupIdentifier,
+            to: statement,
+            index: 1,
+            modelName: modelName
+        )
 
         var tabs: [SafariDatabaseTabGroupTabRecord] = []
 

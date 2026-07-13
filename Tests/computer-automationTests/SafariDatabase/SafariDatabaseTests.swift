@@ -202,6 +202,74 @@ import SQLite3
     )
 }
 
+@Test func safariDatabasePreservesIdentifiersWiderThan32Bits() async throws {
+    let databasePath = try makeTemporaryDatabase()
+    defer { try? FileManager.default.removeItem(atPath: databasePath) }
+
+    let windowIdentifier = 3_000_000_000
+    let tabGroupIdentifier = 3_000_000_001
+    let setupSQL = """
+    CREATE TABLE bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        type INTEGER,
+        title TEXT,
+        url TEXT,
+        order_index INTEGER NOT NULL,
+        subtype INTEGER
+    );
+    CREATE TABLE windows (
+        id INTEGER PRIMARY KEY,
+        active_tab_group_id INTEGER,
+        active_profile_id INTEGER,
+        date_closed REAL,
+        private_tab_group_id INTEGER
+    );
+    INSERT INTO bookmarks (id, parent, type, title, url, order_index, subtype) VALUES
+        (5, 0, 1, 'Glutexo', NULL, 0, 2),
+        (\(tabGroupIdentifier), 5, 1, 'Focus', NULL, 0, 0),
+        (3000000002, \(tabGroupIdentifier), 1, 'TopScopedBookmarkList', NULL, 0, 1),
+        (3000000003, \(tabGroupIdentifier), 0, 'Example', 'https://example.com', 1, 0);
+    INSERT INTO windows (id, active_tab_group_id, active_profile_id, date_closed, private_tab_group_id) VALUES
+        (\(windowIdentifier), \(tabGroupIdentifier), 5, NULL, NULL);
+    """
+
+    try executeSQL(setupSQL, at: databasePath)
+
+    #expect(
+        try SafariDatabaseTabGroup.list(databasePath: databasePath) == [
+            SafariDatabaseTabGroupRecord(identifier: tabGroupIdentifier, profileName: "Glutexo", name: "Focus")
+        ]
+    )
+    #expect(
+        try SafariDatabaseTabGroup.listTabs(
+            tabGroupIdentifier: tabGroupIdentifier,
+            databasePath: databasePath
+        ) == [
+            SafariDatabaseTabGroupTabRecord(
+                tabGroupIdentifier: tabGroupIdentifier,
+                index: 1,
+                url: "https://example.com"
+            )
+        ]
+    )
+    #expect(
+        try SafariDatabaseWindow.loadStateByWindowIdentifier(databasePath: databasePath) == [
+            windowIdentifier: SafariDatabaseWindowStateRecord(
+                profileName: "Glutexo",
+                selectedTabGroupIdentifier: tabGroupIdentifier,
+                tabGroupName: "Focus",
+                isPrivate: false
+            )
+        ]
+    )
+    #expect(
+        try SafariDatabaseWindow.loadProfilesByWindowIdentifier(databasePath: databasePath) == [
+            windowIdentifier: "Glutexo"
+        ]
+    )
+}
+
 @Test func safariTabGroupListsSavedGroupsOnly() async throws {
     let databasePath = try makeTemporaryDatabase()
     defer { try? FileManager.default.removeItem(atPath: databasePath) }

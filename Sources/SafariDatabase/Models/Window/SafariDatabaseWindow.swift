@@ -80,9 +80,13 @@ public enum SafariDatabaseWindow: ModelModel {
         var stateByWindowIdentifier: [Int: SafariDatabaseWindowStateRecord] = [:]
 
         try SafariTabsDatabase.stepRows(statement, modelName: modelName) {
-            let identifier = Int(sqlite3_column_int(statement, 0))
+            let identifier = try SafariTabsDatabase.identifier(in: statement, column: 0, modelName: modelName)
             let profileName = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-            let selectedTabGroupIdentifier = sqlite3_column_type(statement, 2) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 2))
+            let selectedTabGroupIdentifier: Int? = if sqlite3_column_type(statement, 2) == SQLITE_NULL {
+                nil
+            } else {
+                try SafariTabsDatabase.identifier(in: statement, column: 2, modelName: modelName)
+            }
             let tabGroupName = sqlite3_column_text(statement, 3).map { String(cString: $0) }
             let isPrivate = sqlite3_column_int(statement, 4) == 1
             stateByWindowIdentifier[identifier] = SafariDatabaseWindowStateRecord(

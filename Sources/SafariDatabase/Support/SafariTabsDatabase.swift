@@ -17,15 +17,40 @@ public enum SafariTabsDatabase {
     static func stepRows(
         _ statement: OpaquePointer?,
         modelName: String,
-        rowHandler: () -> Void
+        rowHandler: () throws -> Void
     ) throws {
         var result = sqlite3_step(statement)
         while result == SQLITE_ROW {
-            rowHandler()
+            try rowHandler()
             result = sqlite3_step(statement)
         }
 
         guard result == SQLITE_DONE else {
+            throw SafariDatabaseError.queryExecutionFailed(modelName: modelName)
+        }
+    }
+
+    static func identifier(
+        in statement: OpaquePointer?,
+        column: Int32,
+        modelName: String
+    ) throws -> Int {
+        guard let identifier = Int(exactly: sqlite3_column_int64(statement, column)) else {
+            throw SafariDatabaseError.queryExecutionFailed(modelName: modelName)
+        }
+        return identifier
+    }
+
+    static func bindIdentifier(
+        _ identifier: Int,
+        to statement: OpaquePointer?,
+        index: Int32,
+        modelName: String
+    ) throws {
+        guard
+            let sqliteIdentifier = sqlite3_int64(exactly: identifier),
+            sqlite3_bind_int64(statement, index, sqliteIdentifier) == SQLITE_OK
+        else {
             throw SafariDatabaseError.queryExecutionFailed(modelName: modelName)
         }
     }
