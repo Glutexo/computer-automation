@@ -18,7 +18,7 @@
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
 | `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Verify a focused window disappeared after normal close and press that exact window's close button only when it remains visible. |
-| `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row in the Safari sidebar by saved group identifier when available, with display-name fallback. |
+| `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row by authoritative identifier, using its display name only when the sidebar exposes no stable group identifiers. |
 | `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
 | `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |
 | `SafariMenu` | `menu-items` | `R` | List items for a top-level Safari menu chosen by menu bar item index. |
@@ -72,7 +72,7 @@ flowchart TD
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` for window creation and `SafariSidebar` for saved tab-group selection through explicit module boundaries.
 - Identifier-targeted window closing focuses the stable Safari id, captures that exact focused AX window, verifies it is no longer visible after the normal close request, and presses its structural close button only as a fallback.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
-- `SafariSidebar.selectTabGroup(identifier:named:)` prefers accessibility identifiers beginning with `SidebarLibraryItemTabGroup` that contain the saved group identifier; name-only selection remains available for flows that do not have a persisted saved group id yet.
+- `SafariSidebar.selectTabGroup(identifier:named:)` treats parsed `SidebarLibraryItemTabGroup` identifiers as authoritative: an exact identifier selects the row, any exposed nonmatching identifiers prevent name fallback, and name-only selection remains available only when the sidebar exposes no stable group id or the caller has no persisted id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
 - `SafariFileMenu.openPrivateWindow()` is the explicit create operation for Safari's private-window mode.

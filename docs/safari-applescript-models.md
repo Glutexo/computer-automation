@@ -97,7 +97,7 @@ flowchart TD
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.
 - `SafariAppleScriptTab.executeJavaScript()` reports JavaScript results that Safari cannot convert to text as a typed unsupported-result error instead of a generic execution failure.
 - `SafariAppleScriptSidebar` includes the low-level bootstrap needed to ensure the Safari sidebar is open before structural row access.
-- `SafariAppleScriptSidebar.selectTabGroup(identifier:named:)` first searches sidebar rows for `SidebarLibraryItemTabGroup` accessibility identifiers containing the saved group identifier, then falls back to display-name matching.
+- `SafariAppleScriptSidebar.selectTabGroup(identifier:named:)` first searches sidebar rows for `SidebarLibraryItemTabGroup` accessibility identifiers containing the saved group identifier. It falls back to display-name matching only when none of the tab-group rows exposes a stable identifier; observing other stable identifiers makes a missing requested identifier definitive.
 - The higher-level `SafariSidebar` model uses direct Swift accessibility for live sidebar targeting and delete, with AppleScript retained only where it is still needed as a fallback transport.
 - `SafariAppleScriptSidebar` remains valuable as:
   - the script transport behind scripted sidebar selection helpers

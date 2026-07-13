@@ -45,15 +45,12 @@ public enum SafariSidebar: ModelModel {
         let outline = try outlinedSidebar(in: focusedWindow)
         let matches = tabGroupRows(in: outline)
 
-        if
-            let tabGroupIdentifier,
-            let match = matches.first(where: { sidebarIdentifier($0.identifier, matchesTabGroupIdentifier: tabGroupIdentifier) })
-        {
-            try select(row: match.row, cell: match.cell, in: outline)
-            return
-        }
-
-        guard let match = matches.first(where: { $0.title == tabGroupName }) else {
+        guard let match = StableIdentifierMatching.resolve(
+            requestedIdentifier: tabGroupIdentifier,
+            from: matches,
+            identifier: { sidebarTabGroupIdentifier($0.identifier) },
+            fallback: { $0.title == tabGroupName }
+        ) else {
             throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
         }
 
@@ -210,9 +207,12 @@ public enum SafariSidebar: ModelModel {
         let outline = try outlinedSidebar(in: focusedWindow)
         let matches = tabGroupRows(in: outline)
 
-        let targetMatch = tabGroupIdentifier.flatMap { identifier in
-            matches.first(where: { sidebarIdentifier($0.identifier, matchesTabGroupIdentifier: identifier) })
-        } ?? matches.first(where: { $0.title == currentName })
+        let targetMatch = StableIdentifierMatching.resolve(
+            requestedIdentifier: tabGroupIdentifier,
+            from: matches,
+            identifier: { sidebarTabGroupIdentifier($0.identifier) },
+            fallback: { $0.title == currentName }
+        )
 
         guard let targetMatch else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
@@ -318,11 +318,14 @@ public enum SafariSidebar: ModelModel {
     }
 
     static func sidebarIdentifier(_ rawIdentifier: String, matchesTabGroupIdentifier tabGroupIdentifier: Int) -> Bool {
+        sidebarTabGroupIdentifier(rawIdentifier) == tabGroupIdentifier
+    }
+
+    static func sidebarTabGroupIdentifier(_ rawIdentifier: String) -> Int? {
         guard rawIdentifier.hasPrefix(tabGroupCellIdentifierPrefix) else {
-            return false
+            return nil
         }
 
-        let expectedIdentifier = String(tabGroupIdentifier)
         var currentDigits = ""
 
         for character in rawIdentifier.dropFirst(tabGroupCellIdentifierPrefix.count) {
@@ -332,11 +335,11 @@ public enum SafariSidebar: ModelModel {
             }
 
             if !currentDigits.isEmpty {
-                return currentDigits == expectedIdentifier
+                return Int(currentDigits)
             }
         }
 
-        return currentDigits == expectedIdentifier
+        return Int(currentDigits)
     }
 
     public static func deleteSelectedTabGroup() throws {

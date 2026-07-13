@@ -169,6 +169,10 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup?TabGroup=1001", matchesTabGroupIdentifier: 100))
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup-42-profile-7", matchesTabGroupIdentifier: 7))
     #expect(!SafariSidebar.sidebarIdentifier("SidebarLibraryItemOther?TabGroup=100", matchesTabGroupIdentifier: 100))
+    #expect(SafariSidebar.sidebarTabGroupIdentifier("SidebarLibraryItemTabGroup?TabGroup=100") == 100)
+    #expect(SafariSidebar.sidebarTabGroupIdentifier("SidebarLibraryItemTabGroup-42-profile-7") == 42)
+    #expect(SafariSidebar.sidebarTabGroupIdentifier("SidebarLibraryItemTabGroup") == nil)
+    #expect(SafariSidebar.sidebarTabGroupIdentifier("SidebarLibraryItemOther?TabGroup=100") == nil)
 }
 
 @Test func safariAXElementReaderThrowsDomainErrorForWrongAttributeType() async throws {

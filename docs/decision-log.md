@@ -2,6 +2,12 @@
 
 ## 2026-07-13
 
+### Authoritative saved tab-group identifiers
+
+- Exact saved tab-group identifiers remain unambiguous even when multiple groups in one profile share a display name.
+- Across sidebar rows, window readiness, and delete fallback checks, a matching stable identifier is authoritative and a different exposed identifier is a definitive mismatch.
+- Display-name fallback is permitted only when the observed surface exposes no stable saved group identifier.
+
 ### Operation-owned windows for saved tab-group mutations
 
 - Saved-group-backed `ensure-tab-list-urls` and `reorder-tab-list-urls` must never select their target group in a pre-existing Safari window, even when that window already belongs to the requested profile or currently shows the target group.
@@ -72,7 +78,7 @@
 ### Stable saved tab-group sidebar targeting
 
 - Changed saved tab-group sidebar selection to prefer Safari's `SidebarLibraryItemTabGroup` accessibility identifiers when a persisted saved group id is available.
-- Kept display-name matching as a fallback for flows that do not yet have a saved group id or for Safari surfaces that omit the identifier.
+- Kept display-name matching as a fallback for flows that do not yet have a saved group id or for Safari surfaces that expose no stable group identifiers.
 - Routed saved tab-group delete and saved-group-backed tab-list operations through the resolved `SafariTabGroupRecord` so localized unnamed groups and duplicate display names across profiles do not rely on name-only targeting.
 - Added AppleScript fallback support for the same identifier-first matching contract.
 

@@ -9,6 +9,38 @@ import SQLite3
 @testable import SafariUserInterface
 @testable import ComputerAutomationKit
 
+@Test func safariSavedTabGroupWindowReadinessMakesSelectedIdentifierAuthoritative() async throws {
+    let tabGroup = SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")
+    let exactWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Other",
+        name: "Other"
+    )
+    let contradictoryWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1001,
+        tabGroupName: "Focus",
+        name: "Focus — Start Page"
+    )
+    let nameOnlyWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: "Focus",
+        name: "Focus — Start Page"
+    )
+
+    #expect(SafariSavedTabGroupWindowReadiness.windowMatchesSelectedTabGroup(exactWindow, tabGroup: tabGroup))
+    #expect(!SafariSavedTabGroupWindowReadiness.windowMatchesSelectedTabGroup(contradictoryWindow, tabGroup: tabGroup))
+    #expect(SafariSavedTabGroupWindowReadiness.windowMatchesSelectedTabGroup(nameOnlyWindow, tabGroup: tabGroup))
+}
+
 @Test(arguments: [
     [],
     [SafariTabGroupTabRecord(tabGroupIdentifier: 10, index: 1, url: "https://example.com")],

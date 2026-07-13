@@ -1044,7 +1044,10 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     let deleteCommand = SafariTabGroupDeleteCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: {
-            deleted ? [] : [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+            deleted ? [] : [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+            ]
         },
         listWindows: {
             deleteWindowPollCount += 1
@@ -1231,6 +1234,42 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(selectedName == "Inbox")
     #expect(!didDeleteSelectedGroup)
     #expect(didDeleteCurrentGroup)
+}
+
+@Test func safariTabGroupDeleteCommandRejectsNameFallbackForContradictoryWindowIdentifier() async throws {
+    var didDeleteCurrentGroup = false
+    let command = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
+        },
+        listWindows: {
+            [
+                SafariWindowRecord(
+                    identifier: 10,
+                    index: 2,
+                    isPrivate: false,
+                    profileName: "Twisto",
+                    selectedTabGroupIdentifier: 1001,
+                    tabGroupName: "Inbox",
+                    name: "Inbox — Start Page"
+                )
+            ]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { _, _ in Issue.record("openWindow should not be called") },
+        selectTabGroup: { group, _ in
+            throw SafariTabGroupCommandError.sidebarTabGroupNotFound(group.name)
+        },
+        deleteSelectedTabGroup: { _ in Issue.record("deleteSelectedTabGroup should not be called") },
+        deleteCurrentTabGroup: { _ in didDeleteCurrentGroup = true },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.sidebarTabGroupNotFound("Inbox")) {
+        try command.execute(arguments: ["1000"])
+    }
+    #expect(!didDeleteCurrentGroup)
 }
 
 @Test func safariTabGroupDeleteCommandFallsBackToCurrentGroupDeleteWhenSidebarDeletionFails() async throws {

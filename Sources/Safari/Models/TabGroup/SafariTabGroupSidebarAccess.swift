@@ -1,3 +1,4 @@
+import AutomationFoundation
 import Foundation
 import SafariAppleScript
 import SafariUserInterface
@@ -12,17 +13,6 @@ enum SafariTabGroupSidebarAccess {
     ) throws -> SafariTabGroupRecord {
         guard let group = groups.first(where: { $0.identifier == identifier }) else {
             throw SafariTabGroupCommandError.tabGroupNotFound(identifier)
-        }
-
-        let duplicates = groups.filter {
-            $0.profileName == group.profileName && $0.name == group.name
-        }
-
-        guard duplicates.count == 1 else {
-            throw SafariTabGroupCommandError.ambiguousTabGroupName(
-                profileName: group.profileName,
-                tabGroupName: group.name
-            )
         }
 
         return group
@@ -121,20 +111,22 @@ enum SafariTabGroupSidebarAccess {
     ) throws -> SafariWindowRecord {
         let windows = try listWindows()
 
-        if let matchingSelectedGroupWindow = windows.first(where: {
-            !$0.isPrivate && $0.selectedTabGroupIdentifier == group.identifier
-        }) {
-            try focusWindow(matchingSelectedGroupWindow.identifier, executor)
-            return matchingSelectedGroupWindow
-        }
+        if let matchingGroupWindow = windows.first(where: {
+            guard
+                !$0.isPrivate,
+                $0.profileName.isEmpty || $0.profileName == group.profileName
+            else {
+                return false
+            }
 
-        if let matchingNamedGroupWindow = windows.first(where: {
-            !$0.isPrivate &&
-            ($0.tabGroupName == group.name || windowTitle($0.name, matchesTabGroupNamed: group.name)) &&
-            ($0.profileName.isEmpty || $0.profileName == group.profileName)
+            return StableIdentifierMatching.matches(
+                requestedIdentifier: group.identifier,
+                observedIdentifier: $0.selectedTabGroupIdentifier,
+                fallback: $0.tabGroupName == group.name || windowTitle($0.name, matchesTabGroupNamed: group.name)
+            )
         }) {
-            try focusWindow(matchingNamedGroupWindow.identifier, executor)
-            return matchingNamedGroupWindow
+            try focusWindow(matchingGroupWindow.identifier, executor)
+            return matchingGroupWindow
         }
 
         return try focusWindowForProfile(

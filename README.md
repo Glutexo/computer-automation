@@ -9,7 +9,7 @@ Minimal Swift application for computer automation experiments.
 - The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads, URL reconciliation, and URL-order reordering for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - Saved tab-group create/delete is driven by accessibility:
-  - the target group is resolved through the opened Safari sidebar, using the saved group identifier when Safari exposes it and falling back to the display name only when needed
+  - the target group is resolved through the opened Safari sidebar; a matching saved group identifier is authoritative, a different exposed identifier is a definitive mismatch, and display-name fallback is allowed only when the sidebar exposes no stable group identifiers
   - create uses Safari's File-menu action identified by `NewEmptyTabGroupMenuItem`
   - create relies on Safari's post-create inline edit field for naming the newly created group
   - create rolls back newly created groups when profile validation or rename/readback verification fails

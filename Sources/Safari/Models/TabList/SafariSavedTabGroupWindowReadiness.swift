@@ -1,3 +1,4 @@
+import AutomationFoundation
 import Foundation
 
 enum SafariSavedTabGroupWindowReadiness {
@@ -34,7 +35,7 @@ enum SafariSavedTabGroupWindowReadiness {
         throw SafariTabListCommandError.savedTabGroupSelectionNotLoaded(tabGroup.identifier)
     }
 
-    private static func windowMatchesSelectedTabGroup(
+    static func windowMatchesSelectedTabGroup(
         _ window: SafariWindowRecord,
         tabGroup: SafariTabGroupRecord
     ) -> Bool {
@@ -46,9 +47,12 @@ enum SafariSavedTabGroupWindowReadiness {
             return false
         }
 
-        return window.selectedTabGroupIdentifier == tabGroup.identifier ||
-            window.tabGroupName == tabGroup.name ||
-            windowTitle(window.name, matchesTabGroupNamed: tabGroup.name)
+        return StableIdentifierMatching.matches(
+            requestedIdentifier: tabGroup.identifier,
+            observedIdentifier: window.selectedTabGroupIdentifier,
+            fallback: window.tabGroupName == tabGroup.name ||
+                windowTitle(window.name, matchesTabGroupNamed: tabGroup.name)
+        )
     }
 
     private static func liveTabsRepresentSavedTabGroup(

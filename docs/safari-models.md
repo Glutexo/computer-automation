@@ -213,7 +213,7 @@ ORDER BY id;
 - The `SafariWindow` model delegates user interface work to the `SafariUserInterface` module.
 - `open-window` uses the `SafariFileMenu` model in `SafariUserInterface`.
 - `open-private-window` also uses the `SafariFileMenu` model in `SafariUserInterface`.
-- `open-tab-group-window` and `set-window-tab-group` select existing saved groups through the opened Safari sidebar by saved group identifier, with display-name fallback only when Safari does not expose the identifier.
+- `open-tab-group-window` and `set-window-tab-group` select existing saved groups through the opened Safari sidebar by saved group identifier. Duplicate display names do not make an exact identifier ambiguous.
 - `open-window` accepts an optional profile name argument.
 - When a profile argument is provided, the command:
   - validates the profile name against the `SafariProfile` model
@@ -274,7 +274,7 @@ ORDER BY id;
 - `delete-tab-group <identifier>`:
   - resolves the saved group structurally from the persisted catalog
   - focuses an existing non-private window for the same profile or opens one if needed
-  - selects the target group in the Safari sidebar by saved group identifier when that accessibility identifier is exposed, with display-name matching retained as a fallback
+  - selects the target group in the Safari sidebar by saved group identifier when that accessibility identifier is exposed, with display-name matching retained only when the sidebar exposes no stable group identifiers
   - opens the selected group's accessibility context menu
   - invokes `DeleteTabGroupMenuItem`
 - `SafariTabGroup` delegates persisted saved-group records to `SafariDatabaseTabGroup`.
@@ -287,9 +287,10 @@ ORDER BY id;
 - This intentionally excludes internal `Local` and `Private` groups.
 - `create-tab-group` rejects duplicate names within the same profile because Safari's identifier-bearing sidebar row is not guaranteed to be available for every fallback path.
 - Saved tab-group selection in live windows is currently driven by the opened Safari sidebar:
-  - the target group is selected structurally by saved group identifier when Safari exposes it
-  - display-name selection remains only as a fallback path
-  - duplicate group names within the same profile are treated as ambiguous where fallback selection could otherwise target the wrong row
+  - a matching stable identifier is authoritative, including when multiple groups have the same display name
+  - an exposed different identifier is a definitive mismatch and never falls through to a same-named row or window
+  - display-name selection is allowed only when the observed sidebar or window state exposes no stable identifier
+  - name-addressed lookup remains ambiguous when multiple groups in the same profile have the requested name
 - Saved tab-group create/delete uses a different live UI path:
   - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group, preferring the saved group identifier over the localized display name
   - create uses the File-menu item `NewEmptyTabGroupMenuItem`

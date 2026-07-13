@@ -408,7 +408,10 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     let executor = MockAppleScriptExecutor()
     try SafariAppleScriptSidebar.selectTabGroup(identifier: 57189, named: "名称未設定", executor: executor)
     #expect(executor.executedScripts.count == 1)
-    #expect(executor.executedScripts[0].contains("sidebarIdentifierMatches(currentIdentifier, 57189)"))
+    #expect(executor.executedScripts[0].contains("sidebarTabGroupIdentifier(currentIdentifier)"))
+    #expect(executor.executedScripts[0].contains("set sawStableTabGroupIdentifier to true"))
+    #expect(executor.executedScripts[0].contains("if sawStableTabGroupIdentifier then"))
+    #expect(executor.executedScripts[0].contains("Safari sidebar tab group identifier 57189 not found."))
     #expect(executor.executedScripts[0].contains("SidebarLibraryItemTabGroup"))
     #expect(executor.executedScripts[0].contains("名称未設定"))
 }

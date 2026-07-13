@@ -532,7 +532,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     }
 }
 
-@Test func safariWindowOpenTabGroupCommandRejectsUnknownOrAmbiguousTabGroup() async throws {
+@Test func safariWindowOpenTabGroupCommandRejectsUnknownTabGroup() async throws {
     let missingCommand = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: { [] },
@@ -546,8 +546,19 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     #expect(throws: SafariWindowCommandError.tabGroupNotFound(1000)) {
         try missingCommand.execute(arguments: ["1000"])
     }
+}
 
-    let ambiguousCommand = SafariWindowOpenTabGroupCommand(
+@Test func safariWindowOpenTabGroupCommandAcceptsExactIdentifierWithDuplicateNames() async throws {
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 2,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    var selectedIdentifier: Int?
+    let command = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listTabGroups: {
             [
@@ -555,16 +566,14 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Focus")
             ]
         },
-        openNewWindowForProfile: { _, _ in
-            Issue.record("openNewWindowForProfile should not be called")
-            throw SafariWindowCommandError.openedWindowIdentifierNotFound
-        },
-        selectTabGroup: { _, _ in Issue.record("selectTabGroup should not be called") }
+        openNewWindowForProfile: { _, _ in operationWindow },
+        selectTabGroup: { group, _ in selectedIdentifier = group.identifier },
+        listWindows: { _ in [operationWindow] },
+        sleep: { _ in }
     )
 
-    #expect(throws: SafariWindowCommandError.ambiguousTabGroupName(profileName: "Twisto", tabGroupName: "Focus")) {
-        try ambiguousCommand.execute(arguments: ["1000"])
-    }
+    #expect(try command.execute(arguments: ["1000"]) == "Safari window opened for tab group Focus.\nwindow-id|42")
+    #expect(selectedIdentifier == 1000)
 }
 
 @Test func safariWindowOpenTabGroupCommandWrapsProfileWindowOpenFailure() async throws {
@@ -591,7 +600,10 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
             [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
         },
         listTabGroups: {
-            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+            [
+                SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"),
+                SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Focus")
+            ]
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
         selectTabGroup: { tabGroup, _ in selectedTabGroup = tabGroup }

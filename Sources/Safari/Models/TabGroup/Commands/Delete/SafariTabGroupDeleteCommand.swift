@@ -147,11 +147,14 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
     }
 
     private func window(_ window: SafariWindowRecord, matches group: SafariTabGroupRecord) -> Bool {
-        window.selectedTabGroupIdentifier == group.identifier ||
-        window.tabGroupName == group.name ||
-        window.name == group.name ||
-        window.name.hasPrefix("\(group.name) —") ||
-        window.name.hasPrefix("\(group.name) -")
+        StableIdentifierMatching.matches(
+            requestedIdentifier: group.identifier,
+            observedIdentifier: window.selectedTabGroupIdentifier,
+            fallback: window.tabGroupName == group.name ||
+                window.name == group.name ||
+                window.name.hasPrefix("\(group.name) —") ||
+                window.name.hasPrefix("\(group.name) -")
+        )
     }
 }
 

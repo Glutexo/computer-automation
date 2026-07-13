@@ -9,6 +9,39 @@ import SQLite3
 @testable import SafariUserInterface
 @testable import ComputerAutomationKit
 
+@Test func stableIdentifierMatchingMakesObservedIdentifiersAuthoritative() async throws {
+    let identifiedRows: [(identifier: Int?, name: String)] = [
+        (identifier: 10, name: "Focus"),
+        (identifier: 11, name: "Focus")
+    ]
+
+    let exactMatch = StableIdentifierMatching.resolve(
+        requestedIdentifier: 11,
+        from: identifiedRows,
+        identifier: { $0.identifier },
+        fallback: { $0.name == "Focus" }
+    )
+    let contradictoryMatch = StableIdentifierMatching.resolve(
+        requestedIdentifier: 12,
+        from: identifiedRows,
+        identifier: { $0.identifier },
+        fallback: { $0.name == "Focus" }
+    )
+    let fallbackMatch = StableIdentifierMatching.resolve(
+        requestedIdentifier: 12,
+        from: [(identifier: nil, name: "Focus")],
+        identifier: { $0.identifier },
+        fallback: { $0.name == "Focus" }
+    )
+
+    #expect(exactMatch?.identifier == 11)
+    #expect(contradictoryMatch == nil)
+    #expect(fallbackMatch?.name == "Focus")
+    #expect(StableIdentifierMatching.matches(requestedIdentifier: 11, observedIdentifier: 11, fallback: false))
+    #expect(!StableIdentifierMatching.matches(requestedIdentifier: 11, observedIdentifier: 10, fallback: true))
+    #expect(StableIdentifierMatching.matches(requestedIdentifier: 11, observedIdentifier: nil, fallback: true))
+}
+
 @Test func completionEngineSuggestsModulesAndCommands() async throws {
     let modules = [SafariModule.descriptor, SafariUserInterfaceModule.descriptor]
 
