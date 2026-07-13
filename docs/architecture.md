@@ -23,16 +23,18 @@ flowchart TD
     DBProfile["SafariDatabaseProfile model"]
     DBWindow["SafariDatabaseWindow model"]
     DBTabGroup["SafariDatabaseTabGroup model"]
-    ScriptApplication["script application model"]
-    ScriptWindow["script window model"]
-    ScriptTab["script tab model"]
-    ScriptMenuBar["script menu bar model"]
-    ScriptMenu["script menu model"]
-    ScriptMenuItem["script menu item model"]
-    SafariMenuBar["application-menu-bar model"]
-    SafariMenu["menu model"]
-    SafariFileMenu["file-menu model"]
-    SafariMenuItem["menu-item model"]
+    ScriptApplication["SafariAppleScriptApplication model"]
+    ScriptWindow["SafariAppleScriptWindow model"]
+    ScriptTab["SafariAppleScriptTab model"]
+    ScriptSidebar["SafariAppleScriptSidebar model"]
+    ScriptMenuBar["SafariAppleScriptApplicationMenuBar model"]
+    ScriptMenu["SafariAppleScriptMenu model"]
+    ScriptMenuItem["SafariAppleScriptMenuItem model"]
+    SafariMenuBar["SafariApplicationMenuBar model"]
+    SafariSidebar["SafariSidebar model"]
+    SafariMenu["SafariMenu model"]
+    SafariFileMenu["SafariFileMenu model"]
+    SafariMenuItem["SafariMenuItem model"]
     MenuBarItems["menu-bar-items command"]
     MenuItems["menu-items command"]
     FileMenuItems["file-menu-items command"]
@@ -45,12 +47,16 @@ flowchart TD
     ProfileResolve["resolve-profile command"]
     WindowOpen["open-window command"]
     WindowOpenPrivate["open-private-window command"]
+    WindowOpenTabGroup["open-tab-group-window command"]
     Windows["windows command"]
+    WindowSetTabGroup["set-window-tab-group command"]
     WindowClose["close-window command"]
+    TabGroupCreate["create-tab-group command"]
     TabGroupEnsure["ensure-tab-group command"]
     TabGroups["tab-groups command"]
     TabGroupFind["find-tab-group command"]
     TabGroupResolve["resolve-tab-group command"]
+    TabGroupDelete["delete-tab-group command"]
     EnsureTabListURLs["ensure-tab-list-urls command"]
     ReorderTabListURLs["reorder-tab-list-urls command"]
     TabGroupTabs["tab-group-tabs command"]
@@ -90,10 +96,12 @@ flowchart TD
     SafariScript --> ScriptApplication
     SafariScript --> ScriptWindow
     SafariScript --> ScriptTab
+    SafariScript --> ScriptSidebar
     SafariScript --> ScriptMenuBar
     SafariScript --> ScriptMenu
     SafariScript --> ScriptMenuItem
     SafariUI --> SafariMenuBar
+    SafariUI --> SafariSidebar
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
     SafariUI --> SafariMenuItem
@@ -112,13 +120,17 @@ flowchart TD
     SafariProfile --> DBProfile
     SafariWindow --> WindowOpen
     SafariWindow --> WindowOpenPrivate
+    SafariWindow --> WindowOpenTabGroup
     SafariWindow --> Windows
+    SafariWindow --> WindowSetTabGroup
     SafariWindow --> WindowClose
     SafariWindow --> DBWindow
+    SafariTabGroup --> TabGroupCreate
     SafariTabGroup --> TabGroupEnsure
     SafariTabGroup --> TabGroups
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
+    SafariTabGroup --> TabGroupDelete
     SafariTabGroup --> DBTabGroup
     SafariWindow --> SafariTabList
     SafariTabGroup --> SafariTabList
@@ -135,6 +147,13 @@ flowchart TD
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
     WindowOpenPrivate --> SafariFileMenu
+    WindowOpenTabGroup --> SafariFileMenu
+    WindowOpenTabGroup --> SafariSidebar
+    WindowSetTabGroup --> SafariSidebar
+    TabGroupCreate --> SafariFileMenu
+    TabGroupCreate --> SafariSidebar
+    TabGroupDelete --> SafariSidebar
+    SafariSidebar --> ScriptSidebar
     SafariTab --> ScriptTab
 ```
 

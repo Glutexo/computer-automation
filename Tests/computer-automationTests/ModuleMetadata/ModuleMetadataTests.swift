@@ -156,3 +156,70 @@ import SQLite3
         SafariAppleScriptMenuItem.descriptor
     ])
 }
+
+@Test func architectureDocumentationCoversDescriptorInventory() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let architecture = try String(
+        contentsOf: repositoryRoot.appendingPathComponent("docs/architecture.md"),
+        encoding: .utf8
+    )
+
+    let modelInventories: [([ModelDescriptor], [String])] = [
+        (
+            SafariModule.descriptor.models,
+            [
+                "SafariApplication model",
+                "SafariProfile model",
+                "SafariWindow model",
+                "SafariTabGroup model",
+                "SafariTabList model",
+                "SafariTab model"
+            ]
+        ),
+        (
+            SafariUserInterfaceModule.descriptor.models,
+            [
+                "SafariApplicationMenuBar model",
+                "SafariSidebar model",
+                "SafariMenu model",
+                "SafariFileMenu model",
+                "SafariMenuItem model"
+            ]
+        ),
+        (
+            SafariAppleScriptModule.descriptor.models,
+            [
+                "SafariAppleScriptApplication model",
+                "SafariAppleScriptWindow model",
+                "SafariAppleScriptTab model",
+                "SafariAppleScriptSidebar model",
+                "SafariAppleScriptApplicationMenuBar model",
+                "SafariAppleScriptMenu model",
+                "SafariAppleScriptMenuItem model"
+            ]
+        ),
+        (
+            SafariDatabaseModule.descriptor.models,
+            [
+                "SafariDatabaseProfile model",
+                "SafariDatabaseWindow model",
+                "SafariDatabaseTabGroup model"
+            ]
+        )
+    ]
+
+    for (descriptors, documentedModels) in modelInventories {
+        #expect(descriptors.count == documentedModels.count)
+        for model in documentedModels {
+            #expect(architecture.contains("\(model)\"]"))
+        }
+    }
+
+    for command in SafariModule.descriptor.commands + SafariUserInterfaceModule.descriptor.commands {
+        #expect(architecture.contains("\(command.name) command\"]"))
+    }
+}
