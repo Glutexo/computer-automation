@@ -268,16 +268,16 @@ import SQLite3
         isRunning: { true },
         listTabs: { _ in
             [
-                SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com", title: "Home"),
-                SafariTabRecord(windowIndex: 1, index: 2, url: "https://example.com/path", title: "Path"),
-                SafariTabRecord(windowIndex: 2, index: 1, url: "https://example.com", title: "Other window"),
-                SafariTabRecord(windowIndex: 1, index: 3, url: "https://openai.com", title: "Other URL")
+                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Home"),
+                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 2, url: "https://example.com/path", title: "Path"),
+                SafariTabRecord(windowIdentifier: 43, windowIndex: 2, index: 1, url: "https://example.com", title: "Other window"),
+                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 3, url: "https://openai.com", title: "Other URL")
             ]
         },
         listWindows: { _ in
             [
-                SafariWindowRecord(identifier: 42, index: 1, profileName: "Twisto", name: "Twisto"),
-                SafariWindowRecord(identifier: 43, index: 2, profileName: "Glutexo", name: "Glutexo")
+                SafariWindowRecord(identifier: 43, index: 1, profileName: "Glutexo", name: "Glutexo"),
+                SafariWindowRecord(identifier: 42, index: 2, profileName: "Twisto", name: "Twisto")
             ]
         }
     )
@@ -602,21 +602,21 @@ import SQLite3
 }
 
 @Test func safariTabParseTabListMapsAppleScriptRecords() async throws {
-    let descriptor = makeTabList([(1, 1, "https://example.com"), (2, 1, "")])
+    let descriptor = makeTabList([(42, 1, 1, "https://example.com"), (84, 2, 1, "")])
     #expect(
         SafariTab.parseTabList(descriptor) ==
         [
-            SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
-            SafariTabRecord(windowIndex: 2, index: 1, url: "")
+            SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com"),
+            SafariTabRecord(windowIdentifier: 84, windowIndex: 2, index: 1, url: "")
         ]
     )
 }
 
 @Test func safariTabMatchesLiveTabsAgainstSelectedTabGroupTabs() async throws {
     let liveTabs = [
-        SafariTabRecord(windowIndex: 2, index: 1, url: "https://example.com"),
-        SafariTabRecord(windowIndex: 2, index: 2, url: "https://changed.example"),
-        SafariTabRecord(windowIndex: 2, index: 3, url: "https://extra.example")
+        SafariTabRecord(windowIdentifier: 42, windowIndex: 2, index: 1, url: "https://example.com"),
+        SafariTabRecord(windowIdentifier: 42, windowIndex: 2, index: 2, url: "https://changed.example"),
+        SafariTabRecord(windowIdentifier: 42, windowIndex: 2, index: 3, url: "https://extra.example")
     ]
     let selectedGroupTabs = [
         SafariTabGroupTabRecord(tabGroupIdentifier: 1000, index: 1, url: "https://example.com"),

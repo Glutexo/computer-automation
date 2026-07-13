@@ -114,22 +114,27 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
 @Test func safariAppleScriptTabWindowIdentifierOperationsTargetMatchingWindow() async throws {
     let listExecutor = MockAppleScriptExecutor()
     _ = try SafariAppleScriptTab.list(windowIdentifier: 42, executor: listExecutor)
-    #expect(listExecutor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(listExecutor.executedScripts[0].contains("repeat with currentWindow in every window"))
+    #expect(listExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!listExecutor.executedScripts[0].contains("whose id"))
     #expect(listExecutor.executedScripts[0].contains("every tab of targetWindow"))
 
     let openExecutor = MockAppleScriptExecutor()
     try SafariAppleScriptTab.open(windowIdentifier: 42, url: "https://example.com", executor: openExecutor)
-    #expect(openExecutor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(openExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!openExecutor.executedScripts[0].contains("whose id"))
     #expect(openExecutor.executedScripts[0].contains("set URL of newTab"))
 
     let setURLExecutor = MockAppleScriptExecutor()
     try SafariAppleScriptTab.setURL(windowIdentifier: 42, tabIndex: 3, url: "https://openai.com", executor: setURLExecutor)
-    #expect(setURLExecutor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(setURLExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!setURLExecutor.executedScripts[0].contains("whose id"))
     #expect(setURLExecutor.executedScripts[0].contains("set URL of tab 3"))
 
     let moveExecutor = MockAppleScriptExecutor()
     try SafariAppleScriptTab.move(windowIdentifier: 42, sourceIndex: 3, destinationIndex: 1, executor: moveExecutor)
-    #expect(moveExecutor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(moveExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!moveExecutor.executedScripts[0].contains("whose id"))
     #expect(moveExecutor.executedScripts[0].contains("move tab 3 to before tab 1"))
 
     let closeExecutor = MockAppleScriptExecutor(results: [.string("Safari tab closed.")])
@@ -137,7 +142,8 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
         try SafariAppleScriptTab.close(windowIdentifier: 42, tabIndex: 2, executor: closeExecutor) ==
         "Safari tab closed."
     )
-    #expect(closeExecutor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(closeExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!closeExecutor.executedScripts[0].contains("whose id"))
     #expect(closeExecutor.executedScripts[0].contains("close tab 2"))
 }
 
@@ -181,7 +187,9 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
         ) == "ready"
     )
     #expect(executor.executedScripts.count == 1)
-    #expect(executor.executedScripts[0].contains("every window whose id is 42"))
+    #expect(executor.executedScripts[0].contains("repeat with currentWindow in every window"))
+    #expect(executor.executedScripts[0].contains("if id of currentWindow is 42"))
+    #expect(!executor.executedScripts[0].contains("whose id"))
     #expect(executor.executedScripts[0].contains("do JavaScript"))
     #expect(executor.executedScripts[0].contains("in tab 2 of targetWindow"))
     #expect(executor.executedScripts[0].contains("COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT"))
@@ -242,15 +250,18 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
 }
 
 @Test(arguments: [
-    [(1, 1, "https://example.com")],
-    [(1, 1, "https://example.com"), (1, 2, "https://openai.com"), (2, 1, "https://swift.org")],
+    [(42, 1, 1, "https://example.com")],
+    [(42, 1, 1, "https://example.com"), (42, 1, 2, "https://openai.com"), (84, 2, 1, "https://swift.org")],
     []
 ])
-func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
+func safariAppleScriptTabListsItems(rows: [(Int, Int, Int, String)]) async throws {
     let executor = MockAppleScriptExecutor(results: [.descriptor(makeTabList(rows))])
     let items = try SafariAppleScriptTab.list(executor: executor)
-    let expected = rows.map { SafariAppleScriptTabRecord(windowIndex: $0.0, index: $0.1, url: $0.2) }
+    let expected = rows.map {
+        SafariAppleScriptTabRecord(windowIdentifier: $0.0, windowIndex: $0.1, index: $0.2, url: $0.3)
+    }
     #expect(items == expected)
+    #expect(executor.executedScripts[0].contains("set windowIdentifier to id of currentWindow"))
 }
 
 @Test func safariAppleScriptTabListsStructuredItemsWithTitles() async throws {
@@ -258,8 +269,8 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
         results: [
             .descriptor(
                 makeStructuredTabList([
-                    (1, 1, "https://example.com/a|b", "Example | Home"),
-                    (2, 3, "", "")
+                    (84, 1, 1, "https://example.com/a|b", "Example | Home"),
+                    (42, 2, 3, "", "")
                 ])
             )
         ]
@@ -268,23 +279,23 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, String)]) async throws {
     #expect(
         try SafariAppleScriptTab.list(executor: executor) ==
         [
-            SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com/a|b", title: "Example | Home"),
-            SafariAppleScriptTabRecord(windowIndex: 2, index: 3, url: "", title: "")
+            SafariAppleScriptTabRecord(windowIdentifier: 84, windowIndex: 1, index: 1, url: "https://example.com/a|b", title: "Example | Home"),
+            SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 2, index: 3, url: "", title: "")
         ]
     )
 }
 
 @Test func safariAppleScriptTabParseListSkipsMalformedRowsAndPreservesURLs() async throws {
     let descriptor = NSAppleEventDescriptor.list()
-    descriptor.insert(NSAppleEventDescriptor(string: "1|1|https://example.com"), at: 1)
+    descriptor.insert(NSAppleEventDescriptor(string: "84|1|1|https://example.com"), at: 1)
     descriptor.insert(NSAppleEventDescriptor(string: "bad row"), at: 2)
-    descriptor.insert(NSAppleEventDescriptor(string: "2|3|https://example.com/a|b"), at: 3)
+    descriptor.insert(NSAppleEventDescriptor(string: "42|2|3|https://example.com/a|b"), at: 3)
 
     #expect(
         SafariAppleScriptTab.parseTabList(descriptor) ==
         [
-            SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
-            SafariAppleScriptTabRecord(windowIndex: 2, index: 3, url: "https://example.com/a|b")
+            SafariAppleScriptTabRecord(windowIdentifier: 84, windowIndex: 1, index: 1, url: "https://example.com"),
+            SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 2, index: 3, url: "https://example.com/a|b")
         ]
     )
 }

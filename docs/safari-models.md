@@ -368,6 +368,7 @@ ORDER BY id;
   - an optional `url`
 - `tabs` returns one line per tab as:
   - `windowIndex|tabIndex|url`
+- `--json safari tabs` also includes each tab's stable `windowId`, captured in the same AppleScript enumeration as its current `windowIndex`.
 - `find-tab <url>` searches open Safari tabs by URL and returns one line per match as:
   - `windowId|windowIndex|tabIndex|url|title`
 - `find-tab` uses exact URL matching by default.
@@ -388,7 +389,8 @@ ORDER BY id;
 - `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.
 - `close-tab` closes a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.
 - Prefer `window-id` for writes that follow any Safari UI operation because window indexes are volatile.
-- `find-tab` combines AppleScript tab data with Safari window ids and profile metadata from the `SafariWindow` model.
+- `find-tab` receives each tab's stable window id and current window index from one AppleScript enumeration, then joins optional profile metadata by stable id rather than volatile index.
+- Index-addressed `window-tabs` resolves the current window index to a stable id once and performs the tab read through the same identifier-targeted transport as `--window-id`.
 - The `SafariTab` model currently delegates tab CRUD work directly to the `SafariAppleScript` module because Safari exposes tab URL mutation directly through AppleScript.
 
 ## Related module

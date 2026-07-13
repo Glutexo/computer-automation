@@ -2,12 +2,14 @@ import AppKit
 import AutomationFoundation
 
 public struct SafariAppleScriptTabRecord: Equatable, Sendable {
+    public let windowIdentifier: Int
     public let windowIndex: Int
     public let index: Int
     public let url: String
     public let title: String
 
-    public init(windowIndex: Int, index: Int, url: String, title: String = "") {
+    public init(windowIdentifier: Int, windowIndex: Int, index: Int, url: String, title: String = "") {
+        self.windowIdentifier = windowIdentifier
         self.windowIndex = windowIndex
         self.index = index
         self.url = url
@@ -50,6 +52,7 @@ public enum SafariAppleScriptTab: ModelModel {
             set windowIndex to 0
             repeat with currentWindow in every window
                 set windowIndex to windowIndex + 1
+                set windowIdentifier to id of currentWindow
                 set tabIndex to 0
                 repeat with currentTab in every tab of currentWindow
                     set tabIndex to tabIndex + 1
@@ -65,7 +68,7 @@ public enum SafariAppleScriptTab: ModelModel {
                     on error
                         set tabName to ""
                     end try
-                    copy {(windowIndex as text), (tabIndex as text), tabURL, tabName} to end of output
+                    copy {(windowIdentifier as text), (windowIndex as text), (tabIndex as text), tabURL, tabName} to end of output
                 end repeat
             end repeat
             return output
@@ -80,11 +83,13 @@ public enum SafariAppleScriptTab: ModelModel {
         windowIdentifier: Int,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> [SafariAppleScriptWindowTabRecord] {
+        let targetWindowLookup = targetWindowLookupLines(
+            windowIdentifier: windowIdentifier,
+            notFoundError: "Safari window \(windowIdentifier) does not exist."
+        ).joined(separator: "\n")
         let script = """
         tell application "Safari"
-            set matchingWindows to every window whose id is \(windowIdentifier)
-            if (count of matchingWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            set targetWindow to item 1 of matchingWindows
+        \(targetWindowLookup)
             set output to {}
             set tabIndex to 0
             repeat with currentTab in every tab of targetWindow
@@ -156,10 +161,11 @@ public enum SafariAppleScriptTab: ModelModel {
         if let url, !url.isEmpty {
             lines = [
                 "tell application \"Safari\"",
-                "    activate",
-                "    set matchingWindows to every window whose id is \(windowIdentifier)",
-                "    if (count of matchingWindows) is 0 then error \"Safari window \(windowIdentifier) does not exist.\"",
-                "    set targetWindow to item 1 of matchingWindows",
+                "    activate"
+            ] + targetWindowLookupLines(
+                windowIdentifier: windowIdentifier,
+                notFoundError: "Safari window \(windowIdentifier) does not exist."
+            ) + [
                 "    tell targetWindow",
                 "        set newTab to make new tab at end of tabs",
                 "        set current tab to newTab",
@@ -170,10 +176,11 @@ public enum SafariAppleScriptTab: ModelModel {
         } else {
             lines = [
                 "tell application \"Safari\"",
-                "    activate",
-                "    set matchingWindows to every window whose id is \(windowIdentifier)",
-                "    if (count of matchingWindows) is 0 then error \"Safari window \(windowIdentifier) does not exist.\"",
-                "    set targetWindow to item 1 of matchingWindows",
+                "    activate"
+            ] + targetWindowLookupLines(
+                windowIdentifier: windowIdentifier,
+                notFoundError: "Safari window \(windowIdentifier) does not exist."
+            ) + [
                 "    tell targetWindow",
                 "        set newTab to make new tab at end of tabs",
                 "        set current tab to newTab",
@@ -211,11 +218,13 @@ public enum SafariAppleScriptTab: ModelModel {
         url: String,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        let targetWindowLookup = targetWindowLookupLines(
+            windowIdentifier: windowIdentifier,
+            notFoundError: "Safari window \(windowIdentifier) does not exist."
+        ).joined(separator: "\n")
         let script = """
         tell application "Safari"
-            set matchingWindows to every window whose id is \(windowIdentifier)
-            if (count of matchingWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            set targetWindow to item 1 of matchingWindows
+        \(targetWindowLookup)
             tell targetWindow
                 if (count of tabs) < \(tabIndex) then error "Tab index out of range."
                 set URL of tab \(tabIndex) to \(appleScriptStringLiteral(url))
@@ -261,12 +270,14 @@ public enum SafariAppleScriptTab: ModelModel {
         destinationIndex: Int,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        let targetWindowLookup = targetWindowLookupLines(
+            windowIdentifier: windowIdentifier,
+            notFoundError: "Safari window \(windowIdentifier) does not exist."
+        ).joined(separator: "\n")
         let script = """
         tell application "Safari"
             activate
-            set matchingWindows to every window whose id is \(windowIdentifier)
-            if (count of matchingWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            set targetWindow to item 1 of matchingWindows
+        \(targetWindowLookup)
             tell targetWindow
                 set tabCount to count of tabs
                 if tabCount < \(sourceIndex) then error "Source tab index out of range."
@@ -310,11 +321,13 @@ public enum SafariAppleScriptTab: ModelModel {
         tabIndex: Int,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> String {
+        let targetWindowLookup = targetWindowLookupLines(
+            windowIdentifier: windowIdentifier,
+            notFoundError: "Safari window \(windowIdentifier) does not exist."
+        ).joined(separator: "\n")
         let script = """
         tell application "Safari"
-            set matchingWindows to every window whose id is \(windowIdentifier)
-            if (count of matchingWindows) is 0 then error "Safari window \(windowIdentifier) does not exist."
-            set targetWindow to item 1 of matchingWindows
+        \(targetWindowLookup)
             tell targetWindow
                 if (count of tabs) < \(tabIndex) then error "Tab index out of range."
                 close tab \(tabIndex)
@@ -333,11 +346,13 @@ public enum SafariAppleScriptTab: ModelModel {
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> String {
         let serializedJavaScript = serializedJavaScriptResultSource(for: javaScript)
+        let targetWindowLookup = targetWindowLookupLines(
+            windowIdentifier: windowIdentifier,
+            notFoundError: "COMPUTER_AUTOMATION_WINDOW_NOT_FOUND"
+        ).joined(separator: "\n")
         let script = """
         tell application "Safari"
-            set matchingWindows to every window whose id is \(windowIdentifier)
-            if (count of matchingWindows) is 0 then error "COMPUTER_AUTOMATION_WINDOW_NOT_FOUND"
-            set targetWindow to item 1 of matchingWindows
+        \(targetWindowLookup)
             if (count of tabs of targetWindow) < \(tabIndex) then error "COMPUTER_AUTOMATION_TAB_NOT_FOUND"
             set javaScriptResult to do JavaScript \(appleScriptStringLiteral(serializedJavaScript)) in tab \(tabIndex) of targetWindow
             if javaScriptResult is missing value then return ""
@@ -447,21 +462,24 @@ public enum SafariAppleScriptTab: ModelModel {
 
     private static func parseTabItem(_ descriptor: NSAppleEventDescriptor) -> SafariAppleScriptTabRecord? {
         guard
-            descriptor.numberOfItems >= 3,
-            let rawWindowIndex = descriptor.atIndex(1)?.stringValue,
+            descriptor.numberOfItems >= 4,
+            let rawWindowIdentifier = descriptor.atIndex(1)?.stringValue,
+            let windowIdentifier = Int(rawWindowIdentifier),
+            let rawWindowIndex = descriptor.atIndex(2)?.stringValue,
             let windowIndex = Int(rawWindowIndex),
-            let rawTabIndex = descriptor.atIndex(2)?.stringValue,
+            let rawTabIndex = descriptor.atIndex(3)?.stringValue,
             let tabIndex = Int(rawTabIndex),
-            let url = descriptor.atIndex(3)?.stringValue
+            let url = descriptor.atIndex(4)?.stringValue
         else {
             return nil
         }
 
         return SafariAppleScriptTabRecord(
+            windowIdentifier: windowIdentifier,
             windowIndex: windowIndex,
             index: tabIndex,
             url: url,
-            title: descriptor.atIndex(4)?.stringValue ?? ""
+            title: descriptor.atIndex(5)?.stringValue ?? ""
         )
     }
 
@@ -484,21 +502,41 @@ public enum SafariAppleScriptTab: ModelModel {
 
     private static func parseTabLines(_ lines: [String]) -> [SafariAppleScriptTabRecord] {
         lines.compactMap { line in
-            let components = line.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+            let components = line.split(separator: "|", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
             guard
-                components.count == 3,
-                let windowIndex = Int(components[0]),
-                let tabIndex = Int(components[1])
+                components.count == 4,
+                let windowIdentifier = Int(components[0]),
+                let windowIndex = Int(components[1]),
+                let tabIndex = Int(components[2])
             else {
                 return nil
             }
 
             return SafariAppleScriptTabRecord(
+                windowIdentifier: windowIdentifier,
                 windowIndex: windowIndex,
                 index: tabIndex,
-                url: components[2]
+                url: components[3]
             )
         }
+    }
+
+    private static func targetWindowLookupLines(
+        windowIdentifier: Int,
+        notFoundError: String
+    ) -> [String] {
+        [
+            "    set targetWindow to missing value",
+            "    repeat with currentWindow in every window",
+            "        try",
+            "            if id of currentWindow is \(windowIdentifier) then",
+            "                set targetWindow to currentWindow",
+            "                exit repeat",
+            "            end if",
+            "        end try",
+            "    end repeat",
+            "    if targetWindow is missing value then error \(appleScriptStringLiteral(notFoundError))"
+        ]
     }
 
     private static func appleScriptStringLiteral(_ value: String) -> String {

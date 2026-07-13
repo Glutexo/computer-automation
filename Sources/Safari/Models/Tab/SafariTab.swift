@@ -3,12 +3,14 @@ import AutomationFoundation
 import SafariAppleScript
 
 public struct SafariTabRecord: Equatable, Sendable, Encodable {
+    public let windowIdentifier: Int
     public let windowIndex: Int
     public let index: Int
     public let url: String
     public let title: String
 
-    public init(windowIndex: Int, index: Int, url: String, title: String = "") {
+    public init(windowIdentifier: Int, windowIndex: Int, index: Int, url: String, title: String = "") {
+        self.windowIdentifier = windowIdentifier
         self.windowIndex = windowIndex
         self.index = index
         self.url = url
@@ -104,13 +106,25 @@ public enum SafariTab: ModelModel {
         }
 
         return try SafariAppleScriptTab.list(executor: executor).map {
-            SafariTabRecord(windowIndex: $0.windowIndex, index: $0.index, url: $0.url, title: $0.title)
+            SafariTabRecord(
+                windowIdentifier: $0.windowIdentifier,
+                windowIndex: $0.windowIndex,
+                index: $0.index,
+                url: $0.url,
+                title: $0.title
+            )
         }
     }
 
     static func parseTabList(_ descriptor: NSAppleEventDescriptor?) -> [SafariTabRecord] {
         SafariAppleScriptTab.parseTabList(descriptor).map {
-            SafariTabRecord(windowIndex: $0.windowIndex, index: $0.index, url: $0.url, title: $0.title)
+            SafariTabRecord(
+                windowIdentifier: $0.windowIdentifier,
+                windowIndex: $0.windowIndex,
+                index: $0.index,
+                url: $0.url,
+                title: $0.title
+            )
         }
     }
 
@@ -133,20 +147,19 @@ public enum SafariTab: ModelModel {
             return []
         }
 
-        let windowsByIndex = Dictionary(uniqueKeysWithValues: try listWindows(executor).map { ($0.index, $0) })
+        let windowsByIdentifier = Dictionary(uniqueKeysWithValues: try listWindows(executor).map { ($0.identifier, $0) })
         return try listTabs(executor).compactMap { tab in
             guard
                 tab.matches(url: url, mode: matchMode),
-                let window = windowsByIndex[tab.windowIndex],
-                windowIdentifier.map({ $0 == window.identifier }) ?? true,
-                windowIndex.map({ $0 == window.index }) ?? true,
-                profileName.map({ $0 == window.profileName }) ?? true
+                windowIdentifier.map({ $0 == tab.windowIdentifier }) ?? true,
+                windowIndex.map({ $0 == tab.windowIndex }) ?? true,
+                profileName.map({ $0 == windowsByIdentifier[tab.windowIdentifier]?.profileName }) ?? true
             else {
                 return nil
             }
 
             return SafariTabMatchRecord(
-                windowIdentifier: window.identifier,
+                windowIdentifier: tab.windowIdentifier,
                 windowIndex: tab.windowIndex,
                 tabIndex: tab.index,
                 url: tab.url,
@@ -163,8 +176,8 @@ public enum SafariTab: ModelModel {
         listWindows: (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord] = { executor in
             try SafariAppleScriptWindow.list(executor: executor)
         },
-        listTabs: (SafariAppleScriptExecuting) throws -> [SafariAppleScriptTabRecord] = { executor in
-            try SafariAppleScriptTab.list(executor: executor)
+        listTabsByIdentifier: (Int, SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowTabRecord] = { windowIdentifier, executor in
+            try SafariAppleScriptTab.list(windowIdentifier: windowIdentifier, executor: executor)
         },
         loadWindowStates: (String) throws -> [Int: SafariWindowState] = { path in
             try SafariWindow.loadWindowStateByWindowIdentifier(databasePath: path)
@@ -183,20 +196,15 @@ public enum SafariTab: ModelModel {
         }
 
         let windowIdentifier = windows[windowIndex - 1].identifier
-        let liveTabs = try listTabs(executor)
-            .filter { $0.windowIndex == windowIndex }
-            .map { SafariTabRecord(windowIndex: $0.windowIndex, index: $0.index, url: $0.url) }
-
-        let windowState = try loadWindowStates(databasePath)[windowIdentifier]
-        let selectedTabGroupIdentifier = windowState?.isPrivate == true ? nil : windowState?.selectedTabGroupIdentifier
-        let selectedTabGroupTabs: [SafariTabGroupTabRecord]
-        if let selectedTabGroupIdentifier {
-            selectedTabGroupTabs = try loadTabGroupTabs(selectedTabGroupIdentifier, databasePath)
-        } else {
-            selectedTabGroupTabs = []
-        }
-
-        return matchTabs(liveTabs, againstSelectedTabGroupTabs: selectedTabGroupTabs)
+        return try listWindowTabs(
+            windowIdentifier: windowIdentifier,
+            executor: executor,
+            databasePath: databasePath,
+            isRunning: { true },
+            listTabs: listTabsByIdentifier,
+            loadWindowStates: loadWindowStates,
+            loadTabGroupTabs: loadTabGroupTabs
+        )
     }
 
     static func listWindowTabs(
@@ -219,7 +227,15 @@ public enum SafariTab: ModelModel {
         }
 
         let liveTabs = try listTabs(windowIdentifier, executor)
-            .map { SafariTabRecord(windowIndex: 0, index: $0.index, url: $0.url, title: $0.title) }
+            .map {
+                SafariTabRecord(
+                    windowIdentifier: windowIdentifier,
+                    windowIndex: 0,
+                    index: $0.index,
+                    url: $0.url,
+                    title: $0.title
+                )
+            }
 
         let windowState = try loadWindowStates(databasePath)[windowIdentifier]
         let selectedTabGroupIdentifier = windowState?.isPrivate == true ? nil : windowState?.selectedTabGroupIdentifier

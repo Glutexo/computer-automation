@@ -44,12 +44,14 @@ private struct SafariTabListJSONOutput: Encodable {
 }
 
 private struct SafariTabJSONRecord: Encodable {
+    let windowId: Int
     let windowIndex: Int
     let tabIndex: Int
     let url: String
     let title: String
 
     init(_ record: SafariTabRecord) {
+        self.windowId = record.windowIdentifier
         self.windowIndex = record.windowIndex
         self.tabIndex = record.index
         self.url = record.url

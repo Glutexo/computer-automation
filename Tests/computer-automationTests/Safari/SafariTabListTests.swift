@@ -880,11 +880,11 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
 
 @Test(arguments: [
     [],
-    [SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com")],
+    [SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com")],
     [
-        SafariTabRecord(windowIndex: 1, index: 1, url: "https://example.com"),
-        SafariTabRecord(windowIndex: 1, index: 2, url: "https://openai.com"),
-        SafariTabRecord(windowIndex: 2, index: 1, url: "")
+        SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com"),
+        SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 2, url: "https://openai.com"),
+        SafariTabRecord(windowIdentifier: 84, windowIndex: 2, index: 1, url: "")
     ]
 ])
 func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
@@ -896,6 +896,10 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     let output = try command.execute(arguments: [])
     let expected = tabs.map { "\($0.windowIndex)|\($0.index)|\($0.url)" }.joined(separator: "\n")
     #expect(output == expected)
+
+    let object = try jsonObject(try command.executeJSON(arguments: []))
+    let jsonTabs = try #require(object["tabs"] as? [[String: Any]])
+    #expect(jsonTabs.compactMap { $0["windowId"] as? Int } == tabs.map(\.windowIdentifier))
 }
 
 @Test func safariTabListCommandPropagatesListFailure() async throws {
@@ -987,11 +991,11 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
                 SafariAppleScriptWindowRecord(identifier: 20, name: "Second")
             ]
         },
-        listTabs: { _ in
-            [
-                SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://other.example"),
-                SafariAppleScriptTabRecord(windowIndex: 2, index: 1, url: "https://example.com"),
-                SafariAppleScriptTabRecord(windowIndex: 2, index: 2, url: "https://changed.example")
+        listTabsByIdentifier: { windowIdentifier, _ in
+            #expect(windowIdentifier == 20)
+            return [
+                SafariAppleScriptWindowTabRecord(index: 1, url: "https://example.com"),
+                SafariAppleScriptWindowTabRecord(index: 2, url: "https://changed.example")
             ]
         },
         loadWindowStates: { _ in
@@ -1026,8 +1030,9 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
         listWindows: { _ in
             [SafariAppleScriptWindowRecord(identifier: 10, name: "Private")]
         },
-        listTabs: { _ in
-            [SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com")]
+        listTabsByIdentifier: { windowIdentifier, _ in
+            #expect(windowIdentifier == 10)
+            return [SafariAppleScriptWindowTabRecord(index: 1, url: "https://example.com")]
         },
         loadWindowStates: { _ in
             [
@@ -1053,7 +1058,7 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
         databasePath: "/tmp/ignored",
         isRunning: { false },
         listWindows: { _ in [] },
-        listTabs: { _ in [] },
+        listTabsByIdentifier: { _, _ in [] },
         loadWindowStates: { _ in [:] },
         loadTabGroupTabs: { _, _ in [] }
     )
@@ -1066,7 +1071,10 @@ func safariTabListWindowTabsCommandFormatsRows(tabs: [SafariWindowTabRecord]) as
         databasePath: "/tmp/ignored",
         isRunning: { true },
         listWindows: { _ in [SafariAppleScriptWindowRecord(identifier: 10, name: "Only")] },
-        listTabs: { _ in [SafariAppleScriptTabRecord(windowIndex: 1, index: 1, url: "https://example.com")] },
+        listTabsByIdentifier: { _, _ in
+            Issue.record("Missing window should not list tabs")
+            return []
+        },
         loadWindowStates: { _ in [:] },
         loadTabGroupTabs: { _, _ in [] }
     )

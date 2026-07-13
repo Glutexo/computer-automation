@@ -7,7 +7,7 @@
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
 - `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
-- `SafariAppleScriptTab.list()` returns each tab as a structured Apple event list containing window index, tab index, URL, and title.
+- `SafariAppleScriptTab.list()` returns each tab as a structured Apple event list containing the stable window id, current window index, tab index, URL, and title from one enumeration.
 - `SafariAppleScriptTab.list(windowIdentifier:)` returns tabs from one stable Safari window id without relying on current window order.
 - `SafariAppleScriptTab.executeJavaScript()` targets a Safari tab by stable window id and tab index.
 - `SafariAppleScriptSidebar` represents AppleScript-level access to the opened Safari sidebar and its structurally addressable rows.
@@ -91,8 +91,8 @@ flowchart TD
 - `Safari` and `SafariUserInterface` depend on it through explicit model APIs.
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
-- `SafariAppleScriptTab` provides window-index and window-id variants for listing, opening, moving, setting URLs, and closing tabs. The window-id variants resolve the target through `every window whose id is <window-id>` before touching tabs.
-- `SafariAppleScriptTab.executeJavaScript()` resolves the target through `every window whose id is <window-id>` and then runs `do JavaScript` in the requested tab index of that window.
+- `SafariAppleScriptTab` provides window-index and window-id variants for listing, opening, moving, setting URLs, and closing tabs. Every window-id variant uses the same iterative resolver over `every window` and compares `id of currentWindow` before touching tabs.
+- `SafariAppleScriptTab.executeJavaScript()` uses that iterative stable-id resolver and then runs `do JavaScript` in the requested tab index of the resolved window.
 - `SafariAppleScriptTab.executeJavaScript()` wraps the caller source so primitive JavaScript results return as text and object/array results return as `JSON.stringify(...)` text.
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.
 - `SafariAppleScriptTab.executeJavaScript()` reports JavaScript results that Safari cannot convert to text as a typed unsupported-result error instead of a generic execution failure.

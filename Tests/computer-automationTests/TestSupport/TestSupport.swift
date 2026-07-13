@@ -79,12 +79,12 @@ func makeSidebarList(_ rows: [(Int, String, String, String, Bool)]) -> NSAppleEv
     return listDescriptor
 }
 
-func makeTabList(_ rows: [(Int, Int, String)]) -> NSAppleEventDescriptor {
+func makeTabList(_ rows: [(Int, Int, Int, String)]) -> NSAppleEventDescriptor {
     let listDescriptor = NSAppleEventDescriptor.list()
 
     for (offset, row) in rows.enumerated() {
         listDescriptor.insert(
-            NSAppleEventDescriptor(string: "\(row.0)|\(row.1)|\(row.2)"),
+            NSAppleEventDescriptor(string: "\(row.0)|\(row.1)|\(row.2)|\(row.3)"),
             at: offset + 1
         )
     }
@@ -92,15 +92,16 @@ func makeTabList(_ rows: [(Int, Int, String)]) -> NSAppleEventDescriptor {
     return listDescriptor
 }
 
-func makeStructuredTabList(_ rows: [(Int, Int, String, String)]) -> NSAppleEventDescriptor {
+func makeStructuredTabList(_ rows: [(Int, Int, Int, String, String)]) -> NSAppleEventDescriptor {
     let listDescriptor = NSAppleEventDescriptor.list()
 
     for (offset, row) in rows.enumerated() {
         let item = NSAppleEventDescriptor.list()
         item.insert(NSAppleEventDescriptor(string: String(row.0)), at: 1)
         item.insert(NSAppleEventDescriptor(string: String(row.1)), at: 2)
-        item.insert(NSAppleEventDescriptor(string: row.2), at: 3)
+        item.insert(NSAppleEventDescriptor(string: String(row.2)), at: 3)
         item.insert(NSAppleEventDescriptor(string: row.3), at: 4)
+        item.insert(NSAppleEventDescriptor(string: row.4), at: 5)
         listDescriptor.insert(item, at: offset + 1)
     }
 
