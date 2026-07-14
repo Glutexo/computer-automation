@@ -3,13 +3,15 @@ import AutomationFoundation
 import SafariAppleScript
 
 public struct SafariTabRecord: Equatable, Sendable, Encodable {
+    public let processId: pid_t?
     public let windowIdentifier: Int
     public let windowIndex: Int
     public let index: Int
     public let url: String
     public let title: String
 
-    public init(windowIdentifier: Int, windowIndex: Int, index: Int, url: String, title: String = "") {
+    public init(processId: pid_t? = nil, windowIdentifier: Int, windowIndex: Int, index: Int, url: String, title: String = "") {
+        self.processId = processId
         self.windowIdentifier = windowIdentifier
         self.windowIndex = windowIndex
         self.index = index
@@ -113,6 +115,51 @@ public enum SafariTab: ModelModel {
                 url: $0.url,
                 title: $0.title
             )
+        }
+    }
+
+    static func listAcrossRunningProcesses(
+        isRunning: () -> Bool = SafariApplication.isRunning,
+        discoverWindows: () throws -> [SafariProcessWindowRecord] = { try SafariProcessWindowDiscovery.list() },
+        listTabs: (pid_t) throws -> [SafariAppleScriptTabRecord] = { processIdentifier in
+            try SafariAppleScriptTab.list(processIdentifier: processIdentifier)
+        }
+    ) throws -> [SafariTabRecord] {
+        guard isRunning() else {
+            return []
+        }
+
+        let windows = try discoverWindows()
+        let globalWindowIndexes = Dictionary(
+            uniqueKeysWithValues: windows.enumerated().map {
+                (SafariProcessWindowKey(processIdentifier: $0.element.processIdentifier, windowIdentifier: $0.element.window.identifier), $0.offset + 1)
+            }
+        )
+        var visitedProcesses: Set<pid_t> = []
+
+        return try windows.flatMap { window -> [SafariTabRecord] in
+            guard visitedProcesses.insert(window.processIdentifier).inserted else {
+                return []
+            }
+
+            return try listTabs(window.processIdentifier).compactMap { tab in
+                let key = SafariProcessWindowKey(
+                    processIdentifier: window.processIdentifier,
+                    windowIdentifier: tab.windowIdentifier
+                )
+                guard let windowIndex = globalWindowIndexes[key] else {
+                    return nil
+                }
+
+                return SafariTabRecord(
+                    processId: window.processIdentifier,
+                    windowIdentifier: tab.windowIdentifier,
+                    windowIndex: windowIndex,
+                    index: tab.index,
+                    url: tab.url,
+                    title: tab.title
+                )
+            }
         }
     }
 
@@ -265,6 +312,11 @@ public enum SafariTab: ModelModel {
             )
         }
     }
+}
+
+private struct SafariProcessWindowKey: Hashable {
+    let processIdentifier: pid_t
+    let windowIdentifier: Int
 }
 
 private extension SafariTabRecord {

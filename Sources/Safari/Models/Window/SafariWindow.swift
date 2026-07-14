@@ -5,6 +5,7 @@ import SafariDatabase
 import SafariUserInterface
 
 public struct SafariWindowRecord: Equatable, Sendable, Encodable {
+    public let processId: pid_t?
     public let identifier: Int
     public let index: Int
     public let isPrivate: Bool
@@ -13,7 +14,8 @@ public struct SafariWindowRecord: Equatable, Sendable, Encodable {
     public let tabGroupName: String?
     public let name: String
 
-    public init(identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, selectedTabGroupIdentifier: Int? = nil, tabGroupName: String? = nil, name: String) {
+    public init(processId: pid_t? = nil, identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, selectedTabGroupIdentifier: Int? = nil, tabGroupName: String? = nil, name: String) {
+        self.processId = processId
         self.identifier = identifier
         self.index = index
         self.isPrivate = isPrivate
@@ -47,6 +49,31 @@ public enum SafariWindow: ModelModel {
             return []
         }
         let rawWindows = try SafariAppleScriptWindow.list(executor: executor)
+        return try records(from: rawWindows, databasePath: databasePath)
+    }
+
+    static func listAcrossRunningProcesses(
+        databasePath: String = SafariProfile.databasePath(),
+        isRunning: () -> Bool = SafariApplication.isRunning,
+        discoverWindows: () throws -> [SafariProcessWindowRecord] = { try SafariProcessWindowDiscovery.list() }
+    ) throws -> [SafariWindowRecord] {
+        guard isRunning() else {
+            return []
+        }
+
+        let discoveredWindows = try discoverWindows()
+        return try records(
+            from: discoveredWindows.map(\.window),
+            processIdentifiers: discoveredWindows.map { $0.processIdentifier },
+            databasePath: databasePath
+        )
+    }
+
+    private static func records(
+        from rawWindows: [SafariAppleScriptWindowRecord],
+        processIdentifiers: [pid_t] = [],
+        databasePath: String
+    ) throws -> [SafariWindowRecord] {
         let databaseContext: ([Int: SafariWindowState], Set<String>)
         do {
             databaseContext = (
@@ -66,6 +93,7 @@ public enum SafariWindow: ModelModel {
                 ?? ""
 
             return SafariWindowRecord(
+                processId: processIdentifiers.indices.contains(offset) ? processIdentifiers[offset] : nil,
                 identifier: rawWindow.identifier,
                 index: offset + 1,
                 isPrivate: state?.isPrivate ?? false,

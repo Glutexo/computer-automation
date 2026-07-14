@@ -15,7 +15,13 @@ public struct SafariWindowListCommand: CommandModel, JSONCommandModel {
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
-        self.listWindows = { executor in try SafariWindow.list(executor: executor) }
+        self.listWindows = { executor in
+            do {
+                return try SafariWindow.listAcrossRunningProcesses()
+            } catch SafariUserInterfaceError.windowListUnavailable {
+                return try SafariWindow.list(executor: executor)
+            }
+        }
     }
 
     init(
@@ -32,7 +38,10 @@ public struct SafariWindowListCommand: CommandModel, JSONCommandModel {
     public func execute(arguments: [String] = []) throws -> String {
         let windows = try listWindows(executor)
         return windows
-            .map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)" }
+            .map {
+                let processSuffix = $0.processId.map { "|\($0)" } ?? ""
+                return "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)\(processSuffix)"
+            }
             .joined(separator: "\n")
     }
 

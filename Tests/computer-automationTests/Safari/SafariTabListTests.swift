@@ -914,7 +914,7 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     [],
     [SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com")],
     [
-        SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com"),
+        SafariTabRecord(processId: 4317, windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com"),
         SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 2, url: "https://openai.com"),
         SafariTabRecord(windowIdentifier: 84, windowIndex: 2, index: 1, url: "")
     ]
@@ -926,12 +926,16 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
     )
 
     let output = try command.execute(arguments: [])
-    let expected = tabs.map { "\($0.windowIndex)|\($0.index)|\($0.url)" }.joined(separator: "\n")
+    let expected = tabs.map {
+        let processSuffix = $0.processId.map { "|\($0)" } ?? ""
+        return "\($0.windowIndex)|\($0.index)|\($0.url)\(processSuffix)"
+    }.joined(separator: "\n")
     #expect(output == expected)
 
     let object = try jsonObject(try command.executeJSON(arguments: []))
     let jsonTabs = try #require(object["tabs"] as? [[String: Any]])
     #expect(jsonTabs.compactMap { $0["windowId"] as? Int } == tabs.map(\.windowIdentifier))
+    #expect(jsonTabs.compactMap { $0["processId"] as? Int } == tabs.compactMap(\.processId).map(Int.init))
 }
 
 @Test func safariTabListCommandPropagatesListFailure() async throws {

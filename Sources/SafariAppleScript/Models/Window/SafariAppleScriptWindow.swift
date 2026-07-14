@@ -35,6 +35,19 @@ public enum SafariAppleScriptWindow: ModelModel {
         return parseWindowList(descriptor)
     }
 
+    public static func list(
+        processIdentifier: pid_t
+    ) throws -> [SafariAppleScriptWindowRecord] {
+        try list(processIdentifier: processIdentifier, backend: .live)
+    }
+
+    static func list(
+        processIdentifier: pid_t,
+        backend: SafariAppleScriptProcessBackend
+    ) throws -> [SafariAppleScriptWindowRecord] {
+        try backend.listWindows(processIdentifier)
+    }
+
     public static func openNewDocument(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {

@@ -4,6 +4,7 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
     case profileWindowMenuItemNotFound(String)
     case privateWindowMenuItemNotFound
     case focusedWindowUnavailable
+    case windowListUnavailable
     case windowCloseButtonUnavailable
     case windowCloseNotVerified
     case sidebarUnavailable
@@ -24,6 +25,8 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
             "Safari's File menu does not expose the private-window command. Verify private browsing is available and retry."
         case .focusedWindowUnavailable:
             "The targeted Safari window could not be resolved through Accessibility. Grant Accessibility permission and retry."
+        case .windowListUnavailable:
+            "Safari windows could not be inspected through Accessibility. Grant Accessibility permission and retry."
         case .windowCloseButtonUnavailable:
             "Safari kept the targeted window visible and its Accessibility close button was unavailable. Close that exact window manually."
         case .windowCloseNotVerified:

@@ -65,6 +65,56 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
+@Test func safariProcessWindowDiscoveryFiltersStaleScriptingWindowsByVisibleProcessTitles() async throws {
+    var queriedProcesses: [pid_t] = []
+    let windows = try SafariProcessWindowDiscovery.list(
+        listAccessibilityWindows: {
+            [
+                SafariAccessibilityWindowRecord(processIdentifier: 4317, name: "Glutexo"),
+                SafariAccessibilityWindowRecord(processIdentifier: 9000, name: "Twisto")
+            ]
+        },
+        listScriptWindows: { processIdentifier in
+            queriedProcesses.append(processIdentifier)
+            if processIdentifier == 4317 {
+                return [
+                    SafariAppleScriptWindowRecord(identifier: 3124, name: "Glutexo"),
+                    SafariAppleScriptWindowRecord(identifier: 3136, name: "Stale")
+                ]
+            }
+            return [SafariAppleScriptWindowRecord(identifier: 4000, name: "Twisto")]
+        }
+    )
+
+    #expect(queriedProcesses == [4317, 9000])
+    #expect(
+        windows == [
+            SafariProcessWindowRecord(
+                processIdentifier: 4317,
+                window: SafariAppleScriptWindowRecord(identifier: 3124, name: "Glutexo")
+            ),
+            SafariProcessWindowRecord(
+                processIdentifier: 9000,
+                window: SafariAppleScriptWindowRecord(identifier: 4000, name: "Twisto")
+            )
+        ]
+    )
+}
+
+@Test func safariProcessWindowDiscoveryReturnsNoWindowsForProcessesWithoutAXWindows() async throws {
+    var queriedProcesses: [pid_t] = []
+    let windows = try SafariProcessWindowDiscovery.list(
+        listAccessibilityWindows: { [] },
+        listScriptWindows: { processIdentifier in
+            queriedProcesses.append(processIdentifier)
+            return [SafariAppleScriptWindowRecord(identifier: 1658, name: "Stale")]
+        }
+    )
+
+    #expect(windows.isEmpty)
+    #expect(queriedProcesses.isEmpty)
+}
+
 @Test func safariWindowOpenCommandOpensUnprofiledWindow() async throws {
     let executor = MockAppleScriptExecutor()
     var receivedProfileName: String?
@@ -703,7 +753,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     [],
     [SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page")],
     [
-        SafariWindowRecord(identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page"),
+        SafariWindowRecord(processId: 4317, identifier: 1, index: 1, isPrivate: false, profileName: "Glutexo", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Start Page"),
         SafariWindowRecord(identifier: 2, index: 2, isPrivate: true, profileName: "Twisto", selectedTabGroupIdentifier: 1000, tabGroupName: "Focus", name: "OpenAI")
     ]
 ])
@@ -714,8 +764,15 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
     )
 
     let output = try command.execute(arguments: [])
-    let expected = windows.map { "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)" }.joined(separator: "\n")
+    let expected = windows.map {
+        let processSuffix = $0.processId.map { "|\($0)" } ?? ""
+        return "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)\(processSuffix)"
+    }.joined(separator: "\n")
     #expect(output == expected)
+
+    let object = try jsonObject(try command.executeJSON(arguments: []))
+    let jsonWindows = try #require(object["windows"] as? [[String: Any]])
+    #expect(jsonWindows.compactMap { $0["processId"] as? Int } == windows.compactMap(\.processId).map(Int.init))
 }
 
 @Test func safariWindowListCommandPropagatesListFailure() async throws {

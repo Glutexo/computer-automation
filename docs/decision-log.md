@@ -2,6 +2,14 @@
 
 ## 2026-07-13
 
+### PID-targeted Safari window and tab reads
+
+- The literal `safari windows` and `safari tabs` read commands enumerate running Safari processes instead of relying on the bundle-level AppleScript target.
+- `SafariUserInterface` owns the per-process `AXWindows` inventory, `SafariAppleScript` owns PID-targeted ScriptingBridge reads, and the `Safari` module intersects both sources by PID and title multiplicity to exclude stale scripting objects.
+- Window indexes are reassigned globally after the intersection, while process-local Safari window identifiers remain unchanged in command output.
+- Mutation commands keep their existing transports in this slice; the change is intentionally limited to the two read commands reported by issue #44.
+- If Accessibility permission is unavailable, these reads retain the legacy single-process AppleScript fallback.
+
 ### Explicit injectable Safari Accessibility backend
 
 - Production menu, File-menu, sidebar, and focused-window operations select the native Accessibility backend explicitly; executor-taking overloads select the AppleScript transport explicitly and never infer a backend from the executor's concrete type.

@@ -34,6 +34,18 @@ struct SafariAXPolling {
 enum SafariAX {
     typealias AttributeReader = (String, AXUIElement) -> CFTypeRef?
 
+    static func copyElements(_ attribute: String, from element: AXUIElement) -> [AXUIElement]? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
+            return nil
+        }
+        guard let value else {
+            return []
+        }
+
+        return elements(for: attribute, on: element, readAttribute: { _, _ in value })
+    }
+
     static func copyAttributeValue(_ attribute: String, from element: AXUIElement) -> CFTypeRef? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {

@@ -1,5 +1,7 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
+import SafariUserInterface
 
 public struct SafariTabListCommand: CommandModel, JSONCommandModel {
     public static let descriptor = CommandDescriptor(
@@ -14,7 +16,13 @@ public struct SafariTabListCommand: CommandModel, JSONCommandModel {
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
-        self.listTabs = { executor in try SafariTab.list(executor: executor) }
+        self.listTabs = { executor in
+            do {
+                return try SafariTab.listAcrossRunningProcesses()
+            } catch SafariUserInterfaceError.windowListUnavailable {
+                return try SafariTab.list(executor: executor)
+            }
+        }
     }
 
     init(
@@ -30,7 +38,10 @@ public struct SafariTabListCommand: CommandModel, JSONCommandModel {
     public func execute(arguments: [String] = []) throws -> String {
         let tabs = try listTabs(executor)
         return tabs
-            .map { "\($0.windowIndex)|\($0.index)|\($0.url)" }
+            .map {
+                let processSuffix = $0.processId.map { "|\($0)" } ?? ""
+                return "\($0.windowIndex)|\($0.index)|\($0.url)\(processSuffix)"
+            }
             .joined(separator: "\n")
     }
 
@@ -44,6 +55,7 @@ private struct SafariTabListJSONOutput: Encodable {
 }
 
 private struct SafariTabJSONRecord: Encodable {
+    let processId: pid_t?
     let windowId: Int
     let windowIndex: Int
     let tabIndex: Int
@@ -51,6 +63,7 @@ private struct SafariTabJSONRecord: Encodable {
     let title: String
 
     init(_ record: SafariTabRecord) {
+        self.processId = record.processId
         self.windowId = record.windowIdentifier
         self.windowIndex = record.windowIndex
         self.tabIndex = record.index

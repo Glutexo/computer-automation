@@ -53,6 +53,39 @@ import SQLite3
     )
 }
 
+@Test func safariAppleScriptProcessReadsTargetExactProcessIdentifier() async throws {
+    var windowProcessIdentifier: pid_t?
+    var tabProcessIdentifier: pid_t?
+    let backend = SafariAppleScriptProcessBackend(
+        listWindows: { processIdentifier in
+            windowProcessIdentifier = processIdentifier
+            return [SafariAppleScriptWindowRecord(identifier: 42, name: "Glutexo")]
+        },
+        listTabs: { processIdentifier in
+            tabProcessIdentifier = processIdentifier
+            return [
+                SafariAppleScriptTabRecord(
+                    windowIdentifier: 42,
+                    windowIndex: 1,
+                    index: 1,
+                    url: "https://example.com"
+                )
+            ]
+        }
+    )
+
+    #expect(
+        try SafariAppleScriptWindow.list(processIdentifier: 4317, backend: backend) ==
+        [SafariAppleScriptWindowRecord(identifier: 42, name: "Glutexo")]
+    )
+    #expect(
+        try SafariAppleScriptTab.list(processIdentifier: 4317, backend: backend) ==
+        [SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com")]
+    )
+    #expect(windowProcessIdentifier == 4317)
+    #expect(tabProcessIdentifier == 4317)
+}
+
 @Test(arguments: [
     (1, "Open…", "", ""),
     (2, "Share…", "missing value", "missing value"),

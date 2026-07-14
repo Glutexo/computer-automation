@@ -291,6 +291,45 @@ import SQLite3
     )
 }
 
+@Test func safariTabListAcrossProcessesAssignsGlobalWindowIndexesAndFiltersStaleWindows() async throws {
+    let windows = [
+        SafariProcessWindowRecord(
+            processIdentifier: 4317,
+            window: SafariAppleScriptWindowRecord(identifier: 42, name: "Glutexo")
+        ),
+        SafariProcessWindowRecord(
+            processIdentifier: 9000,
+            window: SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto")
+        )
+    ]
+    var queriedProcesses: [pid_t] = []
+
+    let tabs = try SafariTab.listAcrossRunningProcesses(
+        isRunning: { true },
+        discoverWindows: { windows },
+        listTabs: { processIdentifier in
+            queriedProcesses.append(processIdentifier)
+            if processIdentifier == 4317 {
+                return [
+                    SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Example"),
+                    SafariAppleScriptTabRecord(windowIdentifier: 99, windowIndex: 2, index: 1, url: "https://stale.example", title: "Stale")
+                ]
+            }
+            return [
+                SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://swift.org", title: "Swift")
+            ]
+        }
+    )
+
+    #expect(queriedProcesses == [4317, 9000])
+    #expect(
+        tabs == [
+            SafariTabRecord(processId: 4317, windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Example"),
+            SafariTabRecord(processId: 9000, windowIdentifier: 42, windowIndex: 2, index: 1, url: "https://swift.org", title: "Swift")
+        ]
+    )
+}
+
 @Test func safariTabExecuteJavaScriptCommandReturnsScriptResult() async throws {
     var received: (Int, Int, String)?
     let command = SafariTabExecuteJavaScriptCommand(

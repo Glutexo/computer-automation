@@ -49,11 +49,17 @@ private final class FakeSafariAccessibility {
         attributes.last(where: { sameElement($0.element, element) && $0.name == name })?.value
     }
 
-    func backend(maxAttempts: Int = 3) -> SafariAccessibilityBackend {
+    func backend(
+        processIdentifiers: [pid_t] = [],
+        maxAttempts: Int = 3
+    ) -> SafariAccessibilityBackend {
         SafariAccessibilityBackend(
             applications: {
-                self.applicationElements.map { element in
+                self.applicationElements.enumerated().map { offset, element in
                     SafariAccessibilityApplication(
+                        processIdentifier: processIdentifiers.indices.contains(offset)
+                            ? processIdentifiers[offset]
+                            : nil,
                         element: element,
                         activate: { self.activationCount += 1 }
                     )
@@ -547,6 +553,30 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     )
 
     #expect(fake.performedActions.contains(where: { sameElement($0.element, closeButton) }))
+}
+
+@Test func safariAccessibilityWindowListsWindowsByProcessWithoutRequiringAXVisible() async throws {
+    let firstApplication = testAXElement(98_100)
+    let secondApplication = testAXElement(98_101)
+    let firstWindow = testAXElement(98_102)
+    let secondFirstProcessWindow = testAXElement(98_103)
+    let secondWindow = testAXElement(98_104)
+    let fake = FakeSafariAccessibility(applicationElements: [firstApplication, secondApplication])
+    fake.setElements(kAXWindowsAttribute, on: firstApplication, to: [firstWindow, secondFirstProcessWindow])
+    fake.setElements(kAXWindowsAttribute, on: secondApplication, to: [secondWindow])
+    fake.set(kAXTitleAttribute, on: firstWindow, to: "Glutexo" as CFString)
+    fake.set(kAXTitleAttribute, on: secondFirstProcessWindow, to: "Downloads" as CFString)
+    fake.set(kAXTitleAttribute, on: secondWindow, to: "Twisto" as CFString)
+
+    #expect(
+        try SafariAccessibilityWindow.listWindows(
+            accessibility: fake.backend(processIdentifiers: [4317, 43782])
+        ) == [
+            SafariAccessibilityWindowRecord(processIdentifier: 4317, name: "Glutexo"),
+            SafariAccessibilityWindowRecord(processIdentifier: 4317, name: "Downloads"),
+            SafariAccessibilityWindowRecord(processIdentifier: 43782, name: "Twisto")
+        ]
+    )
 }
 
 @Test func safariSidebarMatchesWholeTabGroupIdentifierTokens() async throws {

@@ -2,6 +2,13 @@
 
 ## 2026-07-13
 
+### Safari read discovery must target and cross-check each process
+
+- GitHub issue #44 showed that the bundle-level `tell application "Safari"` target can return no windows or stale windows while another `com.apple.Safari` process owns populated profile windows.
+- PID-targeted ScriptingBridge exposes the process-local window and tab objects, but those results can also retain stale objects after their Accessibility windows disappear.
+- Reliable read discovery intersects PID-targeted scripting windows with each process's `AXWindows` inventory and title multiplicity, then assigns one global CLI window order across the surviving process-local records.
+- Safari may omit `AXVisible` even on a real window, so membership in `AXWindows`, rather than that optional attribute, is the structural source for this cross-check.
+
 ### Sidebar discovery must qualify the structural outline
 
 - GitHub issue #30 reproduced saved-tab-group selection failures when Safari exposed accessibility outlines other than the actual `AXOutline` with identifier `Sidebar`.

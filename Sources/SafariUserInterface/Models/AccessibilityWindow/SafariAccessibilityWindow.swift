@@ -2,10 +2,20 @@ import ApplicationServices
 import AutomationFoundation
 import Foundation
 
+public struct SafariAccessibilityWindowRecord: Equatable, Sendable {
+    public let processIdentifier: pid_t
+    public let name: String
+
+    public init(processIdentifier: pid_t, name: String) {
+        self.processIdentifier = processIdentifier
+        self.name = name
+    }
+}
+
 public enum SafariAccessibilityWindow: ModelModel {
     public static let descriptor = ModelDescriptor(
         name: "accessibility-window",
-        abstract: "A focused Safari window addressed through Accessibility.",
+        abstract: "Safari windows addressed through Accessibility.",
         commands: []
     )
 
@@ -16,6 +26,34 @@ public enum SafariAccessibilityWindow: ModelModel {
             performClose: performClose,
             accessibility: .live
         )
+    }
+
+    public static func listWindows() throws -> [SafariAccessibilityWindowRecord] {
+        guard AXIsProcessTrusted() else {
+            throw SafariUserInterfaceError.windowListUnavailable
+        }
+        return try listWindows(accessibility: .live)
+    }
+
+    static func listWindows(
+        accessibility: SafariAccessibilityBackend
+    ) throws -> [SafariAccessibilityWindowRecord] {
+        try accessibility.applications().flatMap { application -> [SafariAccessibilityWindowRecord] in
+            guard let processIdentifier = application.processIdentifier else {
+                return []
+            }
+
+            return try accessibility.requiredElements(
+                for: kAXWindowsAttribute,
+                on: application.element,
+                error: .windowListUnavailable
+            ).map { window in
+                SafariAccessibilityWindowRecord(
+                    processIdentifier: processIdentifier,
+                    name: accessibility.stringValue(for: kAXTitleAttribute, on: window)
+                )
+            }
+        }
     }
 
     static func closeFocusedWindow(

@@ -114,6 +114,8 @@ Window-level tab commands accept either the original positional `window-index` f
 
 `safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier. Identifier-targeted close verifies that the exact focused Accessibility window is no longer visible; if Safari leaves a visible zero-tab window, it presses that window's structural close button and verifies again before reporting success.
 
+`safari windows` and `safari tabs` enumerate every running Safari process. They cross-check each process's Accessibility window inventory with PID-targeted scripting data, which excludes stale scripting objects from processes that own no Accessibility windows while preserving tabs from profile-specific Safari processes. When Accessibility permission is unavailable, the commands fall back to the legacy single-process AppleScript read.
+
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 
 ```bash

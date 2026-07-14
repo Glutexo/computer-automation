@@ -93,6 +93,19 @@ public enum SafariAppleScriptTab: ModelModel {
     }
 
     public static func list(
+        processIdentifier: pid_t
+    ) throws -> [SafariAppleScriptTabRecord] {
+        try list(processIdentifier: processIdentifier, backend: .live)
+    }
+
+    static func list(
+        processIdentifier: pid_t,
+        backend: SafariAppleScriptProcessBackend
+    ) throws -> [SafariAppleScriptTabRecord] {
+        try backend.listTabs(processIdentifier)
+    }
+
+    public static func list(
         windowIdentifier: Int,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws -> [SafariAppleScriptWindowTabRecord] {
