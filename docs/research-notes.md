@@ -7,6 +7,9 @@
 - GitHub issue #48 showed that Safari can expose both `NewEmptyTabGroupMenuItem` and `NewTabGroupWithTabsMenuItem` with `AXEnabled=false` in a newly opened profile window.
 - `AXPress` alone is not an adequate success precondition for those items: the command must reject an explicitly disabled item before waiting for a saved-group database mutation.
 - The issue's apparent repeated window id was the newly appended `processId` in text output; `safari windows` did not include `SafariWindowRecord.identifier` at all. Fixed field positions and explicit JSON names are required so operation-owned `windowId` values can be correlated with later reads without confusing them with an owning process id.
+- A post-fix targeted Twisto run did not reproduce the disabled state: Safari created temporary group `CA Issue 48 validation 8b1a16a` successfully, `safari windows` correlated its operation window as `windowId` 6190 while separately reporting `processId` 43782, and later exposed the issue's existing `windowId` 5769 under that same process. The temporary group and window were deleted and independent readback confirmed both were gone.
+- The full opt-in live Safari regression then completed against Twisto with the `computer-automation-issue-48` prefix. It verified stable-id window/tab mutation, JavaScript execution, tab-group create/reuse, URL ensure/reorder, baseline-window preservation, deletion, and cleanup; independent readback found no prefixed group and only the three baseline window ids 5769, 5433, and 5934.
+- Because Safari enabled the menu action during both post-fix runs, the real disabled branch remains covered by the injected Accessibility regression rather than a repeatable live precondition.
 
 ## 2026-07-13
 

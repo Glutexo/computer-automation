@@ -128,7 +128,7 @@ Tab rows use the corresponding fixed shape:
 windowId|windowIndex|tabIndex|url|processId
 ```
 
-`windowId` is the stable Safari window address used by `--window-id`. `processId` identifies the owning Safari process, so the same process id normally appears on several different window rows. JSON uses the explicit keys `windowId`, `windowIndex`, and `processId` as well.
+`windowId` is the stable Safari window address used by `--window-id`. `processId` identifies the owning Safari process, so the same process id normally appears on several different window rows. JSON uses the explicit keys `windowId`, `windowIndex`, and `processId` as well, while retaining `identifier` and `index` as compatibility aliases.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

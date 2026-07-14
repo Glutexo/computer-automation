@@ -771,6 +771,8 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
 
     let object = try jsonObject(try command.executeJSON(arguments: []))
     let jsonWindows = try #require(object["windows"] as? [[String: Any]])
+    #expect(jsonWindows.compactMap { $0["identifier"] as? Int } == windows.map(\.identifier))
+    #expect(jsonWindows.compactMap { $0["index"] as? Int } == windows.map(\.index))
     #expect(jsonWindows.compactMap { $0["windowId"] as? Int } == windows.map(\.identifier))
     #expect(jsonWindows.compactMap { $0["windowIndex"] as? Int } == windows.map(\.index))
     #expect(jsonWindows.compactMap { $0["processId"] as? Int } == windows.compactMap(\.processId).map(Int.init))

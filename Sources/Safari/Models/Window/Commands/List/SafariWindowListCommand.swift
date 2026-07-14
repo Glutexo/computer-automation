@@ -60,6 +60,8 @@ private struct SafariWindowListJSONOutput: Encodable {
 
 private struct SafariWindowJSONRecord: Encodable {
     let processId: pid_t?
+    let identifier: Int
+    let index: Int
     let windowId: Int
     let windowIndex: Int
     let isPrivate: Bool
@@ -70,6 +72,8 @@ private struct SafariWindowJSONRecord: Encodable {
 
     init(_ record: SafariWindowRecord) {
         self.processId = record.processId
+        self.identifier = record.identifier
+        self.index = record.index
         self.windowId = record.identifier
         self.windowIndex = record.index
         self.isPrivate = record.isPrivate

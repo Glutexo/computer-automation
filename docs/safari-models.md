@@ -224,7 +224,7 @@ ORDER BY id;
 - `windows` returns one line per window as:
   - `windowId|windowIndex|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name|processId`
   - `windowId` is the stable Safari address accepted by `--window-id`; `processId` is the owning process and may repeat across window rows
-  - JSON exposes the same distinction through `windowId`, `windowIndex`, and `processId`
+  - JSON exposes the same distinction through `windowId`, `windowIndex`, and `processId`, while preserving `identifier` and `index` as compatibility aliases
 - `SafariWindow` delegates persisted window metadata to `SafariDatabaseWindow`.
 - The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id` in `SafariDatabaseWindow`.
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
