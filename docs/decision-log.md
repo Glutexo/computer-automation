@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-07-14
+
+### Explicit Safari window identities and disabled menu actions
+
+- `safari windows` and `safari tabs` now expose fixed text columns for both the stable Safari `windowId` and the owning `processId`; JSON uses the same explicit names instead of encoding window identity as generic `identifier` and `index` keys.
+- `windowId` remains the address accepted by mutation commands, while repeated `processId` values correctly mean that several windows belong to one Safari process.
+- File-menu tab-group mutations inspect `AXEnabled` before `AXPress`. A false value fails immediately with a dedicated diagnostic, preventing a disabled action from being mistaken for a successful request followed by a missing database write.
+
 ## 2026-07-13
 
 ### PID-targeted Safari window and tab reads

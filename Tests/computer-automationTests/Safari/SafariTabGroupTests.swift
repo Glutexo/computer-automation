@@ -572,6 +572,41 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(closedWindowIdentifiers == [42])
 }
 
+@Test func safariTabGroupEnsureJSONPropagatesDisabledCreateActionAfterClosingWindow() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    var listWindowCallCount = 0
+    let openedWindow = SafariWindowRecord(
+        identifier: 5769,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    let expectedError = SafariUserInterfaceError.menuItemDisabled(
+        SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+    )
+    let command = SafariTabGroupEnsureCommand(
+        executor: MockAppleScriptExecutor(),
+        findTabGroups: { _, _ in [] },
+        listProfiles: { [] },
+        listWindows: {
+            listWindowCallCount += 1
+            return listWindowCallCount == 1 ? [] : [openedWindow]
+        },
+        focusWindow: { _, _ in },
+        openWindow: { _, _ in },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        createTabGroup: { _, _ in throw expectedError }
+    )
+
+    #expect(throws: expectedError) {
+        try command.executeJSON(arguments: ["Twisto", "Focus"])
+    }
+    #expect(closedWindowIdentifiers == [5769])
+}
+
 @Test func safariTabGroupEnsureCommandRejectsAmbiguousExistingGroups() async throws {
     let command = SafariTabGroupEnsureCommand(
         executor: MockAppleScriptExecutor(),
@@ -650,6 +685,32 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
+}
+
+@Test func safariTabGroupCreateCommandRejectsDisabledFileMenuActionWithoutPolling() async throws {
+    var listTabGroupCallCount = 0
+    let expectedError = SafariUserInterfaceError.menuItemDisabled(
+        SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+    )
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            [SafariWindowRecord(identifier: 5769, index: 1, profileName: "Twisto", name: "Twisto")]
+        },
+        listTabGroups: {
+            listTabGroupCallCount += 1
+            return []
+        },
+        focusWindow: { _, _ in },
+        createEmptyTabGroup: { _ in throw expectedError },
+        renameTabGroup: { _, _, _ in Issue.record("renameTabGroup should not be called") },
+        sleep: { _ in Issue.record("sleep should not be called") }
+    )
+
+    #expect(throws: expectedError) {
+        try command.execute(arguments: ["1", "Focus"])
+    }
+    #expect(listTabGroupCallCount == 1)
 }
 
 @Test func safariTabGroupCreateCommandAcceptsDefaultProfileStoredWithoutName() async throws {

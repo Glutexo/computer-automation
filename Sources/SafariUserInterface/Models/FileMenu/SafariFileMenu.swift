@@ -237,7 +237,15 @@ public enum SafariFileMenu: ModelModel {
     ) throws {
         let didPress = try SafariMenu.pressFirstMenuItem(
             menuBarItemIndex: menuBarItemIndex,
-            accessibility: accessibility
+            accessibility: accessibility,
+            validate: { menuItem in
+                if accessibility.optionalBooleanValue(
+                    for: kAXEnabledAttribute,
+                    on: menuItem
+                ) == false {
+                    throw SafariUserInterfaceError.menuItemDisabled(identifier)
+                }
+            }
         ) {
             accessibility.stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
         }

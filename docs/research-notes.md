@@ -1,5 +1,13 @@
 # Research Notes
 
+## 2026-07-14
+
+### Disabled tab-group actions and ambiguous window output
+
+- GitHub issue #48 showed that Safari can expose both `NewEmptyTabGroupMenuItem` and `NewTabGroupWithTabsMenuItem` with `AXEnabled=false` in a newly opened profile window.
+- `AXPress` alone is not an adequate success precondition for those items: the command must reject an explicitly disabled item before waiting for a saved-group database mutation.
+- The issue's apparent repeated window id was the newly appended `processId` in text output; `safari windows` did not include `SafariWindowRecord.identifier` at all. Fixed field positions and explicit JSON names are required so operation-owned `windowId` values can be correlated with later reads without confusing them with an owning process id.
+
 ## 2026-07-13
 
 ### Safari read discovery must target and cross-check each process

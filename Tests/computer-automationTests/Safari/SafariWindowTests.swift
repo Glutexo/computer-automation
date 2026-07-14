@@ -765,13 +765,14 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
 
     let output = try command.execute(arguments: [])
     let expected = windows.map {
-        let processSuffix = $0.processId.map { "|\($0)" } ?? ""
-        return "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)\(processSuffix)"
+        "\($0.identifier)|\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)|\($0.processId.map(String.init) ?? "")"
     }.joined(separator: "\n")
     #expect(output == expected)
 
     let object = try jsonObject(try command.executeJSON(arguments: []))
     let jsonWindows = try #require(object["windows"] as? [[String: Any]])
+    #expect(jsonWindows.compactMap { $0["windowId"] as? Int } == windows.map(\.identifier))
+    #expect(jsonWindows.compactMap { $0["windowIndex"] as? Int } == windows.map(\.index))
     #expect(jsonWindows.compactMap { $0["processId"] as? Int } == windows.compactMap(\.processId).map(Int.init))
 }
 

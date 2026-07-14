@@ -163,6 +163,7 @@ func safariTabListErrorsHaveHumanReadableDescriptions(error: SafariTabListComman
     .sidebarUnavailable,
     .sidebarTabGroupNotFound("Focus"),
     .sidebarSelectedItemRenameUnavailable,
+    .menuItemDisabled("NewEmptyTabGroupMenuItem"),
     .missingMenuAddress,
     .invalidMenuAddress("x"),
     .menuUnavailable(menuBarItemIndex: 3),

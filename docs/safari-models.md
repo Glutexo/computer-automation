@@ -221,8 +221,10 @@ ORDER BY id;
   - clicks the matching profile-specific "new window" menu item
 - After opening a window, `open-window` compares AppleScript-visible Safari window ids before and after the operation and appends a stable `window-id|<id>` line to the success output.
 - For profile-targeted opens, the newly resolved window must match the requested profile through the window title or profile-aware `SafariWindow` readback. If Safari opens only wrong-profile windows or no resolvable window, the command closes the newly created windows by stable id before failing.
-- `windows` enumerates `every window` and returns one line per window as:
-  - `index|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name`
+- `windows` returns one line per window as:
+  - `windowId|windowIndex|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name|processId`
+  - `windowId` is the stable Safari address accepted by `--window-id`; `processId` is the owning process and may repeat across window rows
+  - JSON exposes the same distinction through `windowId`, `windowIndex`, and `processId`
 - `SafariWindow` delegates persisted window metadata to `SafariDatabaseWindow`.
 - The `isPrivate` column is resolved from Safari's local `windows` table by comparing `active_tab_group_id` with `private_tab_group_id` in `SafariDatabaseWindow`.
 - The profile column is resolved by joining AppleScript window ids with Safari's local `windows` table and the active profile bookmark title in `SafariTabs.db`.
@@ -252,6 +254,7 @@ ORDER BY id;
 - `create-tab-group <window-index> <name>`:
   - focuses the target non-private window
   - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
+  - checks the target menu item's `AXEnabled` state before invoking `AXPress` and fails immediately when Safari disables the action
   - writes the requested name into Safari's post-create inline edit field for that selected group
   - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
   - deletes newly created saved groups before failing when the created group cannot be verified under the expected profile or the rename/readback step fails
@@ -372,7 +375,7 @@ ORDER BY id;
   - a required `window-index`, or `--window-id <id>` instead
   - an optional `url`
 - `tabs` returns one line per tab as:
-  - `windowIndex|tabIndex|url`
+  - `windowId|windowIndex|tabIndex|url|processId`
 - `--json safari tabs` also includes each tab's stable `windowId`, captured in the same AppleScript enumeration as its current `windowIndex`.
 - `find-tab <url>` searches open Safari tabs by URL and returns one line per match as:
   - `windowId|windowIndex|tabIndex|url|title`

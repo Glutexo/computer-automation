@@ -39,8 +39,7 @@ public struct SafariTabListCommand: CommandModel, JSONCommandModel {
         let tabs = try listTabs(executor)
         return tabs
             .map {
-                let processSuffix = $0.processId.map { "|\($0)" } ?? ""
-                return "\($0.windowIndex)|\($0.index)|\($0.url)\(processSuffix)"
+                "\($0.windowIdentifier)|\($0.windowIndex)|\($0.index)|\($0.url)|\($0.processId.map(String.init) ?? "")"
             }
             .joined(separator: "\n")
     }

@@ -1,4 +1,5 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
@@ -39,17 +40,42 @@ public struct SafariWindowListCommand: CommandModel, JSONCommandModel {
         let windows = try listWindows(executor)
         return windows
             .map {
-                let processSuffix = $0.processId.map { "|\($0)" } ?? ""
-                return "\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)\(processSuffix)"
+                "\($0.identifier)|\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)|\($0.processId.map(String.init) ?? "")"
             }
             .joined(separator: "\n")
     }
 
     public func executeJSON(arguments: [String] = []) throws -> String {
-        try CommandJSONEncoder.encode(SafariWindowListJSONOutput(windows: listWindows(executor)))
+        try CommandJSONEncoder.encode(
+            SafariWindowListJSONOutput(
+                windows: listWindows(executor).map(SafariWindowJSONRecord.init)
+            )
+        )
     }
 }
 
 private struct SafariWindowListJSONOutput: Encodable {
-    let windows: [SafariWindowRecord]
+    let windows: [SafariWindowJSONRecord]
+}
+
+private struct SafariWindowJSONRecord: Encodable {
+    let processId: pid_t?
+    let windowId: Int
+    let windowIndex: Int
+    let isPrivate: Bool
+    let profileName: String
+    let selectedTabGroupIdentifier: Int?
+    let tabGroupName: String?
+    let name: String
+
+    init(_ record: SafariWindowRecord) {
+        self.processId = record.processId
+        self.windowId = record.identifier
+        self.windowIndex = record.index
+        self.isPrivate = record.isPrivate
+        self.profileName = record.profileName
+        self.selectedTabGroupIdentifier = record.selectedTabGroupIdentifier
+        self.tabGroupName = record.tabGroupName
+        self.name = record.name
+    }
 }

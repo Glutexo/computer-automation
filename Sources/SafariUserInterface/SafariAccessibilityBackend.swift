@@ -124,6 +124,10 @@ struct SafariAccessibilityBackend {
         SafariAX.booleanValue(for: attribute, on: element, readAttribute: readAttribute)
     }
 
+    func optionalBooleanValue(for attribute: String, on element: AXUIElement) -> Bool? {
+        readAttribute(attribute, element) as? Bool
+    }
+
     func setAttribute(_ attribute: String, to value: CFTypeRef, on element: AXUIElement) -> Bool {
         writeAttribute(attribute, value, element)
     }

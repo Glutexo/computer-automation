@@ -100,7 +100,7 @@ windowId|windowIndex|tabIndex|url|title
 
 `safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
 
-`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`.
+`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`. If Safari exposes the required File-menu action as disabled, the command fails immediately with an actionable error instead of waiting for a database mutation that cannot occur.
 
 Saved tab-group outputs report the Safari profile display name. Safari may store default-profile groups with an empty profile field internally, but the CLI maps that storage detail back to the default profile name.
 
@@ -115,6 +115,20 @@ Window-level tab commands accept either the original positional `window-index` f
 `safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier. Identifier-targeted close verifies that the exact focused Accessibility window is no longer visible; if Safari leaves a visible zero-tab window, it presses that window's structural close button and verifies again before reporting success.
 
 `safari windows` and `safari tabs` enumerate every running Safari process. They cross-check each process's Accessibility window inventory with PID-targeted scripting data, which excludes stale scripting objects from processes that own no Accessibility windows while preserving tabs from profile-specific Safari processes. When Accessibility permission is unavailable, the commands fall back to the legacy single-process AppleScript read.
+
+Window rows expose both identities explicitly:
+
+```text
+windowId|windowIndex|isPrivate|profile|selectedTabGroupIdentifier|tabGroup|name|processId
+```
+
+Tab rows use the corresponding fixed shape:
+
+```text
+windowId|windowIndex|tabIndex|url|processId
+```
+
+`windowId` is the stable Safari window address used by `--window-id`. `processId` identifies the owning Safari process, so the same process id normally appears on several different window rows. JSON uses the explicit keys `windowId`, `windowIndex`, and `processId` as well.
 
 Prefix a module command with `--json` to get structured JSON instead of line-oriented text. Commands backed by structured records return arrays or objects; simple status commands return a JSON message object.
 

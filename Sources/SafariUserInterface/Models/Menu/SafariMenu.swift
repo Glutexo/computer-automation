@@ -81,6 +81,7 @@ public enum SafariMenu: ModelModel {
     static func pressFirstMenuItem(
         menuBarItemIndex: Int,
         accessibility: SafariAccessibilityBackend = .live,
+        validate: (AXUIElement) throws -> Void = { _ in },
         matching predicate: (AXUIElement) -> Bool
     ) throws -> Bool {
         guard let menuItem = try menuItemElements(
@@ -90,6 +91,7 @@ public enum SafariMenu: ModelModel {
             return false
         }
 
+        try validate(menuItem)
         return accessibility.perform(kAXPressAction, on: menuItem)
     }
 

@@ -109,7 +109,7 @@ flowchart TD
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
 - `SafariFileMenu.openPrivateWindow()` identifies the native File-menu entry through its stable identifier or shortcut metadata (`N` with modifier value `1`) instead of localized title text.
-- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title.
+- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title, verifies that `AXEnabled` is not false, and reports a dedicated disabled-action error without issuing `AXPress` when Safari disables the command.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.

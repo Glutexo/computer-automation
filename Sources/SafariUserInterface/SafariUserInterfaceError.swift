@@ -10,6 +10,7 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)
     case sidebarSelectedItemRenameUnavailable
+    case menuItemDisabled(String)
     case missingMenuAddress
     case invalidMenuAddress(String)
     case menuUnavailable(menuBarItemIndex: Int)
@@ -37,6 +38,8 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
             "Safari's sidebar does not contain saved tab group \(tabGroupName). Open the expected profile and retry."
         case .sidebarSelectedItemRenameUnavailable:
             "Safari did not expose the inline name field for the newly created tab group."
+        case .menuItemDisabled(let identifier):
+            "Safari's File-menu action \(identifier) is disabled in the focused window. Safari cannot complete the requested tab-group change in that window."
         case .missingMenuAddress:
             "Missing Safari menu-bar item index. Run the command with --help for the required address."
         case .invalidMenuAddress(let value):

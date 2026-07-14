@@ -927,8 +927,7 @@ func safariTabListCommandFormatsTabRows(tabs: [SafariTabRecord]) async throws {
 
     let output = try command.execute(arguments: [])
     let expected = tabs.map {
-        let processSuffix = $0.processId.map { "|\($0)" } ?? ""
-        return "\($0.windowIndex)|\($0.index)|\($0.url)\(processSuffix)"
+        "\($0.windowIdentifier)|\($0.windowIndex)|\($0.index)|\($0.url)|\($0.processId.map(String.init) ?? "")"
     }.joined(separator: "\n")
     #expect(output == expected)
 

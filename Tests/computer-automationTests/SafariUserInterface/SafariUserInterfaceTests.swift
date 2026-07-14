@@ -262,6 +262,32 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     )
 }
 
+@Test func safariFileMenuAccessibilityBackendRejectsDisabledTabGroupAction() async throws {
+    let application = testAXElement(94_100)
+    let targetItem = testAXElement(94_101)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+    configureMenu(fake: fake, application: application, items: [targetItem])
+    fake.set(
+        kAXIdentifierAttribute,
+        on: targetItem,
+        to: SafariFileMenu.createEmptyTabGroupMenuItemIdentifier as CFString
+    )
+    fake.set(kAXEnabledAttribute, on: targetItem, to: kCFBooleanFalse)
+
+    #expect(
+        throws: SafariUserInterfaceError.menuItemDisabled(
+            SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+        )
+    ) {
+        try SafariFileMenu.createEmptyTabGroup(accessibility: fake.backend())
+    }
+    #expect(
+        !fake.performedActions.contains {
+            $0.action == kAXPressAction && sameElement($0.element, targetItem)
+        }
+    )
+}
+
 @Test func safariMenuItemMapsAppleScriptChildItemsIntoUiModel() async throws {
     let executor = MockAppleScriptExecutor(results: [.descriptor(makeShortcutList([(1, "Firefox…", "", "0")]))])
     let items = try SafariMenuItem.listChildItems(menuBarItemIndex: 3, menuItemIndex: 27, executor: executor)
