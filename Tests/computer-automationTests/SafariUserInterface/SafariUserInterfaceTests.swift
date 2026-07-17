@@ -30,6 +30,7 @@ private final class FakeSafariAccessibility {
     var activationCount = 0
     var attributeReadCount = 0
     var actionHandler: ((String, AXUIElement) -> Bool)?
+    var readHandler: ((String, AXUIElement) -> CFTypeRef?)?
     var writeHandler: ((String, CFTypeRef, AXUIElement) -> Bool)?
 
     init(applicationElements: [AXUIElement]) {
@@ -67,6 +68,9 @@ private final class FakeSafariAccessibility {
             },
             readAttribute: { name, element in
                 self.attributeReadCount += 1
+                if let value = self.readHandler?(name, element) {
+                    return value
+                }
                 return self.value(name, on: element)
             },
             writeAttribute: { name, value, element in
@@ -283,6 +287,37 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     }
     #expect(
         !fake.performedActions.contains {
+            $0.action == kAXPressAction && sameElement($0.element, targetItem)
+        }
+    )
+    #expect(fake.sleptIntervals == [0.05, 0.05])
+}
+
+@Test func safariFileMenuAccessibilityBackendWaitsForEnabledTabGroupAction() async throws {
+    let application = testAXElement(94_200)
+    let targetItem = testAXElement(94_201)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+    configureMenu(fake: fake, application: application, items: [targetItem])
+    fake.set(
+        kAXIdentifierAttribute,
+        on: targetItem,
+        to: SafariFileMenu.createEmptyTabGroupMenuItemIdentifier as CFString
+    )
+    var enabledReadCount = 0
+    fake.readHandler = { attribute, element in
+        guard attribute == kAXEnabledAttribute, sameElement(element, targetItem) else {
+            return nil
+        }
+        enabledReadCount += 1
+        return enabledReadCount < 3 ? kCFBooleanFalse : kCFBooleanTrue
+    }
+
+    try SafariFileMenu.createEmptyTabGroup(accessibility: fake.backend())
+
+    #expect(enabledReadCount == 3)
+    #expect(fake.sleptIntervals == [0.05])
+    #expect(
+        fake.performedActions.contains {
             $0.action == kAXPressAction && sameElement($0.element, targetItem)
         }
     )
@@ -580,6 +615,37 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     )
 
     #expect(fake.performedActions.contains(where: { sameElement($0.element, closeButton) }))
+}
+
+@Test func safariAccessibilityWindowCapturesFocusedWindowFromOwningProcess() async throws {
+    let firstApplication = testAXElement(98_010)
+    let secondApplication = testAXElement(98_011)
+    let firstWindow = testAXElement(98_012)
+    let secondWindow = testAXElement(98_013)
+    let firstCloseButton = testAXElement(98_014)
+    let secondCloseButton = testAXElement(98_015)
+    let fake = FakeSafariAccessibility(applicationElements: [firstApplication, secondApplication])
+    fake.set(kAXFocusedWindowAttribute, on: firstApplication, to: firstWindow)
+    fake.set(kAXFocusedWindowAttribute, on: secondApplication, to: secondWindow)
+    fake.setElements(kAXWindowsAttribute, on: firstApplication, to: [firstWindow])
+    fake.setElements(kAXWindowsAttribute, on: secondApplication, to: [secondWindow])
+    fake.set(kAXCloseButtonAttribute, on: firstWindow, to: firstCloseButton)
+    fake.set(kAXCloseButtonAttribute, on: secondWindow, to: secondCloseButton)
+    fake.actionHandler = { action, element in
+        if action == kAXPressAction && sameElement(element, secondCloseButton) {
+            fake.setElements(kAXWindowsAttribute, on: secondApplication, to: [])
+        }
+        return true
+    }
+
+    try SafariAccessibilityWindow.closeFocusedWindow(
+        processIdentifier: 43782,
+        performClose: {},
+        accessibility: fake.backend(processIdentifiers: [4317, 43782], maxAttempts: 1)
+    )
+
+    #expect(fake.performedActions.contains(where: { sameElement($0.element, secondCloseButton) }))
+    #expect(!fake.performedActions.contains(where: { sameElement($0.element, firstCloseButton) }))
 }
 
 @Test func safariAccessibilityWindowListsWindowsByProcessWithoutRequiringAXVisible() async throws {

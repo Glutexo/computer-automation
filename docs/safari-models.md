@@ -153,7 +153,7 @@ flowchart TD
 - `windows` is the read operation for the browser window model.
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
-- `close-window --window-id <id>` reports success only after the captured window leaves its owning application's `AXWindows` inventory and its stable id disappears from Safari's AppleScript inventory; a retained window receives an `AXPress` fallback on its own close button before the final readback.
+- `close-window --window-id <id>` resolves the target and owning Safari process through cross-process readback, captures the focused window only from that process, and reports success after the captured window leaves its `AXWindows` inventory and the stable id is absent from the reconciled inventory. A retained window receives an `AXPress` fallback on its own close button; an id already absent from the reconciled inventory succeeds without focusing or closing another window.
 - `create-tab-group` is the create operation for the saved tab-group model.
 - `ensure-tab-group` is a create-or-reuse operation for the saved tab-group model and reports whether it created or reused the target group.
 - `tab-groups` is the read operation for the saved tab-group model.

@@ -239,10 +239,20 @@ public enum SafariFileMenu: ModelModel {
             menuBarItemIndex: menuBarItemIndex,
             accessibility: accessibility,
             validate: { menuItem in
-                if accessibility.optionalBooleanValue(
+                guard accessibility.optionalBooleanValue(
                     for: kAXEnabledAttribute,
                     on: menuItem
-                ) == false {
+                ) == false else {
+                    return
+                }
+
+                let becameEnabled = accessibility.polling.firstResult {
+                    accessibility.optionalBooleanValue(
+                        for: kAXEnabledAttribute,
+                        on: menuItem
+                    ) == false ? nil : true
+                }
+                if becameEnabled == nil {
                     throw SafariUserInterfaceError.menuItemDisabled(identifier)
                 }
             }

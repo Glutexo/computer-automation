@@ -7,8 +7,9 @@
 - Profile-sensitive mutation orchestration now reads Safari windows through the same Accessibility/PID-targeted cross-process inventory as `safari windows`, with the legacy bundle-level AppleScript read retained only when Accessibility window listing is unavailable.
 - `open-tab-group-window` requires exact requested-profile metadata after sidebar selection; a wrong or still-unscoped profile cannot satisfy group-selection readback, and the operation-owned window is rolled back on failure.
 - Identifier-targeted `open-tab` waits until Safari's bundle scripting interface can address a newly created window before creating a tab, avoiding duplicate-prone mutation retries.
-- Identifier-targeted `close-window` treats membership in the owning application's `AXWindows` array as the structural close signal, then independently waits for the stable id to disappear from Safari's AppleScript inventory before returning success.
+- Identifier-targeted `close-window` resolves the target's owning process before focus, captures an Accessibility window only from that process, and treats membership in its `AXWindows` array as the structural close signal. Its final stable-id check uses the reconciled cross-process inventory rather than bundle-level AppleScript, whose stale objects can outlive an already removed window.
 - Concrete-tab JavaScript result serialization now embeds a value-producing expression directly instead of using indirect `eval`, preserving primitive and JSON result formatting without requiring a page CSP to allow `unsafe-eval`.
+- Live regression showed that `NewEmptyTabGroupMenuItem` can remain briefly disabled after the operation window is otherwise discoverable. Creation now polls that exact menu item's enabled state before `AXPress`, while a persistently disabled item still fails without starting database-mutation polling.
 
 ## 2026-07-14
 

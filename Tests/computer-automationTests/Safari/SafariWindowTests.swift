@@ -945,6 +945,7 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
 @Test func safariWindowCloseCommandTargetsWindowIdentifier() async throws {
     var closedWindowIdentifier: Int?
     var focusedWindowIdentifier: Int?
+    var capturedProcessIdentifier: pid_t?
     var didVerifyClose = false
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
@@ -959,16 +960,37 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         closeWindowByIdentifier: { windowIdentifier, _ in
             closedWindowIdentifier = windowIdentifier
         },
-        closeFocusedWindow: { performClose in
+        closeFocusedWindow: { processIdentifier, performClose in
+            capturedProcessIdentifier = processIdentifier
             try performClose()
             didVerifyClose = true
+        },
+        listWindows: { _ in
+            closedWindowIdentifier == nil
+                ? [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
+                : []
         }
     )
 
     #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
     #expect(closedWindowIdentifier == 42)
     #expect(focusedWindowIdentifier == 42)
+    #expect(capturedProcessIdentifier == 4317)
     #expect(didVerifyClose)
+}
+
+@Test func safariWindowCloseCommandAcceptsAlreadyRemovedWindow() async throws {
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in "unused" },
+        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
+        closeWindowByIdentifier: { _, _ in Issue.record("closeWindowByIdentifier should not be called") },
+        closeFocusedWindow: { _, _ in Issue.record("closeFocusedWindow should not be called") },
+        listWindows: { _ in [] }
+    )
+
+    #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
 }
 
 @Test func safariWindowCloseCommandRejectsVisibleWindowAfterFallback() async throws {
@@ -978,9 +1000,12 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         closeFrontWindow: { _ in "unused" },
         focusWindow: { _, _ in },
         closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { performClose in
+        closeFocusedWindow: { _, performClose in
             try performClose()
             throw SafariUserInterfaceError.windowCloseNotVerified
+        },
+        listWindows: { _ in
+            [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
         }
     )
 
@@ -989,7 +1014,7 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     }
 }
 
-@Test func safariWindowCloseCommandWaitsForAppleScriptWindowRemoval() async throws {
+@Test func safariWindowCloseCommandWaitsForAutomationWindowRemoval() async throws {
     var readAttempts = 0
     var sleptIntervals: [TimeInterval] = []
     let command = SafariWindowCloseCommand(
@@ -998,22 +1023,22 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         closeFrontWindow: { _ in "unused" },
         focusWindow: { _, _ in },
         closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { performClose in try performClose() },
+        closeFocusedWindow: { _, performClose in try performClose() },
         listWindows: { _ in
             readAttempts += 1
-            return readAttempts < 3
-                ? [SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto")]
+            return readAttempts < 4
+                ? [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
                 : []
         },
         sleep: { sleptIntervals.append($0) }
     )
 
     #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
-    #expect(readAttempts == 3)
+    #expect(readAttempts == 4)
     #expect(sleptIntervals == [0.1, 0.1])
 }
 
-@Test func safariWindowCloseCommandRejectsPersistentAppleScriptWindow() async throws {
+@Test func safariWindowCloseCommandRejectsPersistentAutomationWindow() async throws {
     var readAttempts = 0
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
@@ -1021,10 +1046,10 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         closeFrontWindow: { _ in "unused" },
         focusWindow: { _, _ in },
         closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { performClose in try performClose() },
+        closeFocusedWindow: { _, performClose in try performClose() },
         listWindows: { _ in
             readAttempts += 1
-            return [SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto")]
+            return [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
         },
         sleep: { _ in }
     )
@@ -1032,7 +1057,7 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
         try command.execute(arguments: ["--window-id", "42"])
     }
-    #expect(readAttempts == 40)
+    #expect(readAttempts == 41)
 }
 
 @Test func safariWindowCloseCommandRejectsInvalidWindowIdentifierArguments() async throws {

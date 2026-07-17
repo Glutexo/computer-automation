@@ -17,7 +17,7 @@
 | Model | Command | CRUD | Description |
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
-| `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Verify a captured window leaves its owning application's `AXWindows` inventory and press that exact window's close button only while it remains present. |
+| `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Capture a focused window from the requested owning Safari process, verify it leaves that application's `AXWindows` inventory, and press that exact window's close button only while it remains present. |
 | `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row by authoritative identifier, using its display name only when the sidebar exposes no stable group identifiers. |
 | `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
 | `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |
@@ -109,7 +109,7 @@ flowchart TD
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
 - `SafariFileMenu.openPrivateWindow()` identifies the native File-menu entry through its stable identifier or shortcut metadata (`N` with modifier value `1`) instead of localized title text.
-- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title, verifies that `AXEnabled` is not false, and reports a dedicated disabled-action error without issuing `AXPress` when Safari disables the command.
+- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title, waits briefly when a newly opened window exposes `AXEnabled=false`, and issues `AXPress` only after the same structural item becomes enabled. A persistently disabled item reports a dedicated error without being pressed.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.

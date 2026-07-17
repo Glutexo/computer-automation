@@ -20,9 +20,11 @@ public enum SafariAccessibilityWindow: ModelModel {
     )
 
     public static func closeFocusedWindow(
+        processIdentifier: pid_t? = nil,
         performClose: () throws -> Void
     ) throws {
         try closeFocusedWindow(
+            processIdentifier: processIdentifier,
             performClose: performClose,
             accessibility: .live
         )
@@ -57,10 +59,14 @@ public enum SafariAccessibilityWindow: ModelModel {
     }
 
     static func closeFocusedWindow(
+        processIdentifier: pid_t? = nil,
         performClose: () throws -> Void,
         accessibility: SafariAccessibilityBackend
     ) throws {
-        guard let focusedContext = focusedSafariWindow(accessibility: accessibility) else {
+        guard let focusedContext = focusedSafariWindow(
+            processIdentifier: processIdentifier,
+            accessibility: accessibility
+        ) else {
             throw SafariUserInterfaceError.focusedWindowUnavailable
         }
         let application = focusedContext.application
@@ -128,9 +134,17 @@ public enum SafariAccessibilityWindow: ModelModel {
     }
 
     private static func focusedSafariWindow(
+        processIdentifier: pid_t?,
         accessibility: SafariAccessibilityBackend
     ) -> (application: SafariAccessibilityApplication, window: AXUIElement)? {
         for application in accessibility.applications() {
+            if
+                let processIdentifier,
+                application.processIdentifier != processIdentifier
+            {
+                continue
+            }
+
             if let focusedWindow = accessibility.elementValue(
                 for: kAXFocusedWindowAttribute,
                 on: application.element

@@ -24,8 +24,8 @@ public struct SafariWindowCloseCommand: CommandModel {
     private let closeFrontWindow: (SafariAppleScriptExecuting) throws -> String
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let closeWindowByIdentifier: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let closeFocusedWindow: (() throws -> Void) throws -> Void
-    private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord]
+    private let closeFocusedWindow: (pid_t?, () throws -> Void) throws -> Void
+    private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord]
     private let sleep: (TimeInterval) -> Void
 
     public init() {
@@ -34,8 +34,15 @@ public struct SafariWindowCloseCommand: CommandModel {
         self.closeFrontWindow = SafariAppleScriptWindow.closeFrontWindow
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.closeWindowByIdentifier = SafariAppleScriptWindow.close(windowIdentifier:executor:)
-        self.closeFocusedWindow = SafariAccessibilityWindow.closeFocusedWindow
-        self.listWindows = SafariAppleScriptWindow.list
+        self.closeFocusedWindow = { processIdentifier, performClose in
+            try SafariAccessibilityWindow.closeFocusedWindow(
+                processIdentifier: processIdentifier,
+                performClose: performClose
+            )
+        }
+        self.listWindows = { executor in
+            try SafariWindow.listForAutomation(executor: executor)
+        }
         self.sleep = Thread.sleep
     }
 
@@ -45,8 +52,8 @@ public struct SafariWindowCloseCommand: CommandModel {
         closeFrontWindow: @escaping (SafariAppleScriptExecuting) throws -> String = SafariAppleScriptWindow.closeFrontWindow,
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
         closeWindowByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
-        closeFocusedWindow: @escaping (() throws -> Void) throws -> Void = { performClose in try performClose() },
-        listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord] = { _ in [] },
+        closeFocusedWindow: @escaping (pid_t?, () throws -> Void) throws -> Void = { _, performClose in try performClose() },
+        listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariWindowRecord] = { _ in [] },
         sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {
         self.executor = executor
@@ -66,8 +73,14 @@ public struct SafariWindowCloseCommand: CommandModel {
         }
 
         if let windowIdentifier = try parseWindowIdentifier(arguments) {
+            guard let targetWindow = try listWindows(executor).first(where: {
+                $0.identifier == windowIdentifier
+            }) else {
+                return "Safari window \(windowIdentifier) closed."
+            }
+
             try focusWindow(windowIdentifier, executor)
-            try closeFocusedWindow {
+            try closeFocusedWindow(targetWindow.processId) {
                 try closeWindowByIdentifier(windowIdentifier, executor)
             }
             guard waitUntilWindowIsRemoved(windowIdentifier) else {
