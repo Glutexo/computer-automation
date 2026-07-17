@@ -60,14 +60,23 @@ public enum SafariAccessibilityWindow: ModelModel {
         performClose: () throws -> Void,
         accessibility: SafariAccessibilityBackend
     ) throws {
-        guard let focusedWindow = focusedSafariWindow(accessibility: accessibility) else {
+        guard let focusedContext = focusedSafariWindow(accessibility: accessibility) else {
             throw SafariUserInterfaceError.focusedWindowUnavailable
         }
+        let application = focusedContext.application
+        let focusedWindow = focusedContext.window
 
         try closeCapturedWindow(
             performClose: performClose,
-            isVisible: {
-                accessibility.booleanValue(for: "AXVisible", on: focusedWindow)
+            isPresent: {
+                guard let windows = accessibility.readElements(
+                    kAXWindowsAttribute,
+                    application.element
+                ) else {
+                    return true
+                }
+
+                return windows.contains { CFEqual($0, focusedWindow) }
             },
             pressCloseButton: {
                 guard let closeButton = accessibility.elementValue(
@@ -87,7 +96,7 @@ public enum SafariAccessibilityWindow: ModelModel {
 
     static func closeCapturedWindow(
         performClose: () throws -> Void,
-        isVisible: () -> Bool,
+        isPresent: () -> Bool,
         pressCloseButton: () -> Bool,
         sleep: (TimeInterval) -> Void = Thread.sleep,
         maxAttempts: Int = 10,
@@ -95,8 +104,8 @@ public enum SafariAccessibilityWindow: ModelModel {
     ) throws {
         try performClose()
 
-        if waitUntilNotVisible(
-            isVisible: isVisible,
+        if waitUntilRemoved(
+            isPresent: isPresent,
             sleep: sleep,
             maxAttempts: maxAttempts,
             interval: interval
@@ -108,8 +117,8 @@ public enum SafariAccessibilityWindow: ModelModel {
             throw SafariUserInterfaceError.windowCloseButtonUnavailable
         }
 
-        guard waitUntilNotVisible(
-            isVisible: isVisible,
+        guard waitUntilRemoved(
+            isPresent: isPresent,
             sleep: sleep,
             maxAttempts: maxAttempts,
             interval: interval
@@ -118,27 +127,29 @@ public enum SafariAccessibilityWindow: ModelModel {
         }
     }
 
-    private static func focusedSafariWindow(accessibility: SafariAccessibilityBackend) -> AXUIElement? {
+    private static func focusedSafariWindow(
+        accessibility: SafariAccessibilityBackend
+    ) -> (application: SafariAccessibilityApplication, window: AXUIElement)? {
         for application in accessibility.applications() {
             if let focusedWindow = accessibility.elementValue(
                 for: kAXFocusedWindowAttribute,
                 on: application.element
             ) {
-                return focusedWindow
+                return (application, focusedWindow)
             }
         }
 
         return nil
     }
 
-    private static func waitUntilNotVisible(
-        isVisible: () -> Bool,
+    private static func waitUntilRemoved(
+        isPresent: () -> Bool,
         sleep: (TimeInterval) -> Void,
         maxAttempts: Int,
         interval: TimeInterval
     ) -> Bool {
         for attempt in 0..<max(1, maxAttempts) {
-            if !isVisible() {
+            if !isPresent() {
                 return true
             }
 

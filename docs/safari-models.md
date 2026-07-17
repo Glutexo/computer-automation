@@ -149,11 +149,11 @@ flowchart TD
 - `open-tab-group-window` is another create operation for the browser window model.
 - Every window create command resolves the newly created stable window id and reports it as `window-id|<id>` in text output and `windowId` in JSON output.
 - `open-private-window` validates private state when persisted window metadata is available and closes a newly created normal window before failing.
-- `open-tab-group-window` opens a new profile window, focuses that exact stable id, selects the group, verifies the selected group on that same window by readback, and closes only that operation-owned window on failure.
+- `open-tab-group-window` opens a new profile window, focuses that exact stable id, selects the group, verifies the selected group and exact requested profile on that same window through cross-process readback, and closes only that operation-owned window on failure.
 - `windows` is the read operation for the browser window model.
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
-- `close-window --window-id <id>` reports success only after the exact focused Accessibility window is no longer visible; a still-visible zero-tab window receives an `AXPress` fallback on its own close button, followed by a second readback.
+- `close-window --window-id <id>` reports success only after the captured window leaves its owning application's `AXWindows` inventory and its stable id disappears from Safari's AppleScript inventory; a retained window receives an `AXPress` fallback on its own close button before the final readback.
 - `create-tab-group` is the create operation for the saved tab-group model.
 - `ensure-tab-group` is a create-or-reuse operation for the saved tab-group model and reports whether it created or reused the target group.
 - `tab-groups` is the read operation for the saved tab-group model.
@@ -374,6 +374,7 @@ ORDER BY id;
 - `open-tab` creates a new tab inside a specific window and accepts:
   - a required `window-index`, or `--window-id <id>` instead
   - an optional `url`
+- Identifier-targeted `open-tab` waits for the stable window id to become AppleScript-addressable before creating the tab, avoiding the propagation race immediately after `open-window`.
 - `tabs` returns one line per tab as:
   - `windowId|windowIndex|tabIndex|url|processId`
 - `--json safari tabs` also includes each tab's stable `windowId`, captured in the same AppleScript enumeration as its current `windowIndex`.
@@ -386,13 +387,14 @@ ORDER BY id;
 - `--json safari find-tab <url>` returns structured JSON with the search query, match mode, optional filters, and a `matches` array.
 - `resolve-tab <url>` accepts the same filters as `find-tab`, returns the same single text row shape, and fails unless exactly one matching tab exists.
 - `--json safari resolve-tab <url>` returns the search query, match mode, optional filters, and a single `match` object.
-- `execute-tab-javascript <window-id> <tab-index> <javascript>` runs inline JavaScript in a concrete live tab addressed by stable Safari window id and tab index.
+- `execute-tab-javascript <window-id> <tab-index> <javascript>` runs an inline value-producing JavaScript expression in a concrete live tab addressed by stable Safari window id and tab index. Multi-statement programs must be wrapped in an immediately invoked function expression.
 - `execute-tab-javascript <window-id> <tab-index> --stdin` reads the JavaScript source from standard input.
 - `execute-tab-javascript <window-id> <tab-index> --file <path>` and `--file=<path>` read the JavaScript source from a UTF-8 file.
 - `execute-tab-javascript` requires exactly one JavaScript source: inline argument, `--stdin`, or `--file`.
 - `execute-tab-javascript` prints the JavaScript result directly in text mode.
 - `--json safari execute-tab-javascript <window-id> <tab-index> <javascript>` returns `windowId`, `tabIndex`, and `result`.
 - Primitive JavaScript results return as text; object and array results return as `JSON.stringify(...)` text.
+- The result wrapper embeds the expression directly instead of calling page-level `eval`, so it does not require the page content security policy to allow `unsafe-eval`.
 - If the target window or tab no longer exists, `execute-tab-javascript` fails with a target-specific error that does not include browser page state or JavaScript error details.
 - `set-tab-url` updates the URL of a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.
 - `close-tab` closes a specific tab identified by `window-index` and `tab-index`, or by `--window-id <id>` and `tab-index`.

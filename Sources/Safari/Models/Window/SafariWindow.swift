@@ -69,6 +69,28 @@ public enum SafariWindow: ModelModel {
         )
     }
 
+    static func listForAutomation(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> [SafariWindowRecord] {
+        try listForAutomation(
+            executor: executor,
+            listAcrossRunningProcesses: { try listAcrossRunningProcesses() },
+            listLegacy: { try list(executor: $0) }
+        )
+    }
+
+    static func listForAutomation(
+        executor: SafariAppleScriptExecuting,
+        listAcrossRunningProcesses: () throws -> [SafariWindowRecord],
+        listLegacy: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord]
+    ) throws -> [SafariWindowRecord] {
+        do {
+            return try listAcrossRunningProcesses()
+        } catch SafariUserInterfaceError.windowListUnavailable {
+            return try listLegacy(executor)
+        }
+    }
+
     private static func records(
         from rawWindows: [SafariAppleScriptWindowRecord],
         processIdentifiers: [pid_t] = [],

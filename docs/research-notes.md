@@ -1,5 +1,14 @@
 # Research Notes
 
+## 2026-07-17
+
+### Follow-up issues #49 through #52
+
+- Issue #49 exposed a remaining split after the multi-process read fix: profile-sensitive mutations still used a bundle-level `SafariWindow.list(executor:)` read, so a saved group could pass name/id checks while its operation window was associated with another profile process. Mutation readback must use the cross-process window inventory and require the exact requested profile after selection.
+- Issue #50 reproduced `execute-tab-javascript` failure on Slack while the equivalent direct Safari `do JavaScript` call succeeded. The command's indirect `(0, eval)(source)` added an `unsafe-eval` CSP dependency that the direct call did not have; embedding a value-producing expression directly removes that mismatch.
+- Issue #51 showed that `open-window` can resolve a new profile window before bundle-level AppleScript can immediately address it for tab creation. Polling target readability before the single create action closes the race without risking duplicate tabs.
+- Issue #52 showed that `AXVisible=false` is not proof that a Safari window has disappeared. Structural `AXWindows` membership is the reliable Accessibility signal, and stable-id AppleScript absence provides the final command-level readback.
+
 ## 2026-07-14
 
 ### Disabled tab-group actions and ambiguous window output

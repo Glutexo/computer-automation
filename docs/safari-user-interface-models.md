@@ -17,7 +17,7 @@
 | Model | Command | CRUD | Description |
 | --- | --- | --- | --- |
 | `SafariApplicationMenuBar` | `menu-bar-items` | `R` | List top-level Safari menu bar items. |
-| `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Verify a focused window disappeared after normal close and press that exact window's close button only when it remains visible. |
+| `SafariAccessibilityWindow` | Internal `closeFocusedWindow` API | `D` | Verify a captured window leaves its owning application's `AXWindows` inventory and press that exact window's close button only while it remains present. |
 | `SafariSidebar` | Internal `selectTabGroup` API | `U` | Select a saved tab-group row by authoritative identifier, using its display name only when the sidebar exposes no stable group identifiers. |
 | `SafariSidebar` | Internal `renameTabGroup` API | `U` | Support post-create naming for the newly created tab group. |
 | `SafariSidebar` | Internal `deleteSelectedTabGroup` API | `D` | Delete the selected saved tab group through its accessibility menu item. |

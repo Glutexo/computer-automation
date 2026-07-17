@@ -50,6 +50,9 @@ public enum SafariAppleScriptTabJavaScriptError: Error, Equatable, LocalizedErro
 }
 
 public enum SafariAppleScriptTab: ModelModel {
+    private static let windowReadinessPollAttempts = 40
+    private static let windowReadinessPollInterval: TimeInterval = 0.1
+
     public static let descriptor = ModelDescriptor(
         name: "tab",
         abstract: "AppleScript access to Safari tabs.",
@@ -142,6 +145,45 @@ public enum SafariAppleScriptTab: ModelModel {
         return parseWindowTabList(descriptor)
     }
 
+    public static func waitUntilWindowIsAddressable(
+        windowIdentifier: Int,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        try waitUntilWindowIsAddressable(
+            windowIdentifier: windowIdentifier,
+            listWindowTabs: {
+                try list(windowIdentifier: windowIdentifier, executor: executor)
+            }
+        )
+    }
+
+    static func waitUntilWindowIsAddressable(
+        windowIdentifier: Int,
+        listWindowTabs: () throws -> [SafariAppleScriptWindowTabRecord],
+        sleep: (TimeInterval) -> Void = Thread.sleep,
+        maxAttempts: Int = windowReadinessPollAttempts,
+        interval: TimeInterval = windowReadinessPollInterval
+    ) throws {
+        var lastError: Error?
+
+        for attempt in 0..<max(1, maxAttempts) {
+            do {
+                _ = try listWindowTabs()
+                return
+            } catch {
+                lastError = error
+            }
+
+            if attempt < max(1, maxAttempts) - 1 {
+                sleep(interval)
+            }
+        }
+
+        throw lastError ?? SafariAppleScriptError.executionFailed(
+            "Safari window \(windowIdentifier) did not become addressable."
+        )
+    }
+
     public static func open(
         windowIndex: Int,
         url: String? = nil,
@@ -183,6 +225,11 @@ public enum SafariAppleScriptTab: ModelModel {
         url: String? = nil,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
+        try waitUntilWindowIsAddressable(
+            windowIdentifier: windowIdentifier,
+            executor: executor
+        )
+
         let lines: [String]
         if let url, !url.isEmpty {
             lines = [
@@ -418,8 +465,7 @@ public enum SafariAppleScriptTab: ModelModel {
     private static func serializedJavaScriptResultSource(for javaScript: String) -> String {
         [
             "(() => {",
-            "const computerAutomationSource = \(javaScriptStringLiteral(javaScript));",
-            "const computerAutomationResult = (0, eval)(computerAutomationSource);",
+            "const computerAutomationResult = (\(javaScript));",
             "if (computerAutomationResult === undefined || computerAutomationResult === null) return \"\";",
             "const computerAutomationType = typeof computerAutomationResult;",
             "if (computerAutomationType === \"string\") return computerAutomationResult;",
@@ -572,30 +618,4 @@ public enum SafariAppleScriptTab: ModelModel {
         return "\"\(escaped)\""
     }
 
-    private static func javaScriptStringLiteral(_ value: String) -> String {
-        var escaped = "\""
-        for scalar in value.unicodeScalars {
-            switch scalar {
-            case "\\":
-                escaped += "\\\\"
-            case "\"":
-                escaped += "\\\""
-            case "\n":
-                escaped += "\\n"
-            case "\r":
-                escaped += "\\r"
-            case "\t":
-                escaped += "\\t"
-            default:
-                if scalar.value < 0x20 || scalar.value == 0x2028 || scalar.value == 0x2029 {
-                    let hex = String(scalar.value, radix: 16, uppercase: false)
-                    escaped += "\\u\(String(repeating: "0", count: max(0, 4 - hex.count)))\(hex)"
-                } else {
-                    escaped.unicodeScalars.append(scalar)
-                }
-            }
-        }
-        escaped += "\""
-        return escaped
-    }
 }

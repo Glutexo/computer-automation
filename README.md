@@ -90,7 +90,7 @@ Safari window opened.
 window-id|42
 ```
 
-`open-window`, `open-private-window`, and `open-tab-group-window` all resolve and report the exact newly created window as `window-id|<id>` in text mode and `windowId` in JSON mode. Profile opening verifies the requested profile. Private opening verifies private state when Safari database metadata is available. Saved-group opening carries the exact id through focus and sidebar selection, verifies the selected group by readback, and rolls back only its operation-owned window on failure.
+`open-window`, `open-private-window`, and `open-tab-group-window` all resolve and report the exact newly created window as `window-id|<id>` in text mode and `windowId` in JSON mode. Profile opening verifies the requested profile. Private opening verifies private state when Safari database metadata is available. Saved-group opening carries the exact id through focus and sidebar selection, verifies both the selected group and requested profile through cross-process readback, and rolls back only its operation-owned window on failure.
 
 `safari find-tab <url>` searches open Safari tabs by exact URL. Add `--prefix` for prefix matching, `--window-id <id>` or `--window-index <index>` to limit the search to one window, and `--profile <name>` to limit matches to a Safari profile when window profile metadata is available. It prints one machine-readable row per match:
 
@@ -110,11 +110,11 @@ Saved tab-group outputs report the Safari profile display name. Safari may store
 
 `safari reorder-tab-list-urls` reorders existing matching tabs in a window-backed or saved-tab-group-backed tab list so the requested URL occurrences become the ordered prefix. Use `--window-id <id>` for stable live-window writes; Safari window indexes can change after focus, open-window, and tab-group switching operations. It does not create missing URLs and does not delete extra tabs; text and JSON output report moved, unchanged, missing, and extra entries. The saved-group path follows the same operation-owned-window rule as URL reconciliation: it opens a new window when reusing a group and leaves pre-existing windows unchanged. On failure it deletes any group created by the operation and closes only the operation-owned window.
 
-Window-level tab commands accept either the original positional `window-index` form or `--window-id <id>`. Prefer `--window-id` for `open-tab`, `window-tabs`, `set-tab-url`, and `close-tab` when the command follows any Safari UI operation that may reorder windows.
+Window-level tab commands accept either the original positional `window-index` form or `--window-id <id>`. Prefer `--window-id` for `open-tab`, `window-tabs`, `set-tab-url`, and `close-tab` when the command follows any Safari UI operation that may reorder windows. Identifier-targeted `open-tab` waits for a newly created window to become addressable through Safari's scripting interface before creating the tab.
 
-`safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier. Identifier-targeted close verifies that the exact focused Accessibility window is no longer visible; if Safari leaves a visible zero-tab window, it presses that window's structural close button and verifies again before reporting success.
+`safari close-window` closes Safari's front window by default. Use `--window-id <id>` to close a specific window by stable Safari window identifier. Identifier-targeted close verifies that the captured window leaves its owning application's Accessibility window inventory; if Safari retains it, the command presses that window's structural close button. It then waits until the stable id also disappears from Safari's AppleScript inventory before reporting success.
 
-`safari windows` and `safari tabs` enumerate every running Safari process. They cross-check each process's Accessibility window inventory with PID-targeted scripting data, which excludes stale scripting objects from processes that own no Accessibility windows while preserving tabs from profile-specific Safari processes. When Accessibility permission is unavailable, the commands fall back to the legacy single-process AppleScript read.
+`safari windows` and `safari tabs` enumerate every running Safari process. They cross-check each process's Accessibility window inventory with PID-targeted scripting data, which excludes stale scripting objects from processes that own no Accessibility windows while preserving tabs from profile-specific Safari processes. Profile-sensitive mutation flows use the same inventory for readback. When Accessibility permission is unavailable, commands fall back to the legacy single-process AppleScript read.
 
 Window rows expose both identities explicitly:
 
@@ -140,7 +140,7 @@ Append `--help` to a module command to print its usage without running the comma
 
 CLI failures use human-readable messages for validation, Safari state, permissions, UI availability, database access, and AppleScript transport errors. Unexpected internal errors use a generic fallback instead of exposing Swift enum case names or sensitive JavaScript/transport details.
 
-`safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs JavaScript in a concrete Safari tab addressed by stable window id and tab index. The JavaScript source can be an inline argument, `--stdin`, or `--file <path>` / `--file=<path>`. Provide exactly one source. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
+`safari execute-tab-javascript <window-id> <tab-index> <javascript>` runs a value-producing JavaScript expression in a concrete Safari tab addressed by stable window id and tab index. The JavaScript source can be an inline argument, `--stdin`, or `--file <path>` / `--file=<path>`. Provide exactly one source; wrap multi-statement programs in an immediately invoked function expression. The command evaluates the expression directly instead of calling page-level `eval`, so it works on pages whose content security policy forbids `unsafe-eval`. Text mode prints the JavaScript result as stdout. JSON mode returns the target address and result:
 
 ```json
 {"windowId":42,"tabIndex":2,"result":"complete"}

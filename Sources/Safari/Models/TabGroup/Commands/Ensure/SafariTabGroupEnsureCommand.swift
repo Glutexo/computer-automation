@@ -25,12 +25,13 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     private let sleep: (TimeInterval) -> Void
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
+        let executor = SafariAppleScriptExecutor()
+        self.executor = executor
         self.findTabGroups = { profileName, name in
             try SafariTabGroup.find(profileName: profileName, name: name)
         }
         self.listProfiles = { try SafariProfile.listAvailableProfiles() }
-        self.listWindows = { try SafariWindow.list() }
+        self.listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)

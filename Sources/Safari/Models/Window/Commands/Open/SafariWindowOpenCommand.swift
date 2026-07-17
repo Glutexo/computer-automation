@@ -34,13 +34,14 @@ public struct SafariWindowOpenCommand: CommandModel, JSONCommandModel {
     private let sleep: (TimeInterval) -> Void
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
+        let executor = SafariAppleScriptExecutor()
+        self.executor = executor
         self.listProfiles = { try SafariProfile.listAvailableProfiles() }
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)
         }
         self.listWindows = SafariAppleScriptWindow.list
-        self.listResolvedWindows = { try SafariWindow.list() }
+        self.listResolvedWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openNewDocument = SafariAppleScriptWindow.openNewDocument
         self.openProfileWindowShortcut = SafariFileMenu.openProfileWindowShortcut

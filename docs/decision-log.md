@@ -1,5 +1,15 @@
 # Decision Log
 
+## 2026-07-17
+
+### Verified profile-process mutations and delayed Safari state
+
+- Profile-sensitive mutation orchestration now reads Safari windows through the same Accessibility/PID-targeted cross-process inventory as `safari windows`, with the legacy bundle-level AppleScript read retained only when Accessibility window listing is unavailable.
+- `open-tab-group-window` requires exact requested-profile metadata after sidebar selection; a wrong or still-unscoped profile cannot satisfy group-selection readback, and the operation-owned window is rolled back on failure.
+- Identifier-targeted `open-tab` waits until Safari's bundle scripting interface can address a newly created window before creating a tab, avoiding duplicate-prone mutation retries.
+- Identifier-targeted `close-window` treats membership in the owning application's `AXWindows` array as the structural close signal, then independently waits for the stable id to disappear from Safari's AppleScript inventory before returning success.
+- Concrete-tab JavaScript result serialization now embeds a value-producing expression directly instead of using indirect `eval`, preserving primitive and JSON result formatting without requiring a page CSP to allow `unsafe-eval`.
+
 ## 2026-07-14
 
 ### Explicit Safari window identities and disabled menu actions

@@ -93,7 +93,8 @@ flowchart TD
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
 - `SafariAppleScriptTab` provides window-index and window-id variants for listing, opening, moving, setting URLs, and closing tabs. Every window-id variant uses the same iterative resolver over `every window` and compares `id of currentWindow` before touching tabs.
 - `SafariAppleScriptTab.executeJavaScript()` uses that iterative stable-id resolver and then runs `do JavaScript` in the requested tab index of the resolved window.
-- `SafariAppleScriptTab.executeJavaScript()` wraps the caller source so primitive JavaScript results return as text and object/array results return as `JSON.stringify(...)` text.
+- `SafariAppleScriptTab.open(windowIdentifier:)` polls until a newly created stable window id is addressable through AppleScript before it performs the one-shot tab creation.
+- `SafariAppleScriptTab.executeJavaScript()` embeds the caller's value-producing expression directly in its result serializer, avoiding page-level `eval` and the corresponding `unsafe-eval` content-security-policy restriction. Primitive results return as text and object/array results return as `JSON.stringify(...)` text.
 - `SafariAppleScriptTab.executeJavaScript()` maps missing target sentinels into typed errors and collapses JavaScript/runtime failures into a sanitized execution failure for the addressed window and tab.
 - `SafariAppleScriptTab.executeJavaScript()` reports JavaScript results that Safari cannot convert to text as a typed unsupported-result error instead of a generic execution failure.
 - `SafariAppleScriptSidebar` includes the low-level bootstrap needed to ensure the Safari sidebar is open before structural row access.

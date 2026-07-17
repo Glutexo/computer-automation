@@ -19,8 +19,9 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
     private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
-        self.listWindows = { try SafariWindow.list() }
+        let executor = SafariAppleScriptExecutor()
+        self.executor = executor
+        self.listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.listTabGroups = { try SafariTabGroup.list() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup

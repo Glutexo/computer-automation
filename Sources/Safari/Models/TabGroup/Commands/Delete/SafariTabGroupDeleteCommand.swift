@@ -28,9 +28,10 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
     private let sleep: (TimeInterval) -> Void
 
     public init() {
-        self.executor = SafariAppleScriptExecutor()
+        let executor = SafariAppleScriptExecutor()
+        self.executor = executor
         self.listTabGroups = { try SafariTabGroup.list() }
-        self.listWindows = { try SafariWindow.list() }
+        self.listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.openWindow = { profileName, _ in
             try SafariFileMenu.openWindow(profileName: profileName)

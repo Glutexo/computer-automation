@@ -154,9 +154,11 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
 
     let openExecutor = MockAppleScriptExecutor()
     try SafariAppleScriptTab.open(windowIdentifier: 42, url: "https://example.com", executor: openExecutor)
-    #expect(openExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
-    #expect(!openExecutor.executedScripts[0].contains("whose id"))
-    #expect(openExecutor.executedScripts[0].contains("set URL of newTab"))
+    #expect(openExecutor.executedScripts.count == 2)
+    #expect(openExecutor.executedScripts[0].contains("every tab of targetWindow"))
+    #expect(openExecutor.executedScripts[1].contains("if id of currentWindow is 42"))
+    #expect(!openExecutor.executedScripts[1].contains("whose id"))
+    #expect(openExecutor.executedScripts[1].contains("set URL of newTab"))
 
     let setURLExecutor = MockAppleScriptExecutor()
     try SafariAppleScriptTab.setURL(windowIdentifier: 42, tabIndex: 3, url: "https://openai.com", executor: setURLExecutor)
@@ -178,6 +180,46 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
     #expect(closeExecutor.executedScripts[0].contains("if id of currentWindow is 42"))
     #expect(!closeExecutor.executedScripts[0].contains("whose id"))
     #expect(closeExecutor.executedScripts[0].contains("close tab 2"))
+}
+
+@Test func safariAppleScriptTabWaitsForNewWindowAddressability() async throws {
+    var attempts = 0
+    var sleptIntervals: [TimeInterval] = []
+
+    try SafariAppleScriptTab.waitUntilWindowIsAddressable(
+        windowIdentifier: 42,
+        listWindowTabs: {
+            attempts += 1
+            if attempts < 3 {
+                throw SafariAppleScriptError.executionFailed("window pending")
+            }
+            return []
+        },
+        sleep: { sleptIntervals.append($0) },
+        maxAttempts: 4,
+        interval: 0.25
+    )
+
+    #expect(attempts == 3)
+    #expect(sleptIntervals == [0.25, 0.25])
+}
+
+@Test func safariAppleScriptTabAddressabilityWaitPropagatesFinalFailure() async throws {
+    var attempts = 0
+    let expected = SafariAppleScriptError.executionFailed("still unavailable")
+
+    #expect(throws: expected) {
+        try SafariAppleScriptTab.waitUntilWindowIsAddressable(
+            windowIdentifier: 42,
+            listWindowTabs: {
+                attempts += 1
+                throw expected
+            },
+            sleep: { _ in },
+            maxAttempts: 3
+        )
+    }
+    #expect(attempts == 3)
 }
 
 @Test func safariAppleScriptTabSetURLExecutesExpectedScript() async throws {
@@ -226,8 +268,8 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
     #expect(executor.executedScripts[0].contains("do JavaScript"))
     #expect(executor.executedScripts[0].contains("in tab 2 of targetWindow"))
     #expect(executor.executedScripts[0].contains("COMPUTER_AUTOMATION_JAVASCRIPT_RESULT_NOT_TEXT"))
-    #expect(executor.executedScripts[0].contains("computerAutomationSource"))
-    #expect(executor.executedScripts[0].contains("(0, eval)(computerAutomationSource)"))
+    #expect(!executor.executedScripts[0].contains("eval("))
+    #expect(executor.executedScripts[0].contains("const computerAutomationResult = (document.querySelector"))
     #expect(executor.executedScripts[0].contains("JSON.stringify(computerAutomationResult)"))
     #expect(executor.executedScripts[0].contains("document.querySelector"))
 }

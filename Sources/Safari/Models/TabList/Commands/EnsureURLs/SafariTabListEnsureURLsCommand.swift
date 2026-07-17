@@ -44,7 +44,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
 
     public init() {
         let executor = SafariAppleScriptExecutor()
-        let listWindows = { try SafariWindow.list(executor: executor) }
+        let listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.executor = executor
         self.ensureTabGroup = { profileName, name in
             try SafariTabGroupEnsureCommand(

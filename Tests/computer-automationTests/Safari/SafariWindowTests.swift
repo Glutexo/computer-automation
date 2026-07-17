@@ -101,6 +101,50 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
+@Test func safariWindowAutomationListingPrefersCrossProcessInventory() async throws {
+    let expected = [
+        SafariWindowRecord(
+            processId: 43782,
+            identifier: 42,
+            index: 1,
+            profileName: "Twisto",
+            name: "Twisto"
+        )
+    ]
+
+    #expect(
+        try SafariWindow.listForAutomation(
+            executor: MockAppleScriptExecutor(),
+            listAcrossRunningProcesses: { expected },
+            listLegacy: { _ in
+                Issue.record("legacy list should not be called")
+                return []
+            }
+        ) == expected
+    )
+}
+
+@Test func safariWindowAutomationListingFallsBackWithoutAccessibility() async throws {
+    let expected = [
+        SafariWindowRecord(
+            identifier: 42,
+            index: 1,
+            profileName: "",
+            name: "Start Page"
+        )
+    ]
+
+    #expect(
+        try SafariWindow.listForAutomation(
+            executor: MockAppleScriptExecutor(),
+            listAcrossRunningProcesses: {
+                throw SafariUserInterfaceError.windowListUnavailable
+            },
+            listLegacy: { _ in expected }
+        ) == expected
+    )
+}
+
 @Test func safariProcessWindowDiscoveryReturnsNoWindowsForProcessesWithoutAXWindows() async throws {
     var queriedProcesses: [pid_t] = []
     let windows = try SafariProcessWindowDiscovery.list(
@@ -562,6 +606,86 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     #expect(closedWindowIdentifiers == [42])
 }
 
+@Test func safariWindowOpenTabGroupCommandRejectsWrongProfileAfterSelection() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    let createdWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    let wrongProfileWindow = SafariWindowRecord(
+        processId: 4317,
+        identifier: 42,
+        index: 1,
+        profileName: "Glutexo",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in createdWindow },
+        selectTabGroup: { _, _ in },
+        listWindows: { _ in [wrongProfileWindow] },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(
+        throws: SafariWindowCommandError.openedWindowProfileMismatch(
+            requestedProfileName: "Twisto",
+            observedWindowName: "Glutexo"
+        )
+    ) {
+        try command.execute(arguments: ["1000"])
+    }
+    #expect(closedWindowIdentifiers == [42])
+}
+
+@Test func safariWindowOpenTabGroupCommandDoesNotAcceptUnknownProfileAfterSelection() async throws {
+    var closedWindowIdentifiers: [Int] = []
+    let createdWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    let unscopedWindow = SafariWindowRecord(
+        processId: 4317,
+        identifier: 42,
+        index: 1,
+        profileName: "",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in createdWindow },
+        selectTabGroup: { _, _ in },
+        listWindows: { _ in [unscopedWindow] },
+        closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
+        sleep: { _ in }
+    )
+
+    #expect(
+        throws: SafariWindowCommandError.tabGroupSelectionNotVerified(
+            windowIdentifier: 42,
+            tabGroupIdentifier: 1000
+        )
+    ) {
+        try command.execute(arguments: ["1000"])
+    }
+    #expect(closedWindowIdentifiers == [42])
+}
+
 @Test func safariWindowOpenTabGroupCommandRejectsMissingOrInvalidTabGroupIdentifier() async throws {
     let command = SafariWindowOpenTabGroupCommand(
         executor: MockAppleScriptExecutor(),
@@ -863,6 +987,52 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
     #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
         try command.execute(arguments: ["--window-id", "42"])
     }
+}
+
+@Test func safariWindowCloseCommandWaitsForAppleScriptWindowRemoval() async throws {
+    var readAttempts = 0
+    var sleptIntervals: [TimeInterval] = []
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in "unused" },
+        focusWindow: { _, _ in },
+        closeWindowByIdentifier: { _, _ in },
+        closeFocusedWindow: { performClose in try performClose() },
+        listWindows: { _ in
+            readAttempts += 1
+            return readAttempts < 3
+                ? [SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto")]
+                : []
+        },
+        sleep: { sleptIntervals.append($0) }
+    )
+
+    #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
+    #expect(readAttempts == 3)
+    #expect(sleptIntervals == [0.1, 0.1])
+}
+
+@Test func safariWindowCloseCommandRejectsPersistentAppleScriptWindow() async throws {
+    var readAttempts = 0
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in "unused" },
+        focusWindow: { _, _ in },
+        closeWindowByIdentifier: { _, _ in },
+        closeFocusedWindow: { performClose in try performClose() },
+        listWindows: { _ in
+            readAttempts += 1
+            return [SafariAppleScriptWindowRecord(identifier: 42, name: "Twisto")]
+        },
+        sleep: { _ in }
+    )
+
+    #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
+        try command.execute(arguments: ["--window-id", "42"])
+    }
+    #expect(readAttempts == 40)
 }
 
 @Test func safariWindowCloseCommandRejectsInvalidWindowIdentifierArguments() async throws {

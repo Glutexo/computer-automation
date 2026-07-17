@@ -500,12 +500,12 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 }
 
 @Test func safariAccessibilityWindowAcceptsNormalCloseReadback() async throws {
-    var isVisible = true
+    var isPresent = true
     var didPressCloseButton = false
 
     try SafariAccessibilityWindow.closeCapturedWindow(
-        performClose: { isVisible = false },
-        isVisible: { isVisible },
+        performClose: { isPresent = false },
+        isPresent: { isPresent },
         pressCloseButton: {
             didPressCloseButton = true
             return true
@@ -518,15 +518,15 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 }
 
 @Test func safariAccessibilityWindowFallsBackToExactCloseButton() async throws {
-    var isVisible = true
+    var isPresent = true
     var didPressCloseButton = false
 
     try SafariAccessibilityWindow.closeCapturedWindow(
         performClose: {},
-        isVisible: { isVisible },
+        isPresent: { isPresent },
         pressCloseButton: {
             didPressCloseButton = true
-            isVisible = false
+            isPresent = false
             return true
         },
         sleep: { _ in },
@@ -540,7 +540,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(throws: SafariUserInterfaceError.windowCloseButtonUnavailable) {
         try SafariAccessibilityWindow.closeCapturedWindow(
             performClose: {},
-            isVisible: { true },
+            isPresent: { true },
             pressCloseButton: { false },
             sleep: { _ in },
             maxAttempts: 1
@@ -550,7 +550,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(throws: SafariUserInterfaceError.windowCloseNotVerified) {
         try SafariAccessibilityWindow.closeCapturedWindow(
             performClose: {},
-            isVisible: { true },
+            isPresent: { true },
             pressCloseButton: { true },
             sleep: { _ in },
             maxAttempts: 1
@@ -564,11 +564,12 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let closeButton = testAXElement(98_002)
     let fake = FakeSafariAccessibility(applicationElements: [application])
     fake.set(kAXFocusedWindowAttribute, on: application, to: window)
-    fake.set("AXVisible", on: window, to: kCFBooleanTrue)
+    fake.setElements(kAXWindowsAttribute, on: application, to: [window])
+    fake.set("AXVisible", on: window, to: kCFBooleanFalse)
     fake.set(kAXCloseButtonAttribute, on: window, to: closeButton)
     fake.actionHandler = { action, element in
         if action == kAXPressAction && sameElement(element, closeButton) {
-            fake.set("AXVisible", on: window, to: kCFBooleanFalse)
+            fake.setElements(kAXWindowsAttribute, on: application, to: [])
         }
         return true
     }

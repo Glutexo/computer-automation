@@ -28,12 +28,12 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
             try SafariTabGroupSidebarAccess.openNewWindowForProfile(
                 profileName: profileName,
                 executor: executor,
-                listWindows: { try SafariWindow.list(executor: executor) }
+                listWindows: { try SafariWindow.listForAutomation(executor: executor) }
             )
         }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
-        self.listWindows = { executor in try SafariWindow.list(executor: executor) }
+        self.listWindows = { executor in try SafariWindow.listForAutomation(executor: executor) }
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.sleep = Thread.sleep
     }
@@ -89,7 +89,19 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
             try selectTabGroup(tabGroup, executor)
 
             for attempt in 0..<SafariWindowCreation.pollAttempts {
-                if try listWindows(executor).contains(where: {
+                let windows = try listWindows(executor)
+                if
+                    let operationWindow = windows.first(where: { $0.identifier == createdWindow.identifier }),
+                    !operationWindow.profileName.isEmpty,
+                    operationWindow.profileName != tabGroup.profileName
+                {
+                    throw SafariWindowCommandError.openedWindowProfileMismatch(
+                        requestedProfileName: tabGroup.profileName,
+                        observedWindowName: operationWindow.profileName
+                    )
+                }
+
+                if windows.contains(where: {
                     window($0, matches: tabGroup, windowIdentifier: createdWindow.identifier)
                 }) {
                     return SafariWindowCreationResult(
@@ -124,7 +136,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
         guard
             window.identifier == windowIdentifier,
             !window.isPrivate,
-            window.profileName.isEmpty || window.profileName == tabGroup.profileName
+            window.profileName == tabGroup.profileName
         else {
             return false
         }

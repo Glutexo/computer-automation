@@ -1,8 +1,12 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
 import SafariUserInterface
 
 public struct SafariWindowCloseCommand: CommandModel {
+    private static let removalPollAttempts = 40
+    private static let removalPollInterval: TimeInterval = 0.1
+
     public static let descriptor = CommandDescriptor(
         name: "close-window",
         abstract: "Close a Safari browser window.",
@@ -21,6 +25,8 @@ public struct SafariWindowCloseCommand: CommandModel {
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let closeWindowByIdentifier: (Int, SafariAppleScriptExecuting) throws -> Void
     private let closeFocusedWindow: (() throws -> Void) throws -> Void
+    private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord]
+    private let sleep: (TimeInterval) -> Void
 
     public init() {
         self.executor = SafariAppleScriptExecutor()
@@ -29,6 +35,8 @@ public struct SafariWindowCloseCommand: CommandModel {
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
         self.closeWindowByIdentifier = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.closeFocusedWindow = SafariAccessibilityWindow.closeFocusedWindow
+        self.listWindows = SafariAppleScriptWindow.list
+        self.sleep = Thread.sleep
     }
 
     init(
@@ -37,7 +45,9 @@ public struct SafariWindowCloseCommand: CommandModel {
         closeFrontWindow: @escaping (SafariAppleScriptExecuting) throws -> String = SafariAppleScriptWindow.closeFrontWindow,
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
         closeWindowByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.close(windowIdentifier:executor:),
-        closeFocusedWindow: @escaping (() throws -> Void) throws -> Void = { performClose in try performClose() }
+        closeFocusedWindow: @escaping (() throws -> Void) throws -> Void = { performClose in try performClose() },
+        listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariAppleScriptWindowRecord] = { _ in [] },
+        sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {
         self.executor = executor
         self.isRunning = isRunning
@@ -45,6 +55,8 @@ public struct SafariWindowCloseCommand: CommandModel {
         self.focusWindow = focusWindow
         self.closeWindowByIdentifier = closeWindowByIdentifier
         self.closeFocusedWindow = closeFocusedWindow
+        self.listWindows = listWindows
+        self.sleep = sleep
     }
 
     @discardableResult
@@ -58,10 +70,30 @@ public struct SafariWindowCloseCommand: CommandModel {
             try closeFocusedWindow {
                 try closeWindowByIdentifier(windowIdentifier, executor)
             }
+            guard waitUntilWindowIsRemoved(windowIdentifier) else {
+                throw SafariUserInterfaceError.windowCloseNotVerified
+            }
             return "Safari window \(windowIdentifier) closed."
         }
 
         return try closeFrontWindow(executor)
+    }
+
+    private func waitUntilWindowIsRemoved(_ windowIdentifier: Int) -> Bool {
+        for attempt in 0..<Self.removalPollAttempts {
+            if
+                let windows = try? listWindows(executor),
+                !windows.contains(where: { $0.identifier == windowIdentifier })
+            {
+                return true
+            }
+
+            if attempt < Self.removalPollAttempts - 1 {
+                sleep(Self.removalPollInterval)
+            }
+        }
+
+        return false
     }
 
     private func parseWindowIdentifier(_ arguments: [String]) throws -> Int? {
