@@ -73,6 +73,7 @@ public struct CommandDescriptor: Sendable, Equatable {
     public let name: String
     public let abstract: String
     public let operation: CRUDOperation
+    public let isReadOnly: Bool
     public let arguments: [CommandArgumentDescriptor]
     public let usage: [CommandUsageComponent]?
 
@@ -80,12 +81,14 @@ public struct CommandDescriptor: Sendable, Equatable {
         name: String,
         abstract: String,
         operation: CRUDOperation,
+        isReadOnly: Bool? = nil,
         arguments: [CommandArgumentDescriptor] = [],
         usage: [CommandUsageComponent]? = nil
     ) {
         self.name = name
         self.abstract = abstract
         self.operation = operation
+        self.isReadOnly = isReadOnly ?? (operation == .read)
         self.arguments = arguments
         self.usage = usage
     }
@@ -97,8 +100,14 @@ public struct CommandArgumentDescriptor: Sendable, Equatable {
         case option
     }
 
+    public enum ValueType: String, Sendable, Equatable {
+        case string
+        case integer
+    }
+
     public let name: String
     public let kind: Kind
+    public let valueType: ValueType
     public let isRequired: Bool
     public let valueName: String?
     public let isRepeating: Bool
@@ -107,6 +116,7 @@ public struct CommandArgumentDescriptor: Sendable, Equatable {
     public init(
         name: String,
         kind: Kind,
+        valueType: ValueType = .string,
         isRequired: Bool = true,
         valueName: String? = nil,
         isRepeating: Bool = false,
@@ -114,6 +124,7 @@ public struct CommandArgumentDescriptor: Sendable, Equatable {
     ) {
         self.name = name
         self.kind = kind
+        self.valueType = valueType
         self.isRequired = isRequired
         self.valueName = valueName
         self.isRepeating = isRepeating

@@ -2,6 +2,16 @@
 
 ## 2026-07-17
 
+### MCP Swift SDK and command adaptation
+
+- The official Swift SDK implements MCP servers, stdio transport, tool annotations, JSON Schema input, and structured tool results, so a protocol implementation is unnecessary.
+- SDK release `0.12.1` requires Swift 6.0+ and macOS 13+. Its pre-1.0 minor releases may break compatibility, so the package should pin the validated release instead of accepting every later minor version.
+- Existing module and command descriptors already provide stable command names, descriptions, CRUD operations, positional/option shape, repetition, and mutually exclusive usage groups. Adding argument value types and explicit read-only safety is sufficient to generate useful MCP schemas.
+- CLI JSON mode can be called in process and decoded directly into the SDK's `Value`, preserving one implementation of command routing and output while satisfying MCP structured-content and text-compatibility expectations.
+- CRUD `read` does not prove side-effect freedom. `execute-tab-javascript` can change page state and must be excluded from the default catalog despite its domain operation classification.
+- An MCP stdio server cannot safely reuse its standard input as JavaScript source because that stream carries JSON-RPC messages. Inline JavaScript is the only supported MCP source form in the first server slice.
+- Serializing handler dispatch avoids concurrent automation requests racing over volatile Safari focus, window order, and sidebar selection.
+
 ### Follow-up issues #49 through #52
 
 - Issue #49 exposed a remaining split after the multi-process read fix: profile-sensitive mutations still used a bundle-level `SafariWindow.list(executor:)` read, so a saved group could pass name/id checks while its operation window was associated with another profile process. Mutation readback must use the cross-process window inventory and require the exact requested profile after selection.

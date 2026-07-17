@@ -9,8 +9,20 @@ public struct SafariTabResolveCommand: CommandModel, JSONCommandModel {
         arguments: [
             CommandArgumentDescriptor(name: "url", kind: .positional),
             CommandArgumentDescriptor(name: "prefix", kind: .option, isRequired: false),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
-            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false, valueName: "window-index"),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            ),
+            CommandArgumentDescriptor(
+                name: "window-index",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-index"
+            ),
             CommandArgumentDescriptor(name: "profile", kind: .option, isRequired: false, valueName: "profile")
         ]
     )

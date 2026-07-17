@@ -9,8 +9,20 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         abstract: "Ensure requested URLs exist in a Safari tab list.",
         operation: .update,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false, valueName: "window-index"),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
+            CommandArgumentDescriptor(
+                name: "window-index",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-index"
+            ),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            ),
             CommandArgumentDescriptor(name: "tab-group-profile", kind: .option, isRequired: false, valueName: "profile"),
             CommandArgumentDescriptor(name: "tab-group-name", kind: .option, isRequired: false, valueName: "name"),
             CommandArgumentDescriptor(name: "url", kind: .positional, isRepeating: true)

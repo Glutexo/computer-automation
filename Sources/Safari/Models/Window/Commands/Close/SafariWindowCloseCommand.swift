@@ -12,7 +12,13 @@ public struct SafariWindowCloseCommand: CommandModel {
         abstract: "Close a Safari browser window.",
         operation: .delete,
         arguments: [
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id")
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            )
         ],
         usage: [
             .argumentRef("window-id", isRequired: false)

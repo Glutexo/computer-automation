@@ -8,7 +8,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
         abstract: "Open a new Safari window for a saved tab group.",
         operation: .create,
         arguments: [
-            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional)
+            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional, valueType: .integer)
         ]
     )
 

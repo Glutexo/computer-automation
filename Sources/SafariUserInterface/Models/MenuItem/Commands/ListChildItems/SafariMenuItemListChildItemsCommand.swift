@@ -9,11 +9,13 @@ public struct SafariMenuItemListChildItemsCommand: CommandModel, JSONCommandMode
         arguments: [
             CommandArgumentDescriptor(
                 name: "menu-bar-item-index",
-                kind: .positional
+                kind: .positional,
+                valueType: .integer
             ),
             CommandArgumentDescriptor(
                 name: "menu-item-index",
-                kind: .positional
+                kind: .positional,
+                valueType: .integer
             )
         ]
     )

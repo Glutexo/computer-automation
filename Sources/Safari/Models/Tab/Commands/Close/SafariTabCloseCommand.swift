@@ -7,9 +7,15 @@ public struct SafariTabCloseCommand: CommandModel {
         abstract: "Close a Safari tab.",
         operation: .delete,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .positional),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
-            CommandArgumentDescriptor(name: "tab-index", kind: .positional)
+            CommandArgumentDescriptor(name: "window-index", kind: .positional, valueType: .integer),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            ),
+            CommandArgumentDescriptor(name: "tab-index", kind: .positional, valueType: .integer)
         ],
         usage: [
             .requiredAlternatives([

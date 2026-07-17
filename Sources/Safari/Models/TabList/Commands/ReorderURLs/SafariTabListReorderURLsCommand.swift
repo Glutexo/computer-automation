@@ -12,8 +12,20 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         abstract: "Reorder Safari tab lists to match requested URL order.",
         operation: .update,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .option, isRequired: false, valueName: "window-index"),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
+            CommandArgumentDescriptor(
+                name: "window-index",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-index"
+            ),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            ),
             CommandArgumentDescriptor(name: "tab-group-profile", kind: .option, isRequired: false, valueName: "profile"),
             CommandArgumentDescriptor(name: "tab-group-name", kind: .option, isRequired: false, valueName: "name"),
             CommandArgumentDescriptor(name: "url", kind: .positional, isRepeating: true)

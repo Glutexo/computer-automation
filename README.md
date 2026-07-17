@@ -5,9 +5,10 @@ Minimal Swift application for computer automation experiments.
 ## Overview
 
 - The repository is organized by top-level modules.
-- The current modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
+- The application modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`; `ComputerAutomationKit` and `ComputerAutomationMCP` provide the CLI and MCP adapters.
 - The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads, URL reconciliation, and URL-order reordering for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
+- A local stdio MCP server exposes the same command inventory as typed tools, with mutation tools disabled by default.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar; a matching saved group identifier is authoritative, a different exposed identifier is a definitive mismatch, and display-name fallback is allowed only when the sidebar exposes no stable group identifiers
   - create uses Safari's File-menu action identified by `NewEmptyTabGroupMenuItem`
@@ -21,9 +22,48 @@ Minimal Swift application for computer automation experiments.
 ## Current app
 
 - Built with Swift Package Manager.
-- The runnable stack currently includes the `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript` modules.
+- The runnable stack includes the Safari modules plus `ComputerAutomationKit` for CLI routing and `ComputerAutomationMCP` for local MCP adaptation.
 - The `Safari` module exposes application, profile, window, saved tab-group, tab-list, and tab commands.
-- Requires macOS with Safari installed.
+- Requires macOS 13 or newer with Safari installed.
+
+## MCP server
+
+`computer-automation-mcp` exposes the existing command inventory as Model Context Protocol tools over standard input/output. Tool names combine the module and command names with underscores, such as `safari_windows`, `safari_find_tab`, and `safari_ui_menu_items`. Arguments use typed camel-case JSON properties, and successful calls return both JSON text content and MCP structured content.
+
+Build the executable that an MCP client will launch:
+
+```bash
+swift build -c release --product computer-automation-mcp
+```
+
+The server is read-only by default. It omits every command whose metadata says it can change state, including `execute-tab-javascript`, because arbitrary page JavaScript is not guaranteed to be read-only even though the command is a CRUD read operation.
+
+```bash
+swift run computer-automation-mcp
+```
+
+To expose the full current command inventory, configure the client to pass the explicit mutation flag:
+
+```bash
+swift run computer-automation-mcp --allow-mutations
+```
+
+A generic local MCP client configuration for the release binary has this shape:
+
+```json
+{
+  "mcpServers": {
+    "computer-automation": {
+      "command": "/absolute/path/to/.build/release/computer-automation-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+Add `"--allow-mutations"` to `args` only when the client should be able to launch or quit Safari, open, update, or close windows and tabs, create or delete saved tab groups, or execute JavaScript. MCP tool calls are serialized so concurrent requests cannot race each other while operating Safari.
+
+The MCP transport owns standard input, so the `safari_execute_tab_javascript` tool accepts inline JavaScript only; the CLI-only `--stdin` and `--file` source forms are not MCP arguments. The MCP client or the process that launches the server may need the same Automation, Accessibility, and Full Disk Access permissions described for the CLI.
 
 ## Run
 

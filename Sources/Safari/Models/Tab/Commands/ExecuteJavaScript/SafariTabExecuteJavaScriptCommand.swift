@@ -7,9 +7,10 @@ public struct SafariTabExecuteJavaScriptCommand: CommandModel, JSONCommandModel 
         name: "execute-tab-javascript",
         abstract: "Execute JavaScript in a concrete Safari tab.",
         operation: .read,
+        isReadOnly: false,
         arguments: [
-            CommandArgumentDescriptor(name: "window-id", kind: .positional),
-            CommandArgumentDescriptor(name: "tab-index", kind: .positional),
+            CommandArgumentDescriptor(name: "window-id", kind: .positional, valueType: .integer),
+            CommandArgumentDescriptor(name: "tab-index", kind: .positional, valueType: .integer),
             CommandArgumentDescriptor(name: "javascript", kind: .positional, isRequired: false),
             CommandArgumentDescriptor(name: "stdin", kind: .option, isRequired: false),
             CommandArgumentDescriptor(name: "file", kind: .option, isRequired: false, valueName: "path")

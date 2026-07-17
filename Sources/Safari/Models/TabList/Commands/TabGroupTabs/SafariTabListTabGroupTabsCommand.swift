@@ -6,7 +6,7 @@ public struct SafariTabListTabGroupTabsCommand: CommandModel, JSONCommandModel {
         abstract: "List tabs stored in a saved Safari tab group.",
         operation: .read,
         arguments: [
-            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional)
+            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional, valueType: .integer)
         ]
     )
 

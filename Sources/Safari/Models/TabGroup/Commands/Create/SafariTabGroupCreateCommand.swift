@@ -12,7 +12,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         abstract: "Create a new saved Safari tab group in a specific window.",
         operation: .create,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .positional),
+            CommandArgumentDescriptor(name: "window-index", kind: .positional, valueType: .integer),
             CommandArgumentDescriptor(name: "name", kind: .positional)
         ]
     )

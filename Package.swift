@@ -6,7 +6,13 @@ import PackageDescription
 let package = Package(
     name: "computer-automation",
     platforms: [
-        .macOS(.v10_15)
+        .macOS(.v13)
+    ],
+    dependencies: [
+        .package(
+            url: "https://github.com/modelcontextprotocol/swift-sdk.git",
+            exact: "0.12.1"
+        )
     ],
     targets: [
         .target(
@@ -32,9 +38,21 @@ let package = Package(
             name: "ComputerAutomationKit",
             dependencies: ["AutomationFoundation", "Safari", "SafariUserInterface"]
         ),
+        .target(
+            name: "ComputerAutomationMCP",
+            dependencies: [
+                "AutomationFoundation",
+                "ComputerAutomationKit",
+                .product(name: "MCP", package: "swift-sdk")
+            ]
+        ),
         .executableTarget(
             name: "computer-automation",
             dependencies: ["ComputerAutomationKit"]
+        ),
+        .executableTarget(
+            name: "computer-automation-mcp",
+            dependencies: ["ComputerAutomationMCP"]
         ),
         .executableTarget(
             name: "computer-automation-live-safari-regression",
@@ -42,7 +60,16 @@ let package = Package(
         ),
         .testTarget(
             name: "computer-automationTests",
-            dependencies: ["AutomationFoundation", "SafariAppleScript", "SafariDatabase", "Safari", "SafariUserInterface", "ComputerAutomationKit"]
+            dependencies: [
+                "AutomationFoundation",
+                "SafariAppleScript",
+                "SafariDatabase",
+                "Safari",
+                "SafariUserInterface",
+                "ComputerAutomationKit",
+                "ComputerAutomationMCP",
+                .product(name: "MCP", package: "swift-sdk")
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

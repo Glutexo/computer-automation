@@ -7,8 +7,14 @@ public struct SafariTabOpenCommand: CommandModel {
         abstract: "Open a new Safari tab in a specific window.",
         operation: .create,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .positional),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id"),
+            CommandArgumentDescriptor(name: "window-index", kind: .positional, valueType: .integer),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            ),
             CommandArgumentDescriptor(name: "url", kind: .positional, isRequired: false)
         ],
         usage: [

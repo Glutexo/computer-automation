@@ -7,8 +7,14 @@ public struct SafariTabListWindowTabsCommand: CommandModel, JSONCommandModel {
         abstract: "List Safari tabs in a specific window.",
         operation: .read,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .positional),
-            CommandArgumentDescriptor(name: "window-id", kind: .option, isRequired: false, valueName: "window-id")
+            CommandArgumentDescriptor(name: "window-index", kind: .positional, valueType: .integer),
+            CommandArgumentDescriptor(
+                name: "window-id",
+                kind: .option,
+                valueType: .integer,
+                isRequired: false,
+                valueName: "window-id"
+            )
         ],
         usage: [
             .requiredAlternatives([

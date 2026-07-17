@@ -5,8 +5,11 @@
 ```mermaid
 flowchart TD
     App["computer-automation executable"]
+    MCPApp["computer-automation-mcp executable"]
     LiveRegression["computer-automation-live-safari-regression executable"]
     CLIKit["ComputerAutomationKit CLI router"]
+    MCPAdapter["ComputerAutomationMCP stdio adapter"]
+    MCPSDK["official MCP Swift SDK"]
     Foundation["AutomationFoundation shared module"]
     Zsh["zsh completion script"]
     ZshInstaller["zsh completion installer"]
@@ -73,6 +76,10 @@ flowchart TD
     Zsh --> App
     ZshInstaller --> App
     App --> CLIKit
+    MCPApp --> MCPAdapter
+    MCPAdapter --> CLIKit
+    MCPAdapter --> Foundation
+    MCPAdapter --> MCPSDK
     LiveRegression --> CLIKit
     CLIKit --> Foundation
     CLIKit --> Safari
@@ -199,4 +206,8 @@ flowchart TD
 - Shell completion scripts stay thin and delegate to the CLI completion endpoint.
 - Shell completion installers stay thin and write generated scripts into shell completion paths.
 - The current user-facing executable is a thin entry point over `ComputerAutomationKit`, which owns CLI routing to the `Safari` and `SafariUserInterface` modules.
+- `ComputerAutomationMCP` adapts the same router and command metadata into typed MCP tools without spawning or parsing the CLI. It always requests JSON output, returns that JSON as both text and structured MCP content, and serializes calls before they enter Safari automation.
+- `computer-automation-mcp` uses local stdio transport. Its default catalog contains only commands marked read-only; `--allow-mutations` is required to publish the remaining commands.
+- Command read-only safety is explicit metadata rather than a pure CRUD mapping. In particular, `execute-tab-javascript` is gated as mutating because supplied JavaScript can change page state.
+- The MCP adapter omits the CLI-only `--stdin` and `--file` variants from JavaScript tool input because stdio belongs to the MCP transport and inline source avoids implicit local-file access.
 - `computer-automation-live-safari-regression` is an opt-in executable for live Safari regression. It exists outside Swift Testing so macOS TCC Automation and Full Disk Access checks can be owned by the terminal that launches it instead of `swiftpm-testing-helper`.

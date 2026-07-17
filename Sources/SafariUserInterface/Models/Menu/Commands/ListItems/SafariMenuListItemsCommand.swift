@@ -9,7 +9,8 @@ public struct SafariMenuListItemsCommand: CommandModel, JSONCommandModel {
         arguments: [
             CommandArgumentDescriptor(
                 name: "menu-bar-item-index",
-                kind: .positional
+                kind: .positional,
+                valueType: .integer
             )
         ]
     )

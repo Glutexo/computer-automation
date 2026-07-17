@@ -7,8 +7,8 @@ This file applies to the whole repository.
 ## Project summary
 
 - Swift Package Manager project for macOS computer automation experiments.
-- Current top-level modules: `AutomationFoundation`, `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`.
-- Main executable target: `computer-automation`.
+- Current top-level modules: `AutomationFoundation`, `Safari`, `SafariDatabase`, `SafariUserInterface`, `SafariAppleScript`, `ComputerAutomationKit`, and `ComputerAutomationMCP`.
+- Main executable targets: `computer-automation` and `computer-automation-mcp`; the live Safari regression remains a separate opt-in executable.
 
 ## Start here
 

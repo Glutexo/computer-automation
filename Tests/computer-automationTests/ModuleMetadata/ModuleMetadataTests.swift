@@ -126,6 +126,8 @@ import SQLite3
     )
     #expect(SafariTabOpenCommand.descriptor.operation == .create)
     #expect(SafariTabListCommand.descriptor.operation == .read)
+    #expect(SafariTabListCommand.descriptor.isReadOnly)
+    #expect(!SafariTabExecuteJavaScriptCommand.descriptor.isReadOnly)
     #expect(SafariTabSetURLCommand.descriptor.operation == .update)
     #expect(SafariTabCloseCommand.descriptor.operation == .delete)
     #expect(SafariUserInterfaceModule.descriptor.models == [

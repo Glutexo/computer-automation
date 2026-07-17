@@ -13,7 +13,7 @@ public struct SafariTabGroupDeleteCommand: CommandModel, JSONCommandModel {
         abstract: "Delete a saved Safari tab group.",
         operation: .delete,
         arguments: [
-            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional)
+            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional, valueType: .integer)
         ]
     )
 

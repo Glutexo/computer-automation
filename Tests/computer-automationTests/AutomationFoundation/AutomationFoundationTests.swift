@@ -109,10 +109,26 @@ import SQLite3
 
     #expect(descriptor.name == "profile")
     #expect(descriptor.kind == .positional)
+    #expect(descriptor.valueType == .string)
     #expect(descriptor.isRequired)
     #expect(descriptor.valueName == nil)
     #expect(!descriptor.isRepeating)
     #expect(descriptor.completionSuggestions.isEmpty)
+}
+
+@Test func commandDescriptorDerivesReadOnlySafetyWithExplicitOverride() async throws {
+    let read = CommandDescriptor(name: "read", abstract: "Read", operation: .read)
+    let create = CommandDescriptor(name: "create", abstract: "Create", operation: .create)
+    let activeRead = CommandDescriptor(
+        name: "active-read",
+        abstract: "Execute active content",
+        operation: .read,
+        isReadOnly: false
+    )
+
+    #expect(read.isReadOnly)
+    #expect(!create.isReadOnly)
+    #expect(!activeRead.isReadOnly)
 }
 
 @Test func moduleDescriptorFlattensCommandsInModelOrder() async throws {

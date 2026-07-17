@@ -2,6 +2,16 @@
 
 ## 2026-07-17
 
+### Local MCP server with explicit mutation enablement
+
+- Added a dedicated `ComputerAutomationMCP` adapter and `computer-automation-mcp` stdio executable over the official Swift MCP SDK.
+- Generated MCP tool names, typed input schemas, usage alternatives, descriptions, and safety annotations from the existing module and command metadata; the adapter calls `ComputerAutomationCLI` in process with JSON output rather than spawning or parsing a CLI subprocess.
+- Kept the default tool catalog read-only and required `--allow-mutations` before publishing create, update, delete, or otherwise state-changing commands.
+- Added explicit command read-only metadata because CRUD classification is insufficient for safety: concrete-tab JavaScript remains a read operation in the domain model but is treated as mutating for MCP exposure.
+- Limited the JavaScript MCP tool to inline source because the stdio transport owns standard input and an MCP file argument would add implicit local-file access.
+- Serialized tool execution so concurrent MCP requests cannot race while observing or mutating Safari.
+- Raised the package minimum from macOS 10.15 to macOS 13 to use the official SDK and pinned its pre-1.0 release exactly at `0.12.1`.
+
 ### Verified profile-process mutations and delayed Safari state
 
 - Profile-sensitive mutation orchestration now reads Safari windows through the same Accessibility/PID-targeted cross-process inventory as `safari windows`, with the legacy bundle-level AppleScript read retained only when Accessibility window listing is unavailable.

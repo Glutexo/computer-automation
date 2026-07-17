@@ -7,8 +7,8 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
         abstract: "Switch a Safari window to a saved tab group.",
         operation: .update,
         arguments: [
-            CommandArgumentDescriptor(name: "window-index", kind: .positional),
-            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional)
+            CommandArgumentDescriptor(name: "window-index", kind: .positional, valueType: .integer),
+            CommandArgumentDescriptor(name: "tab-group-identifier", kind: .positional, valueType: .integer)
         ]
     )
 
