@@ -23,6 +23,30 @@ import SQLite3
     )
 }
 
+@Test func safariAppleScriptWindowListsCurrentTabNameSeparatelyFromWindowTitle() async throws {
+    let listDescriptor = NSAppleEventDescriptor.list()
+    let windowDescriptor = NSAppleEventDescriptor.list()
+    windowDescriptor.insert(NSAppleEventDescriptor(string: "30874"), at: 1)
+    windowDescriptor.insert(
+        NSAppleEventDescriptor(string: "Twisto — Release Notes for Sprint Release S98"),
+        at: 2
+    )
+    windowDescriptor.insert(NSAppleEventDescriptor(string: "TSD-9773"), at: 3)
+    listDescriptor.insert(windowDescriptor, at: 1)
+    let executor = MockAppleScriptExecutor(results: [.descriptor(listDescriptor)])
+
+    #expect(
+        try SafariAppleScriptWindow.list(executor: executor) == [
+            SafariAppleScriptWindowRecord(
+                identifier: 30874,
+                name: "Twisto — Release Notes for Sprint Release S98",
+                currentTabName: "TSD-9773"
+            )
+        ]
+    )
+    #expect(executor.executedScripts.first?.contains("name of current tab of currentWindow") == true)
+}
+
 @Test func safariAppleScriptWindowParseWindowListRejectsInvalidOrEmptyDescriptors() async throws {
     let descriptors: [NSAppleEventDescriptor?] = [
         nil,

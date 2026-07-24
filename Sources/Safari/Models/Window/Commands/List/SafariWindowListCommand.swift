@@ -40,7 +40,7 @@ public struct SafariWindowListCommand: CommandModel, JSONCommandModel {
         let windows = try listWindows(executor)
         return windows
             .map {
-                "\($0.identifier)|\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.name)|\($0.processId.map(String.init) ?? "")"
+                "\($0.identifier)|\($0.index)|\($0.isPrivate)|\($0.profileName)|\($0.selectedTabGroupIdentifier.map(String.init) ?? "")|\($0.tabGroupName ?? "")|\($0.currentTabName ?? $0.name)|\($0.processId.map(String.init) ?? "")"
             }
             .joined(separator: "\n")
     }
@@ -80,6 +80,6 @@ private struct SafariWindowJSONRecord: Encodable {
         self.profileName = record.profileName
         self.selectedTabGroupIdentifier = record.selectedTabGroupIdentifier
         self.tabGroupName = record.tabGroupName
-        self.name = record.name
+        self.name = record.currentTabName ?? record.name
     }
 }

@@ -101,6 +101,41 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
+@Test func safariProcessWindowDiscoveryPreservesCurrentTabNameWhileMatchingWindowTitle() async throws {
+    let windows = try SafariProcessWindowDiscovery.list(
+        listAccessibilityWindows: {
+            [
+                SafariAccessibilityWindowRecord(
+                    processIdentifier: 4317,
+                    name: "Twisto — Release Notes for Sprint Release S98"
+                )
+            ]
+        },
+        listScriptWindows: { _ in
+            [
+                SafariAppleScriptWindowRecord(
+                    identifier: 30874,
+                    name: "Twisto — Release Notes for Sprint Release S98",
+                    currentTabName: "TSD-9773"
+                )
+            ]
+        }
+    )
+
+    #expect(
+        windows == [
+            SafariProcessWindowRecord(
+                processIdentifier: 4317,
+                window: SafariAppleScriptWindowRecord(
+                    identifier: 30874,
+                    name: "Twisto — Release Notes for Sprint Release S98",
+                    currentTabName: "TSD-9773"
+                )
+            )
+        ]
+    )
+}
+
 @Test func safariWindowAutomationListingPrefersCrossProcessInventory() async throws {
     let expected = [
         SafariWindowRecord(
@@ -900,6 +935,29 @@ func safariWindowListCommandFormatsWindowRows(windows: [SafariWindowRecord]) asy
     #expect(jsonWindows.compactMap { $0["windowId"] as? Int } == windows.map(\.identifier))
     #expect(jsonWindows.compactMap { $0["windowIndex"] as? Int } == windows.map(\.index))
     #expect(jsonWindows.compactMap { $0["processId"] as? Int } == windows.compactMap(\.processId).map(Int.init))
+}
+
+@Test func safariWindowListCommandReportsCurrentTabNameInsteadOfStaleWindowTitle() async throws {
+    let command = SafariWindowListCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: { _ in
+            [
+                SafariWindowRecord(
+                    processId: 4317,
+                    identifier: 30874,
+                    index: 1,
+                    profileName: "Twisto",
+                    name: "Twisto — Release Notes for Sprint Release S98",
+                    currentTabName: "TSD-9773"
+                )
+            ]
+        }
+    )
+
+    #expect(try command.execute() == "30874|1|false|Twisto|||TSD-9773|4317")
+    let object = try jsonObject(try command.executeJSON())
+    let windows = try #require(object["windows"] as? [[String: Any]])
+    #expect(windows.first?["name"] as? String == "TSD-9773")
 }
 
 @Test func safariWindowListCommandPropagatesListFailure() async throws {

@@ -13,8 +13,9 @@ public struct SafariWindowRecord: Equatable, Sendable, Encodable {
     public let selectedTabGroupIdentifier: Int?
     public let tabGroupName: String?
     public let name: String
+    public let currentTabName: String?
 
-    public init(processId: pid_t? = nil, identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, selectedTabGroupIdentifier: Int? = nil, tabGroupName: String? = nil, name: String) {
+    public init(processId: pid_t? = nil, identifier: Int, index: Int, isPrivate: Bool = false, profileName: String, selectedTabGroupIdentifier: Int? = nil, tabGroupName: String? = nil, name: String, currentTabName: String? = nil) {
         self.processId = processId
         self.identifier = identifier
         self.index = index
@@ -23,6 +24,7 @@ public struct SafariWindowRecord: Equatable, Sendable, Encodable {
         self.selectedTabGroupIdentifier = selectedTabGroupIdentifier
         self.tabGroupName = tabGroupName
         self.name = name
+        self.currentTabName = currentTabName
     }
 }
 
@@ -122,7 +124,8 @@ public enum SafariWindow: ModelModel {
                 profileName: profileName,
                 selectedTabGroupIdentifier: state?.selectedTabGroupIdentifier,
                 tabGroupName: state?.tabGroupName,
-                name: rawWindow.name
+                name: rawWindow.name,
+                currentTabName: rawWindow.currentTabName
             )
         }
     }
@@ -141,7 +144,8 @@ public enum SafariWindow: ModelModel {
                 profileName: profilesByWindowIdentifier[rawWindow.identifier] ?? "",
                 selectedTabGroupIdentifier: nil,
                 tabGroupName: nil,
-                name: rawWindow.name
+                name: rawWindow.name,
+                currentTabName: rawWindow.currentTabName
             )
         }
     }

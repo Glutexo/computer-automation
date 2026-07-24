@@ -156,6 +156,8 @@ Window-level tab commands accept either the original positional `window-index` f
 
 `safari windows` and `safari tabs` enumerate every running Safari process. They cross-check each process's Accessibility window inventory with PID-targeted scripting data, which excludes stale scripting objects from processes that own no Accessibility windows while preserving tabs from profile-specific Safari processes. Profile-sensitive mutation flows use the same inventory for readback. When Accessibility permission is unavailable, commands fall back to the legacy single-process AppleScript read.
 
+The `name` reported by `safari windows` comes from the window's current Safari tab when that tab exposes a title. Safari's separate window title is retained only for Accessibility reconciliation and as a fallback, so a stale title left behind by a closed saved-group window cannot misdescribe the surviving window's current content.
+
 Window rows expose both identities explicitly:
 
 ```text

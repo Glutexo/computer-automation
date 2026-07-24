@@ -23,6 +23,7 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
     private enum Code {
         static let windows: DescType = 0x6377_696E // cwin
         static let tabs: DescType = 0x6254_6162 // bTab
+        static let currentTab: AEKeyword = 0x6354_6162 // cTab
         static let identifier: AEKeyword = 0x4944_2020 // ID__
         static let name: AEKeyword = 0x706E_616D // pnam
         static let url: AEKeyword = 0x7055_524C // pURL
@@ -82,8 +83,20 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
     private func windowRecord(_ window: SBObject) throws -> SafariAppleScriptWindowRecord {
         SafariAppleScriptWindowRecord(
             identifier: try requiredIntegerProperty(Code.identifier, on: window),
-            name: optionalStringProperty(Code.name, on: window)
+            name: optionalStringProperty(Code.name, on: window),
+            currentTabName: optionalCurrentTabName(on: window)
         )
+    }
+
+    private func optionalCurrentTabName(on window: SBObject) -> String? {
+        lastError = nil
+        guard let currentTab = window.property(withCode: Code.currentTab).get() as? SBObject else {
+            lastError = nil
+            return nil
+        }
+        lastError = nil
+        let name = optionalStringProperty(Code.name, on: currentTab)
+        return name.isEmpty ? nil : name
     }
 
     private func elements(code: DescType, on object: SBObject) throws -> [SBObject] {

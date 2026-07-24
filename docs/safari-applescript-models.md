@@ -5,7 +5,7 @@
 - The `SafariAppleScript` module owns direct AppleScript access to Safari.
 - It currently exposes seven models: `SafariAppleScriptApplication`, `SafariAppleScriptWindow`, `SafariAppleScriptTab`, `SafariAppleScriptSidebar`, `SafariAppleScriptApplicationMenuBar`, `SafariAppleScriptMenu`, and `SafariAppleScriptMenuItem`.
 - `SafariAppleScriptApplication` represents AppleScript-level access to the Safari application.
-- `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows.
+- `SafariAppleScriptWindow` represents AppleScript-level access to Safari windows and reads both the window title used for Accessibility reconciliation and the current tab title used for user-facing window names.
 - `SafariAppleScriptTab` represents AppleScript-level access to Safari tabs.
 - `SafariAppleScriptTab.list()` returns each tab as a structured Apple event list containing the stable window id, current window index, tab index, URL, and title from one enumeration.
 - `SafariAppleScriptTab.list(windowIdentifier:)` returns tabs from one stable Safari window id without relying on current window order.

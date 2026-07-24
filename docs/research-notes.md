@@ -1,5 +1,13 @@
 # Research Notes
 
+## 2026-07-24
+
+### Safari window titles can outlive their selected content
+
+- Issue #54 showed a surviving profile window whose scripting/Accessibility window title still named content from a closed saved-tab-group window while the same stable window id exposed unrelated current tabs.
+- Safari's scripting dictionary exposes `current tab` separately from the window `name`; reading the current tab's `name` gives the content-facing title without relying on the stale window title.
+- Cross-process filtering must still compare scripting and Accessibility window titles. The two values therefore stay separate: window title for reconciliation, current tab title for `windows[].name`.
+
 ## 2026-07-17
 
 ### MCP Swift SDK and command adaptation

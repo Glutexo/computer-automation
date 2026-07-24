@@ -4,10 +4,12 @@ import AutomationFoundation
 public struct SafariAppleScriptWindowRecord: Equatable, Sendable {
     public let identifier: Int
     public let name: String
+    public let currentTabName: String?
 
-    public init(identifier: Int, name: String) {
+    public init(identifier: Int, name: String, currentTabName: String? = nil) {
         self.identifier = identifier
         self.name = name
+        self.currentTabName = currentTabName
     }
 }
 
@@ -25,7 +27,15 @@ public enum SafariAppleScriptWindow: ModelModel {
         tell application "Safari"
             set output to {}
             repeat with currentWindow in every window
-                set end of output to ((id of currentWindow as string) & "|" & (name of currentWindow as string))
+                set currentWindowName to ""
+                try
+                    set currentWindowName to name of currentWindow as string
+                end try
+                set selectedTabName to ""
+                try
+                    set selectedTabName to name of current tab of currentWindow as string
+                end try
+                copy {(id of currentWindow as string), currentWindowName, selectedTabName} to end of output
             end repeat
             return output
         end tell
@@ -148,22 +158,43 @@ public enum SafariAppleScriptWindow: ModelModel {
             return []
         }
 
-        var lines: [String] = []
+        var records: [SafariAppleScriptWindowRecord] = []
         for index in 1...descriptor.numberOfItems {
-            if let item = descriptor.atIndex(index)?.stringValue {
-                lines.append(item)
+            guard let item = descriptor.atIndex(index) else {
+                continue
+            }
+
+            if
+                item.descriptorType == typeAEList,
+                item.numberOfItems >= 3,
+                let rawIdentifier = item.atIndex(1)?.stringValue,
+                let identifier = Int(rawIdentifier)
+            {
+                let name = item.atIndex(2)?.stringValue ?? ""
+                let currentTabName = item.atIndex(3)?.stringValue ?? ""
+                records.append(
+                    SafariAppleScriptWindowRecord(
+                        identifier: identifier,
+                        name: name,
+                        currentTabName: currentTabName.isEmpty ? nil : currentTabName
+                    )
+                )
+            } else if let line = item.stringValue, let record = parseWindowLine(line) {
+                records.append(record)
             }
         }
-        return parseWindowLines(lines)
+        return records
     }
 
     private static func parseWindowLines(_ lines: [String]) -> [SafariAppleScriptWindowRecord] {
-        lines.compactMap { line in
-            let components = line.split(separator: "|", maxSplits: 1).map(String.init)
-            guard components.count == 2, let identifier = Int(components[0]) else {
-                return nil
-            }
-            return SafariAppleScriptWindowRecord(identifier: identifier, name: components[1])
+        lines.compactMap(parseWindowLine)
+    }
+
+    private static func parseWindowLine(_ line: String) -> SafariAppleScriptWindowRecord? {
+        let components = line.split(separator: "|", maxSplits: 1).map(String.init)
+        guard components.count == 2, let identifier = Int(components[0]) else {
+            return nil
         }
+        return SafariAppleScriptWindowRecord(identifier: identifier, name: components[1])
     }
 }

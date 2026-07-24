@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-07-24
+
+### Current-tab-backed Safari window names
+
+- Kept Safari's scripting window title as the cross-process reconciliation key because it is the value exposed by the matching Accessibility window.
+- Added the current tab title as a separate scripting record field and made `safari windows` use it for the user-facing `name` whenever available.
+- Retained the window title as a fallback for title-less tabs and legacy injected records, preventing issue #54's stale title from changing window identity or weakening stale-object filtering.
+
 ## 2026-07-17
 
 ### Local MCP server with explicit mutation enablement
