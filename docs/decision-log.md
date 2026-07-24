@@ -2,6 +2,12 @@
 
 ## 2026-07-24
 
+### Persistent saved-group creation from current tabs
+
+- Replaced the `NewEmptyTabGroupMenuItem` create trigger with Safari's structural `NewTabGroupWithTabsMenuItem` action.
+- Kept creation on the operation-owned profile window and retained the existing inline rename, database readback, profile validation, and rollback behavior.
+- The captured current tabs make Safari persist the group independently of the operation window, addressing issue #53's disappearing empty-group records.
+
 ### Current-tab-backed Safari window names
 
 - Kept Safari's scripting window title as the cross-process reconciliation key because it is the value exposed by the matching Accessibility window.

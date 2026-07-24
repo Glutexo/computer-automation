@@ -11,7 +11,7 @@ Minimal Swift application for computer automation experiments.
 - A local stdio MCP server exposes the same command inventory as typed tools, with mutation tools disabled by default.
 - Saved tab-group create/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar; a matching saved group identifier is authoritative, a different exposed identifier is a definitive mismatch, and display-name fallback is allowed only when the sidebar exposes no stable group identifiers
-  - create uses Safari's File-menu action identified by `NewEmptyTabGroupMenuItem`
+  - create captures the operation window's current tabs through Safari's File-menu action identified by `NewTabGroupWithTabsMenuItem`; this path remains persisted after the operation window closes
   - create relies on Safari's post-create inline edit field for naming the newly created group
   - create rolls back newly created groups when profile validation or rename/readback verification fails
   - delete uses the selected group's context menu item `DeleteTabGroupMenuItem`

@@ -184,7 +184,7 @@ flowchart TD
   - invoke the concrete mutation through a second accessibility surface that acts on the current selection
 - Current supported Safari tab-group operations therefore use:
   - sidebar selection as the targeting surface for existing saved groups
-  - File-menu action `NewEmptyTabGroupMenuItem` as the create trigger
+  - File-menu action `NewTabGroupWithTabsMenuItem` as the create trigger
   - sidebar context-menu action `DeleteTabGroupMenuItem` for delete
   - the sidebar inline text field for post-create naming
 - Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.

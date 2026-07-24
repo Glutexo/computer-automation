@@ -30,7 +30,7 @@ Run focused `rg` scans and inspect each hit in context. Useful starting points:
 rg -n "as!|try!|fatalError|preconditionFailure|TODO|FIXME" Sources Tests
 rg -n "Thread\\.sleep|sleep\\(" Sources Tests
 rg -n "CGEvent|mouse|cursor|coordinate|position|click at" Sources Tests docs
-rg -n "SafariTabs\\.db|System Events|AXIdentifier|NewEmptyTabGroupMenuItem|DeleteTabGroupMenuItem" Sources docs
+rg -n "SafariTabs\\.db|System Events|AXIdentifier|NewTabGroupWithTabsMenuItem|DeleteTabGroupMenuItem" Sources docs
 rg -n "--json|--complete|CompletionSuggestion|usage|abstract" Sources Tests README.md docs
 rg -n "window-index|window-id|selectedTabGroupIdentifier|tabGroup" Sources Tests README.md docs
 ```

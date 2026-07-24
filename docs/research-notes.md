@@ -2,6 +2,12 @@
 
 ## 2026-07-24
 
+### Empty saved groups can disappear after successful readback
+
+- Issue #53 observed two groups created through the empty-group path disappear after initially exposing stable identifiers, including one disappearance before an independent follow-up read.
+- The successful workaround populated a new profile window first and invoked `NewTabGroupWithTabsMenuItem`; that group survived independent group, window, and tab readback.
+- Saved-group creation now uses that structural with-tabs action. The operation-owned window rule, inline sidebar naming, identifier/profile readback, and rollback protections remain unchanged.
+
 ### Safari window titles can outlive their selected content
 
 - Issue #54 showed a surviving profile window whose scripting/Accessibility window title still named content from a closed saved-tab-group window while the same stable window id exposed unrelated current tabs.

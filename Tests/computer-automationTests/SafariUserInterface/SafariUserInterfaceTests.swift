@@ -254,10 +254,10 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(
         kAXIdentifierAttribute,
         on: targetItem,
-        to: SafariFileMenu.createEmptyTabGroupMenuItemIdentifier as CFString
+        to: SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier as CFString
     )
 
-    try SafariFileMenu.createEmptyTabGroup(accessibility: fake.backend())
+    try SafariFileMenu.createTabGroupFromCurrentTabs(accessibility: fake.backend())
 
     #expect(
         fake.performedActions.contains {
@@ -274,16 +274,16 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(
         kAXIdentifierAttribute,
         on: targetItem,
-        to: SafariFileMenu.createEmptyTabGroupMenuItemIdentifier as CFString
+        to: SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier as CFString
     )
     fake.set(kAXEnabledAttribute, on: targetItem, to: kCFBooleanFalse)
 
     #expect(
         throws: SafariUserInterfaceError.menuItemDisabled(
-            SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+            SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier
         )
     ) {
-        try SafariFileMenu.createEmptyTabGroup(accessibility: fake.backend())
+        try SafariFileMenu.createTabGroupFromCurrentTabs(accessibility: fake.backend())
     }
     #expect(
         !fake.performedActions.contains {
@@ -301,7 +301,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(
         kAXIdentifierAttribute,
         on: targetItem,
-        to: SafariFileMenu.createEmptyTabGroupMenuItemIdentifier as CFString
+        to: SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier as CFString
     )
     var enabledReadCount = 0
     fake.readHandler = { attribute, element in
@@ -312,7 +312,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
         return enabledReadCount < 3 ? kCFBooleanFalse : kCFBooleanTrue
     }
 
-    try SafariFileMenu.createEmptyTabGroup(accessibility: fake.backend())
+    try SafariFileMenu.createTabGroupFromCurrentTabs(accessibility: fake.backend())
 
     #expect(enabledReadCount == 3)
     #expect(fake.sleptIntervals == [0.05])
@@ -892,12 +892,12 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 @Test func safariFileMenuCreateAndDeleteTabGroupUseExpectedMenuIndexes() async throws {
     let executor = MockAppleScriptExecutor(results: [.none, .none])
 
-    try SafariFileMenu.createEmptyTabGroup(executor: executor)
+    try SafariFileMenu.createTabGroupFromCurrentTabs(executor: executor)
     try SafariFileMenu.deleteCurrentTabGroup(executor: executor)
 
     #expect(executor.executedScripts.count == 2)
     #expect(executor.executedScripts[0].contains("AXIdentifier"))
-    #expect(executor.executedScripts[0].contains("NewEmptyTabGroupMenuItem"))
+    #expect(executor.executedScripts[0].contains("NewTabGroupWithTabsMenuItem"))
     #expect(executor.executedScripts[1].contains("DeleteTabGroupMenuItem"))
 }
 

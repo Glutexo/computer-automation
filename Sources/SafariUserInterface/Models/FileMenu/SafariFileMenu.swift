@@ -12,7 +12,7 @@ public enum SafariFileMenu: ModelModel {
     )
 
     static let menuBarItemIndex = 3
-    static let createEmptyTabGroupMenuItemIdentifier = "NewEmptyTabGroupMenuItem"
+    static let createTabGroupFromCurrentTabsMenuItemIdentifier = "NewTabGroupWithTabsMenuItem"
     static let deleteCurrentTabGroupMenuItemIdentifier = "DeleteTabGroupMenuItem"
 
     public static func openWindow(
@@ -104,23 +104,23 @@ public enum SafariFileMenu: ModelModel {
         }
     }
 
-    public static func createEmptyTabGroup(
+    public static func createTabGroupFromCurrentTabs(
     ) throws {
-        try createEmptyTabGroup(accessibility: .live)
+        try createTabGroupFromCurrentTabs(accessibility: .live)
     }
 
-    static func createEmptyTabGroup(accessibility: SafariAccessibilityBackend) throws {
+    static func createTabGroupFromCurrentTabs(accessibility: SafariAccessibilityBackend) throws {
         try clickFileMenuItem(
-            matchingIdentifier: createEmptyTabGroupMenuItemIdentifier,
+            matchingIdentifier: createTabGroupFromCurrentTabsMenuItemIdentifier,
             accessibility: accessibility
         )
     }
 
-    public static func createEmptyTabGroup(
+    public static func createTabGroupFromCurrentTabs(
         executor: SafariAppleScriptExecuting
     ) throws {
         try clickFileMenuItem(
-            matchingIdentifier: createEmptyTabGroupMenuItemIdentifier,
+            matchingIdentifier: createTabGroupFromCurrentTabsMenuItemIdentifier,
             executor: executor
         )
     }

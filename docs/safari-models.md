@@ -254,7 +254,7 @@ ORDER BY id;
 
 - `create-tab-group <window-index> <name>`:
   - focuses the target non-private window
-  - uses Safari's accessibility-exposed File-menu item `NewEmptyTabGroupMenuItem` to create a new empty tab group in that window context
+  - uses Safari's accessibility-exposed File-menu item `NewTabGroupWithTabsMenuItem` to create a persistent group from that window's current tabs
   - checks the target menu item's `AXEnabled` state before invoking `AXPress` and fails immediately when Safari disables the action
   - writes the requested name into Safari's post-create inline edit field for that selected group
   - resolves the newly created saved group structurally through `SafariDatabaseTabGroup`
@@ -297,7 +297,7 @@ ORDER BY id;
   - name-addressed lookup remains ambiguous when multiple groups in the same profile have the requested name
 - Saved tab-group create/delete uses a different live UI path:
   - the target group is selected structurally in the opened sidebar when the operation targets an existing saved group, preferring the saved group identifier over the localized display name
-  - create uses the File-menu item `NewEmptyTabGroupMenuItem`
+  - create uses the File-menu item `NewTabGroupWithTabsMenuItem`
   - delete uses the selected sidebar group's context-menu item `DeleteTabGroupMenuItem`
   - create then writes the name into the inline text field that Safari exposes immediately after creating a new empty tab group
 - A standalone rename command is intentionally not exposed at the moment:
@@ -416,6 +416,6 @@ ORDER BY id;
 - Private-window opening resolves the target File-menu item through shortcut metadata instead of localized menu titles.
 - Structured submenu inspection is available through the `SafariMenuItem` model in `SafariUserInterface`.
 - Saved tab-group switching routes through identifier-aware sidebar selection in `SafariUserInterface`.
-- Saved tab-group creation currently resolves Safari's built-in "new empty tab group" command through the stable File-menu accessibility identifier `NewEmptyTabGroupMenuItem`.
+- Saved tab-group creation resolves Safari's built-in "new tab group with current tabs" command through the stable File-menu accessibility identifier `NewTabGroupWithTabsMenuItem`; the empty-group action is not used because Safari can discard or fail to persist those groups.
 - Tab CRUD currently bypasses `SafariUserInterface` because it does not require menu or accessibility interaction.
 - Direct read-only `SafariTabs.db` access lives in the separate `SafariDatabase` module.

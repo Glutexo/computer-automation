@@ -25,7 +25,7 @@
 | `SafariFileMenu` | `file-menu-items` | `R` | List items currently exposed by Safari's `File` menu. |
 | `SafariFileMenu` | Internal `openWindow` API | `C` | Open a new Safari window, optionally for a specific profile. |
 | `SafariFileMenu` | Internal `openPrivateWindow` API | `C` | Open a new Safari private window. |
-| `SafariFileMenu` | Internal `createEmptyTabGroup` API | `C` | Trigger Safari's File-menu create action for a new empty tab group. |
+| `SafariFileMenu` | Internal `createTabGroupFromCurrentTabs` API | `C` | Trigger Safari's File-menu create action for a persistent group containing the current window tabs. |
 | `SafariFileMenu` | Internal `deleteCurrentTabGroup` API | `D` | Trigger Safari's File-menu delete action for the currently selected tab group when that surface is explicitly needed. |
 | `SafariMenuItem` | `menu-item-children` | `R` | List the child items of a specific Safari menu item. |
 
@@ -80,7 +80,7 @@ flowchart TD
   - sidebar-driven targeting
   - File-menu create only where Safari exposes no equivalent sidebar mutation trigger for new empty groups
 - Current verified tab-group flows are:
-  - create: File-menu `NewEmptyTabGroupMenuItem`, then inline sidebar text field
+  - create: File-menu `NewTabGroupWithTabsMenuItem`, then inline sidebar text field
   - select/open existing group: identifier-aware sidebar group selection
   - delete: identifier-aware sidebar group selection, then context-menu `DeleteTabGroupMenuItem`
 - Safari also shows a visual rename affordance for saved tab groups, but the trigger for that affordance is not currently available through a stable accessibility surface, so no standalone rename command is exposed.
@@ -109,7 +109,7 @@ flowchart TD
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
 - `SafariFileMenu.openPrivateWindow()` identifies the native File-menu entry through its stable identifier or shortcut metadata (`N` with modifier value `1`) instead of localized title text.
-- `SafariFileMenu.createEmptyTabGroup()` identifies its menu item by the stable accessibility identifier `NewEmptyTabGroupMenuItem` instead of a localized title, waits briefly when a newly opened window exposes `AXEnabled=false`, and issues `AXPress` only after the same structural item becomes enabled. A persistently disabled item reports a dedicated error without being pressed.
+- `SafariFileMenu.createTabGroupFromCurrentTabs()` identifies its menu item by the stable accessibility identifier `NewTabGroupWithTabsMenuItem` instead of a localized title, waits briefly when a newly opened window exposes `AXEnabled=false`, and issues `AXPress` only after the same structural item becomes enabled. A persistently disabled item reports a dedicated error without being pressed.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.

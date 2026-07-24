@@ -585,7 +585,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         name: "Twisto — Start Page"
     )
     let expectedError = SafariUserInterfaceError.menuItemDisabled(
-        SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+        SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier
     )
     let command = SafariTabGroupEnsureCommand(
         executor: MockAppleScriptExecutor(),
@@ -642,7 +642,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
 @Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {
     var focusedWindowIdentifier: Int?
-    var didCreateEmptyTabGroup = false
+    var didCreateTabGroupFromCurrentTabs = false
     var renamedIdentifier: Int?
     var renamedSourceName: String?
     var renamedTargetName: String?
@@ -670,7 +670,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
-        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        createTabGroupFromCurrentTabs: { _ in didCreateTabGroupFromCurrentTabs = true },
         renameTabGroup: { group, newName, _ in
             renamedIdentifier = group.identifier
             renamedSourceName = group.name
@@ -681,7 +681,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
     #expect(focusedWindowIdentifier == 10)
-    #expect(didCreateEmptyTabGroup)
+    #expect(didCreateTabGroupFromCurrentTabs)
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
@@ -690,7 +690,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 @Test func safariTabGroupCreateCommandRejectsDisabledFileMenuActionWithoutPolling() async throws {
     var listTabGroupCallCount = 0
     let expectedError = SafariUserInterfaceError.menuItemDisabled(
-        SafariFileMenu.createEmptyTabGroupMenuItemIdentifier
+        SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier
     )
     let command = SafariTabGroupCreateCommand(
         executor: MockAppleScriptExecutor(),
@@ -702,7 +702,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             return []
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in throw expectedError },
+        createTabGroupFromCurrentTabs: { _ in throw expectedError },
         renameTabGroup: { _, _, _ in Issue.record("renameTabGroup should not be called") },
         sleep: { _ in Issue.record("sleep should not be called") }
     )
@@ -714,7 +714,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 }
 
 @Test func safariTabGroupCreateCommandAcceptsDefaultProfileStoredWithoutName() async throws {
-    var didCreateEmptyTabGroup = false
+    var didCreateTabGroupFromCurrentTabs = false
     var renamedIdentifier: Int?
     var pollCount = 0
 
@@ -746,13 +746,13 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        createTabGroupFromCurrentTabs: { _ in didCreateTabGroupFromCurrentTabs = true },
         renameTabGroup: { group, _, _ in renamedIdentifier = group.identifier },
         sleep: { _ in }
     )
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Glutexo|Inbox")
-    #expect(didCreateEmptyTabGroup)
+    #expect(didCreateTabGroupFromCurrentTabs)
     #expect(renamedIdentifier == 1001)
 }
 
@@ -762,7 +762,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         listWindows: { [] },
         listTabGroups: { [] },
         focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
-        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        createTabGroupFromCurrentTabs: { _ in Issue.record("createTabGroupFromCurrentTabs should not be called") },
         renameTabGroup: { _, _, _ in
             Issue.record("renameTabGroup should not be called")
         },
@@ -796,7 +796,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         listTabGroups: { [] },
         focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
-        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        createTabGroupFromCurrentTabs: { _ in Issue.record("createTabGroupFromCurrentTabs should not be called") },
         renameTabGroup: { _, _, _ in
             Issue.record("renameTabGroup should not be called")
         },
@@ -816,7 +816,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")]
         },
         focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
-        createEmptyTabGroup: { _ in Issue.record("createEmptyTabGroup should not be called") },
+        createTabGroupFromCurrentTabs: { _ in Issue.record("createTabGroupFromCurrentTabs should not be called") },
         renameTabGroup: { _, _, _ in
             Issue.record("renameTabGroup should not be called")
         },
@@ -838,7 +838,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { _, _, _ in Issue.record("renameTabGroup should not be called") },
         sleep: { _ in }
     )
@@ -850,7 +850,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
 @Test func safariTabGroupCreateCommandUsesSelectedTabGroupProfileWhenWindowProfileIsUnknown() async throws {
     var focusedWindowIdentifier: Int?
-    var didCreateEmptyTabGroup = false
+    var didCreateTabGroupFromCurrentTabs = false
     var renamedIdentifier: Int?
     var renamedSourceName: String?
     var renamedTargetName: String?
@@ -879,7 +879,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
-        createEmptyTabGroup: { _ in didCreateEmptyTabGroup = true },
+        createTabGroupFromCurrentTabs: { _ in didCreateTabGroupFromCurrentTabs = true },
         renameTabGroup: { group, newName, _ in
             renamedIdentifier = group.identifier
             renamedSourceName = group.name
@@ -890,7 +890,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
     #expect(focusedWindowIdentifier == 10)
-    #expect(didCreateEmptyTabGroup)
+    #expect(didCreateTabGroupFromCurrentTabs)
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
@@ -918,7 +918,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { group, newName, _ in
             renamedSourceName = group.name
             renamedTargetName = newName
@@ -959,7 +959,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { group, newName, _ in
             renamedSourceName = group.name
             renamedTargetName = newName
@@ -1000,7 +1000,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { group, newName, _ in
             renamedSourceName = group.name
             renamedTargetName = newName
@@ -1042,7 +1042,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { _, _, _ in throw SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable },
         deleteCurrentTabGroup: { _ in deletedCurrentGroup = true },
         sleep: { _ in }
@@ -1079,7 +1079,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
             ]
         },
         focusWindow: { _, _ in },
-        createEmptyTabGroup: { _ in },
+        createTabGroupFromCurrentTabs: { _ in },
         renameTabGroup: { _, _, _ in throw SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable },
         deleteCurrentTabGroup: { _ in
             deletedCurrentGroup = true
