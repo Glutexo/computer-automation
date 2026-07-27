@@ -88,6 +88,7 @@ import SQLite3
             SafariTabGroupCreateCommand.descriptor,
             SafariTabGroupEnsureCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
+            SafariTabGroupSidebarListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
@@ -96,6 +97,8 @@ import SQLite3
     #expect(SafariTabGroupCreateCommand.descriptor.operation == .create)
     #expect(SafariTabGroupEnsureCommand.descriptor.operation == .create)
     #expect(SafariTabGroupListCommand.descriptor.operation == .read)
+    #expect(SafariTabGroupSidebarListCommand.descriptor.operation == .read)
+    #expect(!SafariTabGroupSidebarListCommand.descriptor.isReadOnly)
     #expect(SafariTabGroupDeleteCommand.descriptor.operation == .delete)
     #expect(SafariTabList.descriptor.name == "tab-list")
     #expect(

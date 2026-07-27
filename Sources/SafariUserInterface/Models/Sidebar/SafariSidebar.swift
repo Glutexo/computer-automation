@@ -2,6 +2,16 @@ import ApplicationServices
 import AutomationFoundation
 import SafariAppleScript
 
+public struct SafariSidebarTabGroupRecord: Equatable, Sendable {
+    public let identifier: Int?
+    public let name: String
+
+    public init(identifier: Int?, name: String) {
+        self.identifier = identifier
+        self.name = name
+    }
+}
+
 public enum SafariSidebar: ModelModel {
     private static let tabGroupCellIdentifierPrefix = "SidebarLibraryItemTabGroup"
     private static let renameTabGroupMenuItemIdentifier = "RenameTabGroupMenuItem"
@@ -22,6 +32,26 @@ public enum SafariSidebar: ModelModel {
             named: tabGroupName,
             accessibility: .live
         )
+    }
+
+    public static func listTabGroups() throws -> [SafariSidebarTabGroupRecord] {
+        try listTabGroups(accessibility: .live)
+    }
+
+    static func listTabGroups(
+        accessibility: SafariAccessibilityBackend
+    ) throws -> [SafariSidebarTabGroupRecord] {
+        let (_, focusedWindow) = try focusedWindow(
+            accessibility: accessibility,
+            error: SafariUserInterfaceError.sidebarUnavailable
+        )
+        let outline = try outlinedSidebar(in: focusedWindow, accessibility: accessibility)
+        return tabGroupRows(in: outline, accessibility: accessibility).map {
+            SafariSidebarTabGroupRecord(
+                identifier: sidebarTabGroupIdentifier($0.identifier),
+                name: $0.title
+            )
+        }
     }
 
     public static func selectTabGroup(
@@ -189,6 +219,18 @@ public enum SafariSidebar: ModelModel {
                 throw SafariUserInterfaceError.sidebarTabGroupNotFound(tabGroupName)
             }
             throw SafariUserInterfaceError.sidebarUnavailable
+        } catch {
+            throw SafariUserInterfaceError.sidebarUnavailable
+        }
+    }
+
+    public static func listTabGroups(
+        executor: SafariAppleScriptExecuting
+    ) throws -> [SafariSidebarTabGroupRecord] {
+        do {
+            return try SafariAppleScriptSidebar.listTabGroups(executor: executor).map {
+                SafariSidebarTabGroupRecord(identifier: $0.identifier, name: $0.name)
+            }
         } catch {
             throw SafariUserInterfaceError.sidebarUnavailable
         }

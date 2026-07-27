@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-07-27
+
+### Explicit saved-group sidebar fallback without group cycling
+
+- Added an explicit `sidebar-tab-groups <profile> [name]` fallback that opens and closes a brand-new profile window, reads sidebar rows without selecting them, and preserves missing accessibility identifiers as data.
+- Added a profile/name address to `delete-tab-group` that uses one exact sidebar row, requires its stable identifier, confirms the destructive sheet, verifies disappearance through sidebar readback, and fails closed for missing, ambiguous, or unidentified matches.
+- Marked sidebar inventory as non-read-only for MCP safety because it temporarily changes Safari window and sidebar state even though it performs no saved-group mutation.
+
 ## 2026-07-24
 
 ### Persistent saved-group creation from current tabs

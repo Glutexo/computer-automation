@@ -71,6 +71,7 @@ import SQLite3
             CompletionSuggestion(value: "create-tab-group", abstract: "Create a new saved Safari tab group in a specific window."),
             CompletionSuggestion(value: "ensure-tab-group", abstract: "Create or reuse a saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "tab-groups", abstract: "List saved Safari tab groups."),
+            CompletionSuggestion(value: "sidebar-tab-groups", abstract: "List saved Safari tab groups from a temporary profile window's sidebar."),
             CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),

@@ -14,6 +14,31 @@ public struct SafariTabGroupRecord: Equatable, Sendable, Encodable {
     }
 }
 
+public struct SafariTabGroupSidebarRecord: Equatable, Sendable, Encodable {
+    public let identifier: Int?
+    public let profileName: String
+    public let name: String
+
+    public init(identifier: Int?, profileName: String, name: String) {
+        self.identifier = identifier
+        self.profileName = profileName
+        self.name = name
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(identifier, forKey: .identifier)
+        try container.encode(profileName, forKey: .profileName)
+        try container.encode(name, forKey: .name)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case identifier
+        case profileName
+        case name
+    }
+}
+
 public struct SafariTabGroupTabRecord: Equatable, Sendable, Encodable {
     public let tabGroupIdentifier: Int
     public let index: Int
@@ -34,6 +59,7 @@ public enum SafariTabGroup: ModelModel {
             SafariTabGroupCreateCommand.descriptor,
             SafariTabGroupEnsureCommand.descriptor,
             SafariTabGroupListCommand.descriptor,
+            SafariTabGroupSidebarListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
@@ -182,6 +208,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case windowForProfileNotFound(String)
     case sidebarUnavailable
     case sidebarTabGroupNotFound(String)
+    case sidebarTabGroupIdentifierUnavailable(profileName: String, tabGroupName: String)
     case sidebarSelectedItemRenameUnavailable
     case unexpectedArgument(String)
 
@@ -233,6 +260,8 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
             "Safari's visible sidebar could not be opened or inspected. Grant Accessibility permission and retry."
         case .sidebarTabGroupNotFound(let tabGroupName):
             "Safari's sidebar does not contain saved tab group \(tabGroupName) in the expected profile window."
+        case .sidebarTabGroupIdentifierUnavailable(let profileName, let tabGroupName):
+            "Safari's sidebar row for saved tab group \(tabGroupName) in profile \(profileName) does not expose a stable identifier. No deletion was attempted."
         case .sidebarSelectedItemRenameUnavailable:
             "Safari did not expose the inline name field for the newly created tab group."
         case .unexpectedArgument(let argument):

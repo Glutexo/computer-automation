@@ -343,6 +343,52 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     }
 }
 
+@Test func safariSidebarAccessibilityBackendListsTabGroupsWithoutSelectingThem() async throws {
+    let application = testAXElement(94_900)
+    let window = testAXElement(94_901)
+    let outline = testAXElement(94_902)
+    let firstRow = testAXElement(94_903)
+    let firstCell = testAXElement(94_904)
+    let firstTitle = testAXElement(94_905)
+    let secondRow = testAXElement(94_906)
+    let secondCell = testAXElement(94_907)
+    let secondCellChild = testAXElement(94_908)
+    let secondTitle = testAXElement(94_909)
+    let decoyRow = testAXElement(94_910)
+    let decoyCell = testAXElement(94_911)
+    let decoyTitle = testAXElement(94_912)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+    fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
+    fake.setElements(kAXRowsAttribute, on: outline, to: [firstRow, secondRow, decoyRow])
+    fake.setElements(kAXChildrenAttribute, on: firstRow, to: [firstCell])
+    fake.setElements(kAXChildrenAttribute, on: secondRow, to: [secondCell])
+    fake.setElements(kAXChildrenAttribute, on: secondCell, to: [secondCellChild])
+    fake.setElements(kAXChildrenAttribute, on: decoyRow, to: [decoyCell])
+    fake.set(kAXTitleUIElementAttribute, on: firstCell, to: firstTitle)
+    fake.set(kAXTitleUIElementAttribute, on: secondCell, to: secondTitle)
+    fake.set(kAXTitleUIElementAttribute, on: decoyCell, to: decoyTitle)
+    fake.set(kAXValueAttribute, on: firstTitle, to: "Focus" as CFString)
+    fake.set(kAXValueAttribute, on: secondTitle, to: "Inbox" as CFString)
+    fake.set(kAXValueAttribute, on: decoyTitle, to: "History" as CFString)
+    fake.set(kAXIdentifierAttribute, on: firstCell, to: "SidebarLibraryItemTabGroup-42" as CFString)
+    fake.set(kAXIdentifierAttribute, on: secondCellChild, to: "SidebarLibraryItemTabGroup?TabGroup=84" as CFString)
+    fake.set(kAXIdentifierAttribute, on: decoyCell, to: "SidebarLibraryItemHistory" as CFString)
+
+    #expect(
+        try SafariSidebar.listTabGroups(accessibility: fake.backend()) == [
+            SafariSidebarTabGroupRecord(identifier: 42, name: "Focus"),
+            SafariSidebarTabGroupRecord(identifier: 84, name: "Inbox")
+        ]
+    )
+    #expect(fake.writtenAttributes.isEmpty)
+    #expect(fake.performedActions.isEmpty)
+    #expect(fake.activationCount == 1)
+}
+
 @Test func safariSidebarAccessibilityBackendRevealsAndSelectsIdentifierOrName() async throws {
     let application = testAXElement(95_000)
     let window = testAXElement(95_001)

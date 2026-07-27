@@ -1,5 +1,13 @@
 # Research Notes
 
+## 2026-07-27
+
+### Saved-group fallback can stay on the sidebar surface
+
+- Safari sidebar rows expose saved-group display names without activating each group; current rows usually expose the stable saved-group identifier through an `AXIdentifier` beginning with `SidebarLibraryItemTabGroup`.
+- Opening a brand-new requested-profile window provides an isolated sidebar inventory even when `SafariTabs.db` is protected. Listing and exact deletion do not require `GoToNextTabGroup` or any other group-cycling action.
+- A name-only delete is unsafe when the sidebar contains duplicates or withholds the target row's stable identifier. The fallback therefore treats both states as hard failures and verifies successful deletion by polling for disappearance of the exact identifier.
+
 ## 2026-07-24
 
 ### Empty saved groups can disappear after successful readback

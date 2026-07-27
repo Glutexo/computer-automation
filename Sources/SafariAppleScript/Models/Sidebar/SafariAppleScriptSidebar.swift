@@ -1,6 +1,16 @@
 import AppKit
 import AutomationFoundation
 
+public struct SafariAppleScriptSidebarTabGroupRecord: Equatable, Sendable {
+    public let identifier: Int?
+    public let name: String
+
+    public init(identifier: Int?, name: String) {
+        self.identifier = identifier
+        self.name = name
+    }
+}
+
 public enum SafariAppleScriptSidebar: ModelModel {
     private static let renameSelectedTabGroupMenuItemIdentifier = "RenameTabGroupMenuItem"
 
@@ -28,6 +38,76 @@ public enum SafariAppleScriptSidebar: ModelModel {
         """
 
         _ = try executor.execute(script: script)
+    }
+
+    public static func listTabGroups(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> [SafariAppleScriptSidebarTabGroupRecord] {
+        let script = """
+        \(sidebarIdentifierHandlerScript)
+        tell application "Safari" to activate
+        delay 0.1
+        \(sidebarBootstrapScript)
+                set output to {}
+                repeat with currentRow in rows of outlineItem
+                    try
+                        set currentCell to UI element 1 of currentRow
+                        set titleElement to value of attribute "AXTitleUIElement" of currentCell
+                        set currentTitle to value of titleElement
+                        set currentIdentifier to ""
+                        try
+                            set currentIdentifier to value of attribute "AXIdentifier" of currentCell
+                            if currentIdentifier is missing value then set currentIdentifier to ""
+                        end try
+                        if currentIdentifier is "" then
+                            try
+                                set currentIdentifier to value of attribute "AXIdentifier" of UI element 1 of currentCell
+                                if currentIdentifier is missing value then set currentIdentifier to ""
+                            end try
+                        end if
+                        if currentIdentifier starts with "SidebarLibraryItemTabGroup" then
+                            set parsedIdentifier to sidebarTabGroupIdentifier(currentIdentifier)
+                            set identifierText to ""
+                            if parsedIdentifier is not missing value then set identifierText to parsedIdentifier as text
+                            copy {identifierText, currentTitle} to end of output
+                        end if
+                    end try
+                end repeat
+                return output
+            end tell
+        end tell
+        """
+
+        return parseTabGroupList(try executor.execute(script: script))
+    }
+
+    static func parseTabGroupList(
+        _ descriptor: NSAppleEventDescriptor?
+    ) -> [SafariAppleScriptSidebarTabGroupRecord] {
+        guard
+            let descriptor,
+            descriptor.descriptorType == typeAEList,
+            descriptor.numberOfItems > 0
+        else {
+            return []
+        }
+
+        return (1...descriptor.numberOfItems).compactMap { index in
+            guard
+                let item = descriptor.atIndex(index),
+                item.descriptorType == typeAEList,
+                item.numberOfItems >= 2,
+                let name = item.atIndex(2)?.stringValue
+            else {
+                return nil
+            }
+
+            let rawIdentifier = item.atIndex(1)?.stringValue ?? ""
+            return SafariAppleScriptSidebarTabGroupRecord(
+                identifier: Int(rawIdentifier),
+                name: name
+            )
+        }
     }
 
     public static func selectTabGroup(

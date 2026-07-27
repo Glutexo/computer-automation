@@ -103,6 +103,7 @@ func safariWindowErrorsHaveHumanReadableDescriptions(error: SafariWindowCommandE
     .windowForProfileNotFound("Twisto"),
     .sidebarUnavailable,
     .sidebarTabGroupNotFound("Focus"),
+    .sidebarTabGroupIdentifierUnavailable(profileName: "Twisto", tabGroupName: "Focus"),
     .sidebarSelectedItemRenameUnavailable,
     .unexpectedArgument("extra")
 ])

@@ -17,6 +17,7 @@ Minimal Swift application for computer automation experiments.
   - delete uses the selected group's context menu item `DeleteTabGroupMenuItem`
   - standalone rename is currently not exposed because the visible Safari sidebar rename affordance is not available through a stable accessibility trigger
   - replacing a group by creating a new one and deleting the old one is documented as a possible future workaround, but it is not implemented because it would change the stable group identifier and may lose Safari metadata
+  - when database-backed inventory is unavailable, an explicit sidebar fallback lists or exactly deletes groups in a brand-new operation-owned profile window without cycling through unrelated groups
 - Module and command models expose metadata for CLI tab completion.
 
 ## Current app
@@ -36,7 +37,7 @@ Build the executable that an MCP client will launch:
 swift build -c release --product computer-automation-mcp
 ```
 
-The server is read-only by default. It omits every command whose metadata says it can change state, including `execute-tab-javascript`, because arbitrary page JavaScript is not guaranteed to be read-only even though the command is a CRUD read operation.
+The server is read-only by default. It omits every command whose metadata says it can change state, including `execute-tab-javascript`, because arbitrary page JavaScript is not guaranteed to be read-only even though the command is a CRUD read operation. It also omits `sidebar-tab-groups`, whose fallback inventory temporarily opens and closes a profile window.
 
 ```bash
 swift run computer-automation-mcp
@@ -85,10 +86,13 @@ swift run computer-automation safari create-tab-group 1 Inbox
 swift run computer-automation safari ensure-tab-group Twisto Inbox
 swift run computer-automation --json safari ensure-tab-group Twisto Inbox
 swift run computer-automation safari tab-groups
+swift run computer-automation safari sidebar-tab-groups Twisto
+swift run computer-automation safari sidebar-tab-groups Twisto Inbox
 swift run computer-automation safari find-tab-group Twisto Focus
 swift run computer-automation safari resolve-tab-group Twisto Focus
 swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
+swift run computer-automation safari delete-tab-group --profile Twisto --name Inbox
 swift run computer-automation safari ensure-tab-list-urls --window-index 1 https://example.com https://openai.com
 swift run computer-automation safari ensure-tab-list-urls --window-id 42 https://example.com https://openai.com
 swift run computer-automation safari ensure-tab-list-urls --tab-group-profile Twisto --tab-group-name Inbox https://example.com
@@ -143,6 +147,10 @@ windowId|windowIndex|tabIndex|url|title
 `safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`. Safari can expose the required File-menu action as briefly disabled while a new window is becoming ready, so the command waits for that exact structural item to become enabled before pressing it. A persistently disabled action fails with an actionable error instead of being mistaken for a successful request followed by a missing database mutation.
 
 Saved tab-group outputs report the Safari profile display name. Safari may store default-profile groups with an empty profile field internally, but the CLI maps that storage detail back to the default profile name.
+
+`safari sidebar-tab-groups <profile> [name]` is the explicit fallback when `SafariTabs.db` cannot be read. It opens a brand-new window for the requested profile, reads saved-group rows from that window's sidebar without activating any group, optionally filters by one exact display name, and closes the operation window before returning. Because the fallback temporarily changes Safari UI state, it is marked non-read-only for MCP publication even though its domain operation is a read. Rows whose current Safari surface exposes no stable identifier report `null` in JSON and an empty first text column.
+
+`safari delete-tab-group --profile <profile> --name <name>` performs the matching sidebar-only delete flow. It requires exactly one exact-name row and a stable sidebar identifier, selects only that row, confirms Safari's destructive sheet, verifies through sidebar readback that the identifier disappeared, and closes its operation-owned window. Missing, ambiguous, unidentified, or unavailable rows fail closed. The original identifier form remains available for database-backed deletion.
 
 `safari delete-tab-group <identifier>` deletes a saved Safari tab group and verifies through readback that the group disappeared before returning success.
 

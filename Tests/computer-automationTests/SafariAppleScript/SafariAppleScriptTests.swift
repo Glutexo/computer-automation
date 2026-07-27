@@ -524,3 +524,34 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(NSAppleScript(source: script)?.compileAndReturnError(&compileError) == true)
     #expect(compileError == nil)
 }
+
+@Test func safariAppleScriptSidebarListsTabGroupsWithoutCyclingOrSelecting() async throws {
+    let list = NSAppleEventDescriptor.list()
+    let identified = NSAppleEventDescriptor.list()
+    identified.insert(NSAppleEventDescriptor(string: "57189"), at: 1)
+    identified.insert(NSAppleEventDescriptor(string: "Focus"), at: 2)
+    let unidentified = NSAppleEventDescriptor.list()
+    unidentified.insert(NSAppleEventDescriptor(string: ""), at: 1)
+    unidentified.insert(NSAppleEventDescriptor(string: "Inbox"), at: 2)
+    list.insert(identified, at: 1)
+    list.insert(unidentified, at: 2)
+    let executor = MockAppleScriptExecutor(results: [.descriptor(list)])
+
+    #expect(
+        try SafariAppleScriptSidebar.listTabGroups(executor: executor) == [
+            SafariAppleScriptSidebarTabGroupRecord(identifier: 57189, name: "Focus"),
+            SafariAppleScriptSidebarTabGroupRecord(identifier: nil, name: "Inbox")
+        ]
+    )
+
+    let script = try #require(executor.executedScripts.first)
+    #expect(script.contains("repeat with currentRow in rows of outlineItem"))
+    #expect(script.contains("sidebarTabGroupIdentifier(currentIdentifier)"))
+    #expect(!script.contains("GoToNextTabGroup"))
+    #expect(!script.contains("AXSelectedRows"))
+    #expect(!script.contains("AXSelectedCells"))
+
+    var compileError: NSDictionary?
+    #expect(NSAppleScript(source: script)?.compileAndReturnError(&compileError) == true)
+    #expect(compileError == nil)
+}

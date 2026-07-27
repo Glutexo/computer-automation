@@ -24,6 +24,98 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(output == expected)
 }
 
+@Test func safariTabGroupSidebarListCommandFormatsAndFiltersExactRows() async throws {
+    let groups = [
+        SafariTabGroupSidebarRecord(identifier: 10, profileName: "Twisto", name: "Focus"),
+        SafariTabGroupSidebarRecord(identifier: nil, profileName: "Twisto", name: "Inbox"),
+        SafariTabGroupSidebarRecord(identifier: 11, profileName: "Twisto", name: "Focus later")
+    ]
+    let command = SafariTabGroupSidebarListCommand { profileName in
+        #expect(profileName == "Twisto")
+        return groups
+    }
+
+    #expect(
+        try command.execute(arguments: ["Twisto"]) ==
+        "10|Twisto|Focus\n|Twisto|Inbox\n11|Twisto|Focus later"
+    )
+    #expect(try command.execute(arguments: ["Twisto", "Focus"]) == "10|Twisto|Focus")
+
+    let object = try jsonObject(command.executeJSON(arguments: ["Twisto", "Inbox"]))
+    let tabGroups = try #require(object["tabGroups"] as? [[String: Any]])
+    #expect(object["profileName"] as? String == "Twisto")
+    #expect(object["name"] as? String == "Inbox")
+    #expect(tabGroups.count == 1)
+    #expect(tabGroups[0]["identifier"] is NSNull)
+    #expect(tabGroups[0]["profileName"] as? String == "Twisto")
+    #expect(tabGroups[0]["name"] as? String == "Inbox")
+}
+
+@Test func safariTabGroupSidebarListCommandRejectsInvalidArguments() async throws {
+    let command = SafariTabGroupSidebarListCommand { _ in
+        Issue.record("listTabGroups should not be called")
+        return []
+    }
+
+    #expect(throws: SafariTabGroupCommandError.missingProfileName) {
+        try command.execute(arguments: [])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyProfileName) {
+        try command.execute(arguments: [""])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyTabGroupName) {
+        try command.execute(arguments: ["Twisto", ""])
+    }
+    #expect(throws: SafariTabGroupCommandError.unexpectedArgument("extra")) {
+        try command.execute(arguments: ["Twisto", "Focus", "extra"])
+    }
+}
+
+@Test func safariTabGroupSidebarAccessClosesItsOperationWindowOnSuccessAndFailure() async throws {
+    let executor = MockAppleScriptExecutor()
+    let window = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    var openedProfiles: [String] = []
+    var closedIdentifiers: [Int] = []
+
+    let result: String = try SafariTabGroupSidebarAccess.withNewWindowForProfile(
+        profileName: "Twisto",
+        executor: executor,
+        listWindows: { [window] },
+        openWindow: { profileName, _, listWindows in
+            openedProfiles.append(profileName)
+            let listedWindows = try listWindows()
+            #expect(listedWindows == [window])
+            return window
+        },
+        closeWindow: { identifier, _ in closedIdentifiers.append(identifier) },
+        operation: { "listed" }
+    )
+
+    #expect(result == "listed")
+    #expect(openedProfiles == ["Twisto"])
+    #expect(closedIdentifiers == [42])
+
+    #expect(throws: SafariTabGroupCommandError.sidebarUnavailable) {
+        try SafariTabGroupSidebarAccess.withNewWindowForProfile(
+            profileName: "Twisto",
+            executor: executor,
+            listWindows: { [window] },
+            openWindow: { _, _, _ in window },
+            closeWindow: { identifier, _ in closedIdentifiers.append(identifier) },
+            operation: { throw SafariTabGroupCommandError.sidebarUnavailable }
+        ) as String
+    }
+    #expect(closedIdentifiers == [42, 42])
+}
+
 @Test func safariTabGroupListCommandPropagatesFailure() async throws {
     let command = SafariTabGroupListCommand(
         listTabGroups: { throw SafariTabGroupCommandError.queryPreparationFailed }
@@ -1175,6 +1267,153 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("x")) {
         try deleteCommand.execute(arguments: ["x"])
     }
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupName) {
+        try deleteCommand.execute(arguments: ["--profile", "Twisto"])
+    }
+    #expect(throws: SafariTabGroupCommandError.missingProfileName) {
+        try deleteCommand.execute(arguments: ["--profile", "--name", "Focus"])
+    }
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupName) {
+        try deleteCommand.execute(arguments: ["--name", "--profile", "Twisto"])
+    }
+    #expect(throws: SafariTabGroupCommandError.missingProfileName) {
+        try deleteCommand.execute(arguments: ["--name", "Focus"])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyProfileName) {
+        try deleteCommand.execute(arguments: ["--profile=", "--name=Focus"])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyTabGroupName) {
+        try deleteCommand.execute(arguments: ["--profile=Twisto", "--name="])
+    }
+    #expect(throws: SafariTabGroupCommandError.unexpectedArgument("1000")) {
+        try deleteCommand.execute(arguments: ["1000", "--profile", "Twisto", "--name", "Focus"])
+    }
+}
+
+@Test func safariTabGroupDeleteCommandUsesSidebarProfileAndNameAddress() async throws {
+    var requestedAddress: (String, String)?
+    let expected = SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox")
+    let command = SafariTabGroupDeleteCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { Issue.record("listTabGroups should not be called"); return [] },
+        listWindows: { Issue.record("listWindows should not be called"); return [] },
+        deleteSidebarTabGroup: { profileName, tabGroupName in
+            requestedAddress = (profileName, tabGroupName)
+            return expected
+        },
+        sleep: { _ in }
+    )
+
+    #expect(
+        try command.execute(arguments: ["--name=Inbox", "--profile", "Twisto"]) ==
+        "1000|Twisto|Inbox"
+    )
+    #expect(requestedAddress?.0 == "Twisto")
+    #expect(requestedAddress?.1 == "Inbox")
+}
+
+@Test func safariTabGroupSidebarAccessDeletesOneExactNamedRowAndVerifiesReadback() async throws {
+    let executor = MockAppleScriptExecutor()
+    let window = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    var rows = [
+        SafariSidebarTabGroupRecord(identifier: 1000, name: "Inbox"),
+        SafariSidebarTabGroupRecord(identifier: 1001, name: "Focus")
+    ]
+    var selected: (Int, String)?
+    var closedWindowIdentifier: Int?
+
+    let deleted = try SafariTabGroupSidebarAccess.deleteTabGroup(
+        profileName: "Twisto",
+        named: "Inbox",
+        executor: executor,
+        listWindows: { [window] },
+        openWindow: { profileName, _, _ in
+            #expect(profileName == "Twisto")
+            return window
+        },
+        closeWindow: { identifier, _ in closedWindowIdentifier = identifier },
+        listSidebarTabGroups: { _ in rows },
+        selectTabGroup: { identifier, name, _ in selected = (identifier, name) },
+        deleteSelectedTabGroup: { _ in
+            rows.removeAll { $0.identifier == 1000 }
+        },
+        sleep: { _ in },
+        maxAttempts: 1
+    )
+
+    #expect(deleted == SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox"))
+    #expect(selected?.0 == 1000)
+    #expect(selected?.1 == "Inbox")
+    #expect(closedWindowIdentifier == 42)
+    #expect(rows == [SafariSidebarTabGroupRecord(identifier: 1001, name: "Focus")])
+}
+
+@Test func safariTabGroupSidebarAccessFailsClosedForAmbiguousOrUnidentifiedRows() async throws {
+    let executor = MockAppleScriptExecutor()
+    let window = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        isPrivate: false,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: nil,
+        tabGroupName: nil,
+        name: "Twisto — Start Page"
+    )
+    var rows = [
+        SafariSidebarTabGroupRecord(identifier: 1000, name: "Inbox"),
+        SafariSidebarTabGroupRecord(identifier: 1001, name: "Inbox")
+    ]
+    var closeCount = 0
+    var selectCount = 0
+    var deleteCount = 0
+
+    func delete() throws -> SafariTabGroupRecord {
+        try SafariTabGroupSidebarAccess.deleteTabGroup(
+            profileName: "Twisto",
+            named: "Inbox",
+            executor: executor,
+            listWindows: { [window] },
+            openWindow: { _, _, _ in window },
+            closeWindow: { _, _ in closeCount += 1 },
+            listSidebarTabGroups: { _ in rows },
+            selectTabGroup: { _, _, _ in selectCount += 1 },
+            deleteSelectedTabGroup: { _ in deleteCount += 1 },
+            sleep: { _ in },
+            maxAttempts: 1
+        )
+    }
+
+    #expect(
+        throws: SafariTabGroupCommandError.tabGroupLookupAmbiguous(
+            profileName: "Twisto",
+            tabGroupName: "Inbox",
+            count: 2
+        )
+    ) {
+        try delete()
+    }
+
+    rows = [SafariSidebarTabGroupRecord(identifier: nil, name: "Inbox")]
+    #expect(
+        throws: SafariTabGroupCommandError.sidebarTabGroupIdentifierUnavailable(
+            profileName: "Twisto",
+            tabGroupName: "Inbox"
+        )
+    ) {
+        try delete()
+    }
+
+    #expect(closeCount == 2)
+    #expect(selectCount == 0)
+    #expect(deleteCount == 0)
 }
 
 @Test func safariTabGroupDeleteCommandFallsBackToSingleUnscopedWindow() async throws {

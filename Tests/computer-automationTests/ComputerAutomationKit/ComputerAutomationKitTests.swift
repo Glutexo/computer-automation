@@ -180,8 +180,15 @@ import SQLite3
     #expect(tabGroupTabs[0].isRequired)
 
     let deleteTabGroup = SafariTabGroupDeleteCommand.descriptor.arguments
-    #expect(deleteTabGroup.count == 1)
+    #expect(deleteTabGroup.count == 3)
     #expect(deleteTabGroup[0].name == "tab-group-identifier")
+    #expect(!deleteTabGroup[0].isRequired)
+    #expect(deleteTabGroup[1].name == "profile")
+    #expect(deleteTabGroup[1].kind == .option)
+    #expect(deleteTabGroup[1].valueName == "profile")
+    #expect(deleteTabGroup[2].name == "name")
+    #expect(deleteTabGroup[2].kind == .option)
+    #expect(deleteTabGroup[2].valueName == "name")
 }
 
 @Test func cliRejectsMissingModule() async throws {
@@ -288,6 +295,10 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     (
         ["safari", "execute-tab-javascript", "--help"],
         "Usage: computer-automation safari execute-tab-javascript <window-id> <tab-index> (<javascript> | --stdin | --file <path>)"
+    ),
+    (
+        ["safari", "delete-tab-group", "--help"],
+        "Usage: computer-automation safari delete-tab-group (<tab-group-identifier> | --profile <profile> --name <name>)"
     )
 ])
 func cliRendersSafariCommandUsageWithValuesAndAlternatives(

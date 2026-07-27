@@ -58,6 +58,7 @@ flowchart TD
     TabGroupCreate["create-tab-group command"]
     TabGroupEnsure["ensure-tab-group command"]
     TabGroups["tab-groups command"]
+    TabGroupSidebarList["sidebar-tab-groups command"]
     TabGroupFind["find-tab-group command"]
     TabGroupResolve["resolve-tab-group command"]
     TabGroupDelete["delete-tab-group command"]
@@ -137,6 +138,7 @@ flowchart TD
     SafariTabGroup --> TabGroupCreate
     SafariTabGroup --> TabGroupEnsure
     SafariTabGroup --> TabGroups
+    SafariTabGroup --> TabGroupSidebarList
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
     SafariTabGroup --> TabGroupDelete
@@ -163,6 +165,7 @@ flowchart TD
     TabGroupCreate --> SafariFileMenu
     TabGroupCreate --> SafariSidebar
     TabGroupDelete --> SafariSidebar
+    TabGroupSidebarList --> SafariSidebar
     SafariSidebar --> ScriptSidebar
     SafariTab --> ScriptTab
 ```
@@ -187,6 +190,7 @@ flowchart TD
   - File-menu action `NewTabGroupWithTabsMenuItem` as the create trigger
   - sidebar context-menu action `DeleteTabGroupMenuItem` for delete
   - the sidebar inline text field for post-create naming
+- When database-backed group inventory is unavailable, `sidebar-tab-groups` opens a new operation-owned profile window, inventories exact sidebar rows without selecting them, and closes that window. The profile/name delete address uses the same isolated sidebar surface, requires one stable row identifier, and fails closed rather than cycling through unrelated groups.
 - Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.
 - Replacing a tab group by creating a new group and deleting the old group is a possible future workaround, not a rename implementation, because it changes identity and can lose Safari-owned metadata.
 - Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
