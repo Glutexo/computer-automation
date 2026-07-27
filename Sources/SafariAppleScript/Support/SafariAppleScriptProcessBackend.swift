@@ -3,15 +3,16 @@ import ScriptingBridge
 
 struct SafariAppleScriptProcessBackend {
     let listWindows: (pid_t) throws -> [SafariAppleScriptWindowRecord]
-    let listTabs: (pid_t) throws -> [SafariAppleScriptTabRecord]
+    let listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord]
 
     static var live: SafariAppleScriptProcessBackend {
         SafariAppleScriptProcessBackend(
             listWindows: { processIdentifier in
                 try SafariScriptingBridgeSession(processIdentifier: processIdentifier).windows()
             },
-            listTabs: { processIdentifier in
-                try SafariScriptingBridgeSession(processIdentifier: processIdentifier).tabs()
+            listTabs: { processIdentifier, windowIdentifiers in
+                try SafariScriptingBridgeSession(processIdentifier: processIdentifier)
+                    .tabs(windowIdentifiers: windowIdentifiers)
             }
         )
     }
@@ -56,12 +57,15 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
         return try windows.map(windowRecord)
     }
 
-    func tabs() throws -> [SafariAppleScriptTabRecord] {
+    func tabs(windowIdentifiers: Set<Int>) throws -> [SafariAppleScriptTabRecord] {
         let windows = try elements(code: Code.windows, on: application)
         var records: [SafariAppleScriptTabRecord] = []
 
         for (windowOffset, window) in windows.enumerated() {
             let windowIdentifier = try requiredIntegerProperty(Code.identifier, on: window)
+            guard windowIdentifiers.contains(windowIdentifier) else {
+                continue
+            }
             let tabs = try elements(code: Code.tabs, on: window)
 
             for (tabOffset, tab) in tabs.enumerated() {

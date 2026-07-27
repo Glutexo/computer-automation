@@ -2,6 +2,12 @@
 
 ## 2026-07-27
 
+### Stable WindowServer inventory across macOS Spaces
+
+- Replaced title-based intersection with exact PID plus stable-window-id reconciliation between PID-targeted scripting records and opaque layer-zero WindowServer records.
+- Kept off-Space windows in the live inventory while rejecting transparent, hidden, and stale scripting objects before tab properties are read.
+- Restricted each PID-targeted tab read to the identifiers already confirmed by that same inventory, and moved URL-based find/resolve commands onto the same cross-process path.
+
 ### Explicit saved-group sidebar fallback without group cycling
 
 - Added an explicit `sidebar-tab-groups <profile> [name]` fallback that opens and closes a brand-new profile window, reads sidebar rows without selecting them, and preserves missing accessibility identifiers as data.

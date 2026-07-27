@@ -35,6 +35,7 @@ flowchart TD
     ScriptMenuItem["SafariAppleScriptMenuItem model"]
     SafariMenuBar["SafariApplicationMenuBar model"]
     SafariAccessibilityWindow["SafariAccessibilityWindow model"]
+    SafariWindowServerWindow["SafariWindowServerWindow model"]
     SafariSidebar["SafariSidebar model"]
     SafariMenu["SafariMenu model"]
     SafariFileMenu["SafariFileMenu model"]
@@ -111,6 +112,7 @@ flowchart TD
     SafariScript --> ScriptMenuItem
     SafariUI --> SafariMenuBar
     SafariUI --> SafariAccessibilityWindow
+    SafariUI --> SafariWindowServerWindow
     SafariUI --> SafariSidebar
     SafariUI --> SafariMenu
     SafariUI --> SafariFileMenu
@@ -159,6 +161,8 @@ flowchart TD
     WindowOpen --> SafariFileMenu
     WindowOpenPrivate --> SafariFileMenu
     WindowClose --> SafariAccessibilityWindow
+    Windows --> SafariWindowServerWindow
+    Tabs --> SafariWindowServerWindow
     WindowOpenTabGroup --> SafariFileMenu
     WindowOpenTabGroup --> SafariSidebar
     WindowSetTabGroup --> SafariSidebar
@@ -195,6 +199,7 @@ flowchart TD
 - Replacing a tab group by creating a new group and deleting the old group is a possible future workaround, not a rename implementation, because it changes identity and can lose Safari-owned metadata.
 - Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
 - Native Safari UI automation receives application lookup, Accessibility attribute reads and writes, actions, and polling through the shared injectable `SafariAccessibilityBackend`; production and AppleScript-fallback transport selection must be explicit rather than inferred from an executor's runtime type.
+- Cross-process window and tab reads reconcile PID-targeted scripting records with opaque layer-zero WindowServer records by stable window id. This inventory covers windows on other macOS Spaces, rejects hidden or stale scripting objects before reading their tabs, and does not depend on titles or Accessibility's current-Space window subset.
 - Commands are the next architectural level inside a module.
 - Each command belongs to a model and owns its own implementation directory.
 - A `find-*` command is a read command that returns a collection of matches; a `resolve-*` command is a read command that shares the lookup semantics but requires exactly one match and fails on none or ambiguity.

@@ -303,12 +303,14 @@ import SQLite3
         )
     ]
     var queriedProcesses: [pid_t] = []
+    var requestedWindowIdentifiers: [pid_t: Set<Int>] = [:]
 
     let tabs = try SafariTab.listAcrossRunningProcesses(
         isRunning: { true },
         discoverWindows: { windows },
-        listTabs: { processIdentifier in
+        listTabs: { processIdentifier, windowIdentifiers in
             queriedProcesses.append(processIdentifier)
+            requestedWindowIdentifiers[processIdentifier] = windowIdentifiers
             if processIdentifier == 4317 {
                 return [
                     SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Example"),
@@ -322,11 +324,56 @@ import SQLite3
     )
 
     #expect(queriedProcesses == [4317, 9000])
+    #expect(requestedWindowIdentifiers == [4317: [42], 9000: [42]])
     #expect(
         tabs == [
             SafariTabRecord(processId: 4317, windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Example"),
             SafariTabRecord(processId: 9000, windowIdentifier: 42, windowIndex: 2, index: 1, url: "https://swift.org", title: "Swift")
         ]
+    )
+}
+
+@Test func safariTabAutomationListingPrefersCrossProcessInventory() async throws {
+    let expected = [
+        SafariTabRecord(
+            processId: 43782,
+            windowIdentifier: 42,
+            windowIndex: 1,
+            index: 1,
+            url: "https://example.com"
+        )
+    ]
+
+    #expect(
+        try SafariTab.listForAutomation(
+            executor: MockAppleScriptExecutor(),
+            listAcrossRunningProcesses: { expected },
+            listLegacy: { _ in
+                Issue.record("legacy list should not be called")
+                return []
+            }
+        ) == expected
+    )
+}
+
+@Test func safariTabAutomationListingFallsBackWithoutWindowServerInventory() async throws {
+    let expected = [
+        SafariTabRecord(
+            windowIdentifier: 42,
+            windowIndex: 1,
+            index: 1,
+            url: "https://example.com"
+        )
+    ]
+
+    #expect(
+        try SafariTab.listForAutomation(
+            executor: MockAppleScriptExecutor(),
+            listAcrossRunningProcesses: {
+                throw SafariUserInterfaceError.windowListUnavailable
+            },
+            listLegacy: { _ in expected }
+        ) == expected
     )
 }
 

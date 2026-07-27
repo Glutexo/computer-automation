@@ -2,6 +2,12 @@
 
 ## 2026-07-27
 
+### Accessibility titles are not a complete live-window identity
+
+- Issues #57 and #58 showed that `AXWindows` can expose only the active-Space subset while PID-targeted scripting sees the complete process inventory. Filtering every scripting record by AX title therefore drops real off-Space windows and lets `windows` and `tabs` disagree.
+- Title multiplicity is also unsafe: a hidden saved-group scripting object can share a title with a real window, survive the title-count filter, and become visible when the tab reader later asks it for tab elements.
+- The stable Safari scripting window id is the corresponding WindowServer window number. Opaque layer-zero WindowServer records provide PID plus id across Spaces without requiring window titles; transparent hidden records are excluded, and tab reads can be constrained to only those confirmed ids.
+
 ### Saved-group fallback can stay on the sidebar surface
 
 - Safari sidebar rows expose saved-group display names without activating each group; current rows usually expose the stable saved-group identifier through an `AXIdentifier` beginning with `SidebarLibraryItemTabGroup`.

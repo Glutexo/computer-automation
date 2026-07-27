@@ -718,6 +718,53 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     )
 }
 
+@Test func safariWindowServerListsOpaqueSafariBrowserWindowsAcrossSpaces() async throws {
+    let records = SafariWindowServerWindow.records(
+        safariProcessIdentifiers: [4317, 43782],
+        windowInfo: [
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 4317),
+                kCGWindowNumber as String: NSNumber(value: 42),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowAlpha as String: NSNumber(value: 1),
+                kCGWindowIsOnscreen as String: NSNumber(value: false)
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 43782),
+                kCGWindowNumber as String: NSNumber(value: 43),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowAlpha as String: NSNumber(value: 1),
+                kCGWindowIsOnscreen as String: NSNumber(value: true)
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 4317),
+                kCGWindowNumber as String: NSNumber(value: 44),
+                kCGWindowLayer as String: NSNumber(value: 8),
+                kCGWindowAlpha as String: NSNumber(value: 1)
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 4317),
+                kCGWindowNumber as String: NSNumber(value: 45),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowAlpha as String: NSNumber(value: 0)
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 9000),
+                kCGWindowNumber as String: NSNumber(value: 46),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowAlpha as String: NSNumber(value: 1)
+            ]
+        ]
+    )
+
+    #expect(
+        records == [
+            SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 42),
+            SafariWindowServerWindowRecord(processIdentifier: 43782, windowIdentifier: 43)
+        ]
+    )
+}
+
 @Test func safariSidebarMatchesWholeTabGroupIdentifierTokens() async throws {
     #expect(SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup?TabGroup=100", matchesTabGroupIdentifier: 100))
     #expect(SafariSidebar.sidebarIdentifier("SidebarLibraryItemTabGroup-42-profile-7", matchesTabGroupIdentifier: 42))

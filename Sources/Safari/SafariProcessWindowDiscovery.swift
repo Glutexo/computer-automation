@@ -9,28 +9,29 @@ struct SafariProcessWindowRecord: Equatable, Sendable {
 
 enum SafariProcessWindowDiscovery {
     static func list(
-        listAccessibilityWindows: () throws -> [SafariAccessibilityWindowRecord] = SafariAccessibilityWindow.listWindows,
+        listWindowServerWindows: () throws -> [SafariWindowServerWindowRecord] = SafariWindowServerWindow.listWindows,
         listScriptWindows: (pid_t) throws -> [SafariAppleScriptWindowRecord] = { processIdentifier in
             try SafariAppleScriptWindow.list(processIdentifier: processIdentifier)
         }
     ) throws -> [SafariProcessWindowRecord] {
-        let accessibilityWindows = try listAccessibilityWindows()
+        let windowServerWindows = try listWindowServerWindows()
         var processOrder: [pid_t] = []
-        var windowNamesByProcess: [pid_t: [String]] = [:]
+        var windowIdentifiersByProcess: [pid_t: Set<Int>] = [:]
 
-        for window in accessibilityWindows {
-            if windowNamesByProcess[window.processIdentifier] == nil {
+        for window in windowServerWindows {
+            if windowIdentifiersByProcess[window.processIdentifier] == nil {
                 processOrder.append(window.processIdentifier)
             }
-            windowNamesByProcess[window.processIdentifier, default: []].append(window.name)
+            windowIdentifiersByProcess[window.processIdentifier, default: []]
+                .insert(window.windowIdentifier)
         }
 
         return try processOrder.flatMap { processIdentifier in
-            let windowNames = windowNamesByProcess[processIdentifier] ?? []
+            let liveWindowIdentifiers = windowIdentifiersByProcess[processIdentifier] ?? []
             let scriptedWindows = try listScriptWindows(processIdentifier)
-            let selectedWindows = selectAccessibilityWindows(
+            let selectedWindows = selectLiveWindows(
                 from: scriptedWindows,
-                windowNames: windowNames
+                windowIdentifiers: liveWindowIdentifiers
             )
 
             return selectedWindows.map {
@@ -39,24 +40,10 @@ enum SafariProcessWindowDiscovery {
         }
     }
 
-    static func selectAccessibilityWindows(
+    static func selectLiveWindows(
         from scriptedWindows: [SafariAppleScriptWindowRecord],
-        windowNames: [String]
+        windowIdentifiers: Set<Int>
     ) -> [SafariAppleScriptWindowRecord] {
-        guard !windowNames.isEmpty else {
-            return []
-        }
-
-        var remainingNameCounts = windowNames.reduce(into: [String: Int]()) {
-            $0[$1, default: 0] += 1
-        }
-
-        return scriptedWindows.filter { window in
-            guard let count = remainingNameCounts[window.name], count > 0 else {
-                return false
-            }
-            remainingNameCounts[window.name] = count - 1
-            return true
-        }
+        scriptedWindows.filter { windowIdentifiers.contains($0.identifier) }
     }
 }

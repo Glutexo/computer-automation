@@ -7,6 +7,7 @@ public enum SafariUserInterfaceModule: ModuleModel {
         models: [
             SafariApplicationMenuBar.descriptor,
             SafariAccessibilityWindow.descriptor,
+            SafariWindowServerWindow.descriptor,
             SafariSidebar.descriptor,
             SafariMenu.descriptor,
             SafariFileMenu.descriptor,

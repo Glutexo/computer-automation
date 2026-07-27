@@ -27,7 +27,7 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
         case .focusedWindowUnavailable:
             "The targeted Safari window could not be resolved through Accessibility. Grant Accessibility permission and retry."
         case .windowListUnavailable:
-            "Safari windows could not be inspected through Accessibility. Grant Accessibility permission and retry."
+            "Safari windows could not be inspected through the macOS window inventory. Retry the command."
         case .windowCloseButtonUnavailable:
             "Safari kept the targeted window visible and its Accessibility close button was unavailable. Close that exact window manually."
         case .windowCloseNotVerified:

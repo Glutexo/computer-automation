@@ -65,13 +65,13 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
-@Test func safariProcessWindowDiscoveryFiltersStaleScriptingWindowsByVisibleProcessTitles() async throws {
+@Test func safariProcessWindowDiscoveryFiltersScriptingWindowsByStableWindowServerIdentifiers() async throws {
     var queriedProcesses: [pid_t] = []
     let windows = try SafariProcessWindowDiscovery.list(
-        listAccessibilityWindows: {
+        listWindowServerWindows: {
             [
-                SafariAccessibilityWindowRecord(processIdentifier: 4317, name: "Glutexo"),
-                SafariAccessibilityWindowRecord(processIdentifier: 9000, name: "Twisto")
+                SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 3124),
+                SafariWindowServerWindowRecord(processIdentifier: 9000, windowIdentifier: 4000)
             ]
         },
         listScriptWindows: { processIdentifier in
@@ -101,13 +101,13 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
-@Test func safariProcessWindowDiscoveryPreservesCurrentTabNameWhileMatchingWindowTitle() async throws {
+@Test func safariProcessWindowDiscoveryPreservesCurrentTabNameWhileMatchingStableIdentifier() async throws {
     let windows = try SafariProcessWindowDiscovery.list(
-        listAccessibilityWindows: {
+        listWindowServerWindows: {
             [
-                SafariAccessibilityWindowRecord(
+                SafariWindowServerWindowRecord(
                     processIdentifier: 4317,
-                    name: "Twisto — Release Notes for Sprint Release S98"
+                    windowIdentifier: 30874
                 )
             ]
         },
@@ -159,7 +159,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
-@Test func safariWindowAutomationListingFallsBackWithoutAccessibility() async throws {
+@Test func safariWindowAutomationListingFallsBackWithoutWindowServerInventory() async throws {
     let expected = [
         SafariWindowRecord(
             identifier: 42,
@@ -180,10 +180,10 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
-@Test func safariProcessWindowDiscoveryReturnsNoWindowsForProcessesWithoutAXWindows() async throws {
+@Test func safariProcessWindowDiscoveryReturnsNoWindowsForProcessesWithoutWindowServerWindows() async throws {
     var queriedProcesses: [pid_t] = []
     let windows = try SafariProcessWindowDiscovery.list(
-        listAccessibilityWindows: { [] },
+        listWindowServerWindows: { [] },
         listScriptWindows: { processIdentifier in
             queriedProcesses.append(processIdentifier)
             return [SafariAppleScriptWindowRecord(identifier: 1658, name: "Stale")]
@@ -192,6 +192,26 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
 
     #expect(windows.isEmpty)
     #expect(queriedProcesses.isEmpty)
+}
+
+@Test func safariProcessWindowDiscoveryRejectsHiddenDuplicateTitleScriptingWindows() async throws {
+    let windows = try SafariProcessWindowDiscovery.list(
+        listWindowServerWindows: {
+            [
+                SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 51152),
+                SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 51215)
+            ]
+        },
+        listScriptWindows: { _ in
+            [
+                SafariAppleScriptWindowRecord(identifier: 51221, name: "Sprint — Jira"),
+                SafariAppleScriptWindowRecord(identifier: 51152, name: "Sprint — Jira"),
+                SafariAppleScriptWindowRecord(identifier: 51215, name: "Issue — Jira")
+            ]
+        }
+    )
+
+    #expect(windows.map(\.window.identifier) == [51152, 51215])
 }
 
 @Test func safariWindowOpenCommandOpensUnprofiledWindow() async throws {

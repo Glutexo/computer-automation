@@ -136,6 +136,7 @@ import SQLite3
     #expect(SafariUserInterfaceModule.descriptor.models == [
         SafariApplicationMenuBar.descriptor,
         SafariAccessibilityWindow.descriptor,
+        SafariWindowServerWindow.descriptor,
         SafariSidebar.descriptor,
         SafariMenu.descriptor,
         SafariFileMenu.descriptor,
@@ -191,6 +192,7 @@ import SQLite3
             [
                 "SafariApplicationMenuBar model",
                 "SafariAccessibilityWindow model",
+                "SafariWindowServerWindow model",
                 "SafariSidebar model",
                 "SafariMenu model",
                 "SafariFileMenu model",

@@ -80,13 +80,15 @@ import SQLite3
 @Test func safariAppleScriptProcessReadsTargetExactProcessIdentifier() async throws {
     var windowProcessIdentifier: pid_t?
     var tabProcessIdentifier: pid_t?
+    var requestedWindowIdentifiers: Set<Int>?
     let backend = SafariAppleScriptProcessBackend(
         listWindows: { processIdentifier in
             windowProcessIdentifier = processIdentifier
             return [SafariAppleScriptWindowRecord(identifier: 42, name: "Glutexo")]
         },
-        listTabs: { processIdentifier in
+        listTabs: { processIdentifier, windowIdentifiers in
             tabProcessIdentifier = processIdentifier
+            requestedWindowIdentifiers = windowIdentifiers
             return [
                 SafariAppleScriptTabRecord(
                     windowIdentifier: 42,
@@ -103,11 +105,16 @@ import SQLite3
         [SafariAppleScriptWindowRecord(identifier: 42, name: "Glutexo")]
     )
     #expect(
-        try SafariAppleScriptTab.list(processIdentifier: 4317, backend: backend) ==
+        try SafariAppleScriptTab.list(
+            processIdentifier: 4317,
+            windowIdentifiers: [42],
+            backend: backend
+        ) ==
         [SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com")]
     )
     #expect(windowProcessIdentifier == 4317)
     #expect(tabProcessIdentifier == 4317)
+    #expect(requestedWindowIdentifiers == [42])
 }
 
 @Test(arguments: [

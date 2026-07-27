@@ -1,6 +1,7 @@
 import AppKit
 import AutomationFoundation
 import SafariAppleScript
+import SafariUserInterface
 
 public struct SafariTabRecord: Equatable, Sendable, Encodable {
     public let processId: pid_t?
@@ -121,8 +122,11 @@ public enum SafariTab: ModelModel {
     static func listAcrossRunningProcesses(
         isRunning: () -> Bool = SafariApplication.isRunning,
         discoverWindows: () throws -> [SafariProcessWindowRecord] = { try SafariProcessWindowDiscovery.list() },
-        listTabs: (pid_t) throws -> [SafariAppleScriptTabRecord] = { processIdentifier in
-            try SafariAppleScriptTab.list(processIdentifier: processIdentifier)
+        listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord] = { processIdentifier, windowIdentifiers in
+            try SafariAppleScriptTab.list(
+                processIdentifier: processIdentifier,
+                windowIdentifiers: windowIdentifiers
+            )
         }
     ) throws -> [SafariTabRecord] {
         guard isRunning() else {
@@ -136,13 +140,16 @@ public enum SafariTab: ModelModel {
             }
         )
         var visitedProcesses: Set<pid_t> = []
+        let windowIdentifiersByProcess = Dictionary(grouping: windows, by: \.processIdentifier)
+            .mapValues { Set($0.map(\.window.identifier)) }
 
         return try windows.flatMap { window -> [SafariTabRecord] in
             guard visitedProcesses.insert(window.processIdentifier).inserted else {
                 return []
             }
 
-            return try listTabs(window.processIdentifier).compactMap { tab in
+            let windowIdentifiers = windowIdentifiersByProcess[window.processIdentifier] ?? []
+            return try listTabs(window.processIdentifier, windowIdentifiers).compactMap { tab in
                 let key = SafariProcessWindowKey(
                     processIdentifier: window.processIdentifier,
                     windowIdentifier: tab.windowIdentifier
@@ -160,6 +167,28 @@ public enum SafariTab: ModelModel {
                     title: tab.title
                 )
             }
+        }
+    }
+
+    static func listForAutomation(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> [SafariTabRecord] {
+        try listForAutomation(
+            executor: executor,
+            listAcrossRunningProcesses: { try listAcrossRunningProcesses() },
+            listLegacy: { try list(executor: $0) }
+        )
+    }
+
+    static func listForAutomation(
+        executor: SafariAppleScriptExecuting,
+        listAcrossRunningProcesses: () throws -> [SafariTabRecord],
+        listLegacy: (SafariAppleScriptExecuting) throws -> [SafariTabRecord]
+    ) throws -> [SafariTabRecord] {
+        do {
+            return try listAcrossRunningProcesses()
+        } catch SafariUserInterfaceError.windowListUnavailable {
+            return try listLegacy(executor)
         }
     }
 
@@ -184,10 +213,10 @@ public enum SafariTab: ModelModel {
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
         isRunning: () -> Bool = { SafariApplication.isRunning() },
         listTabs: (SafariAppleScriptExecuting) throws -> [SafariTabRecord] = { executor in
-            try SafariTab.list(executor: executor)
+            try SafariTab.listForAutomation(executor: executor)
         },
         listWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord] = { executor in
-            try SafariWindow.list(executor: executor)
+            try SafariWindow.listForAutomation(executor: executor)
         }
     ) throws -> [SafariTabMatchRecord] {
         guard isRunning() else {

@@ -17,11 +17,7 @@ public struct SafariTabListCommand: CommandModel, JSONCommandModel {
     public init() {
         self.executor = SafariAppleScriptExecutor()
         self.listTabs = { executor in
-            do {
-                return try SafariTab.listAcrossRunningProcesses()
-            } catch SafariUserInterfaceError.windowListUnavailable {
-                return try SafariTab.list(executor: executor)
-            }
+            try SafariTab.listForAutomation(executor: executor)
         }
     }
 
