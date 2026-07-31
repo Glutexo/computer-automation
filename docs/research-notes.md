@@ -1,5 +1,13 @@
 # Research Notes
 
+## 2026-07-31
+
+### Zero-tab Safari scripting objects are not closable windows
+
+- Issues #63 and #64 showed that closing a saved-tab-group window can leave its scripting object with the same stable id but zero tabs after the Accessibility window has disappeared.
+- A retained WindowServer record alone is insufficient during that transition; a zero scripting tab count is the decisive signal that the object must leave automation inventory.
+- Capturing only the owning process's focused Accessibility window still permits a focus-lag race. PID-targeted scripting focus narrows the capture to the requested process and stable id, while fresh target readback must cancel the close-button fallback once the target is gone.
+
 ## 2026-07-27
 
 ### Accessibility titles are not a complete live-window identity

@@ -25,6 +25,19 @@ public enum SafariAccessibilityWindow: ModelModel {
     ) throws {
         try closeFocusedWindow(
             processIdentifier: processIdentifier,
+            targetIsPresent: { true },
+            performClose: performClose
+        )
+    }
+
+    public static func closeFocusedWindow(
+        processIdentifier: pid_t? = nil,
+        targetIsPresent: () -> Bool,
+        performClose: () throws -> Void
+    ) throws {
+        try closeFocusedWindow(
+            processIdentifier: processIdentifier,
+            targetIsPresent: targetIsPresent,
             performClose: performClose,
             accessibility: .live
         )
@@ -60,6 +73,7 @@ public enum SafariAccessibilityWindow: ModelModel {
 
     static func closeFocusedWindow(
         processIdentifier: pid_t? = nil,
+        targetIsPresent: () -> Bool = { true },
         performClose: () throws -> Void,
         accessibility: SafariAccessibilityBackend
     ) throws {
@@ -74,6 +88,7 @@ public enum SafariAccessibilityWindow: ModelModel {
 
         try closeCapturedWindow(
             performClose: performClose,
+            targetIsPresent: targetIsPresent,
             isPresent: {
                 guard let windows = accessibility.readElements(
                     kAXWindowsAttribute,
@@ -102,6 +117,7 @@ public enum SafariAccessibilityWindow: ModelModel {
 
     static func closeCapturedWindow(
         performClose: () throws -> Void,
+        targetIsPresent: () -> Bool = { true },
         isPresent: () -> Bool,
         pressCloseButton: () -> Bool,
         sleep: (TimeInterval) -> Void = Thread.sleep,
@@ -110,12 +126,20 @@ public enum SafariAccessibilityWindow: ModelModel {
     ) throws {
         try performClose()
 
+        guard targetIsPresent() else {
+            return
+        }
+
         if waitUntilRemoved(
             isPresent: isPresent,
             sleep: sleep,
             maxAttempts: maxAttempts,
             interval: interval
         ) {
+            return
+        }
+
+        guard targetIsPresent() else {
             return
         }
 

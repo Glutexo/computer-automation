@@ -44,6 +44,8 @@ enum SafariProcessWindowDiscovery {
         from scriptedWindows: [SafariAppleScriptWindowRecord],
         windowIdentifiers: Set<Int>
     ) -> [SafariAppleScriptWindowRecord] {
-        scriptedWindows.filter { windowIdentifiers.contains($0.identifier) }
+        scriptedWindows.filter {
+            windowIdentifiers.contains($0.identifier) && $0.tabCount != 0
+        }
     }
 }

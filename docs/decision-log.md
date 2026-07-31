@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-07-31
+
+### Process-specific and ghost-safe Safari window closure
+
+- Added PID-targeted ScriptingBridge focus for stable window identifiers before Accessibility capture, instead of relying on Safari's bundle-level target when several profile processes are running.
+- Added scripting tab counts to the WindowServer reconciliation and excluded zero-tab scripting ghosts even when Safari temporarily retains their stable window ids.
+- Gated the Accessibility close-button fallback on fresh cross-process target readback so disappearance of the requested window cannot close the next focused user window.
+
 ## 2026-07-27
 
 ### Stable WindowServer inventory across macOS Spaces

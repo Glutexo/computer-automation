@@ -32,6 +32,7 @@ import SQLite3
         at: 2
     )
     windowDescriptor.insert(NSAppleEventDescriptor(string: "TSD-9773"), at: 3)
+    windowDescriptor.insert(NSAppleEventDescriptor(string: "4"), at: 4)
     listDescriptor.insert(windowDescriptor, at: 1)
     let executor = MockAppleScriptExecutor(results: [.descriptor(listDescriptor)])
 
@@ -40,11 +41,13 @@ import SQLite3
             SafariAppleScriptWindowRecord(
                 identifier: 30874,
                 name: "Twisto — Release Notes for Sprint Release S98",
-                currentTabName: "TSD-9773"
+                currentTabName: "TSD-9773",
+                tabCount: 4
             )
         ]
     )
     #expect(executor.executedScripts.first?.contains("name of current tab of currentWindow") == true)
+    #expect(executor.executedScripts.first?.contains("count of tabs of currentWindow") == true)
 }
 
 @Test func safariAppleScriptWindowParseWindowListRejectsInvalidOrEmptyDescriptors() async throws {
@@ -81,6 +84,7 @@ import SQLite3
     var windowProcessIdentifier: pid_t?
     var tabProcessIdentifier: pid_t?
     var requestedWindowIdentifiers: Set<Int>?
+    var focusedAddress: (pid_t, Int)?
     let backend = SafariAppleScriptProcessBackend(
         listWindows: { processIdentifier in
             windowProcessIdentifier = processIdentifier
@@ -97,6 +101,9 @@ import SQLite3
                     url: "https://example.com"
                 )
             ]
+        },
+        focusWindow: { processIdentifier, windowIdentifier in
+            focusedAddress = (processIdentifier, windowIdentifier)
         }
     )
 
@@ -113,6 +120,13 @@ import SQLite3
         [SafariAppleScriptTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com")]
     )
     #expect(windowProcessIdentifier == 4317)
+    try SafariAppleScriptWindow.focus(
+        windowIdentifier: 42,
+        processIdentifier: 4317,
+        backend: backend
+    )
+    #expect(focusedAddress?.0 == 4317)
+    #expect(focusedAddress?.1 == 42)
     #expect(tabProcessIdentifier == 4317)
     #expect(requestedWindowIdentifiers == [42])
 }

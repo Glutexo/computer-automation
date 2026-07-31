@@ -4,6 +4,17 @@ import ScriptingBridge
 struct SafariAppleScriptProcessBackend {
     let listWindows: (pid_t) throws -> [SafariAppleScriptWindowRecord]
     let listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord]
+    let focusWindow: (pid_t, Int) throws -> Void
+
+    init(
+        listWindows: @escaping (pid_t) throws -> [SafariAppleScriptWindowRecord],
+        listTabs: @escaping (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord],
+        focusWindow: @escaping (pid_t, Int) throws -> Void = { _, _ in }
+    ) {
+        self.listWindows = listWindows
+        self.listTabs = listTabs
+        self.focusWindow = focusWindow
+    }
 
     static var live: SafariAppleScriptProcessBackend {
         SafariAppleScriptProcessBackend(
@@ -13,6 +24,10 @@ struct SafariAppleScriptProcessBackend {
             listTabs: { processIdentifier, windowIdentifiers in
                 try SafariScriptingBridgeSession(processIdentifier: processIdentifier)
                     .tabs(windowIdentifiers: windowIdentifiers)
+            },
+            focusWindow: { processIdentifier, windowIdentifier in
+                try SafariScriptingBridgeSession(processIdentifier: processIdentifier)
+                    .focusWindow(windowIdentifier)
             }
         )
     }
@@ -26,6 +41,7 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
         static let tabs: DescType = 0x6254_6162 // bTab
         static let currentTab: AEKeyword = 0x6354_6162 // cTab
         static let identifier: AEKeyword = 0x4944_2020 // ID__
+        static let index: AEKeyword = 0x7069_6478 // pidx
         static let name: AEKeyword = 0x706E_616D // pnam
         static let url: AEKeyword = 0x7055_524C // pURL
     }
@@ -84,11 +100,34 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
         return records
     }
 
+    func focusWindow(_ windowIdentifier: Int) throws {
+        let windows = try elements(code: Code.windows, on: application)
+        var targetWindow: SBObject?
+
+        for window in windows where try requiredIntegerProperty(Code.identifier, on: window) == windowIdentifier {
+            targetWindow = window
+            break
+        }
+
+        guard let targetWindow else {
+            throw SafariAppleScriptError.executionFailed(
+                "Safari window \(windowIdentifier) is unavailable in the requested process."
+            )
+        }
+
+        lastError = nil
+        application.activate()
+        try throwLastErrorIfNeeded()
+        targetWindow.property(withCode: Code.index).setTo(1)
+        try throwLastErrorIfNeeded()
+    }
+
     private func windowRecord(_ window: SBObject) throws -> SafariAppleScriptWindowRecord {
         SafariAppleScriptWindowRecord(
             identifier: try requiredIntegerProperty(Code.identifier, on: window),
             name: optionalStringProperty(Code.name, on: window),
-            currentTabName: optionalCurrentTabName(on: window)
+            currentTabName: optionalCurrentTabName(on: window),
+            tabCount: try elements(code: Code.tabs, on: window).count
         )
     }
 

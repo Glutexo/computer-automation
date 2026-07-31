@@ -136,6 +136,33 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     )
 }
 
+@Test func safariProcessWindowDiscoveryRejectsZeroTabGhostWindows() async throws {
+    let windows = try SafariProcessWindowDiscovery.list(
+        listWindowServerWindows: {
+            [
+                SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 30874),
+                SafariWindowServerWindowRecord(processIdentifier: 4317, windowIdentifier: 30875)
+            ]
+        },
+        listScriptWindows: { _ in
+            [
+                SafariAppleScriptWindowRecord(
+                    identifier: 30874,
+                    name: "Focus — Untitled",
+                    tabCount: 0
+                ),
+                SafariAppleScriptWindowRecord(
+                    identifier: 30875,
+                    name: "Start Page",
+                    tabCount: 1
+                )
+            ]
+        }
+    )
+
+    #expect(windows.map(\.window.identifier) == [30875])
+}
+
 @Test func safariWindowAutomationListingPrefersCrossProcessInventory() async throws {
     let expected = [
         SafariWindowRecord(
@@ -1032,15 +1059,20 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
             Issue.record("closeFrontWindow should not be called")
             return "unexpected"
         },
-        focusWindow: { windowIdentifier, _ in
+        focusWindow: { _, _ in
+            Issue.record("legacy focusWindow should not be called")
+        },
+        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
             focusedWindowIdentifier = windowIdentifier
+            capturedProcessIdentifier = processIdentifier
         },
         closeWindowByIdentifier: { windowIdentifier, _ in
             closedWindowIdentifier = windowIdentifier
         },
-        closeFocusedWindow: { processIdentifier, performClose in
-            capturedProcessIdentifier = processIdentifier
+        closeFocusedWindowWithTargetReadback: { processIdentifier, targetIsPresent, performClose in
+            #expect(processIdentifier == 4317)
             try performClose()
+            #expect(!targetIsPresent())
             didVerifyClose = true
         },
         listWindows: { _ in

@@ -617,6 +617,24 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(didPressCloseButton)
 }
 
+@Test func safariAccessibilityWindowSkipsFallbackAfterTargetDisappears() async throws {
+    var didPressCloseButton = false
+
+    try SafariAccessibilityWindow.closeCapturedWindow(
+        performClose: {},
+        targetIsPresent: { false },
+        isPresent: { true },
+        pressCloseButton: {
+            didPressCloseButton = true
+            return true
+        },
+        sleep: { _ in },
+        maxAttempts: 1
+    )
+
+    #expect(!didPressCloseButton)
+}
+
 @Test func safariAccessibilityWindowReportsUnverifiedVisibleWindows() async throws {
     #expect(throws: SafariUserInterfaceError.windowCloseButtonUnavailable) {
         try SafariAccessibilityWindow.closeCapturedWindow(

@@ -5,11 +5,13 @@ public struct SafariAppleScriptWindowRecord: Equatable, Sendable {
     public let identifier: Int
     public let name: String
     public let currentTabName: String?
+    public let tabCount: Int?
 
-    public init(identifier: Int, name: String, currentTabName: String? = nil) {
+    public init(identifier: Int, name: String, currentTabName: String? = nil, tabCount: Int? = nil) {
         self.identifier = identifier
         self.name = name
         self.currentTabName = currentTabName
+        self.tabCount = tabCount
     }
 }
 
@@ -35,7 +37,7 @@ public enum SafariAppleScriptWindow: ModelModel {
                 try
                     set selectedTabName to name of current tab of currentWindow as string
                 end try
-                copy {(id of currentWindow as string), currentWindowName, selectedTabName} to end of output
+                copy {(id of currentWindow as string), currentWindowName, selectedTabName, (count of tabs of currentWindow as string)} to end of output
             end repeat
             return output
         end tell
@@ -56,6 +58,25 @@ public enum SafariAppleScriptWindow: ModelModel {
         backend: SafariAppleScriptProcessBackend
     ) throws -> [SafariAppleScriptWindowRecord] {
         try backend.listWindows(processIdentifier)
+    }
+
+    public static func focus(
+        windowIdentifier: Int,
+        processIdentifier: pid_t
+    ) throws {
+        try focus(
+            windowIdentifier: windowIdentifier,
+            processIdentifier: processIdentifier,
+            backend: .live
+        )
+    }
+
+    static func focus(
+        windowIdentifier: Int,
+        processIdentifier: pid_t,
+        backend: SafariAppleScriptProcessBackend
+    ) throws {
+        try backend.focusWindow(processIdentifier, windowIdentifier)
     }
 
     public static func openNewDocument(
@@ -172,11 +193,15 @@ public enum SafariAppleScriptWindow: ModelModel {
             {
                 let name = item.atIndex(2)?.stringValue ?? ""
                 let currentTabName = item.atIndex(3)?.stringValue ?? ""
+                let tabCount = item.numberOfItems >= 4
+                    ? item.atIndex(4)?.stringValue.flatMap(Int.init)
+                    : nil
                 records.append(
                     SafariAppleScriptWindowRecord(
                         identifier: identifier,
                         name: name,
-                        currentTabName: currentTabName.isEmpty ? nil : currentTabName
+                        currentTabName: currentTabName.isEmpty ? nil : currentTabName,
+                        tabCount: tabCount
                     )
                 )
             } else if let line = item.stringValue, let record = parseWindowLine(line) {
