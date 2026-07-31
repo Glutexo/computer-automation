@@ -313,6 +313,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 @Test func safariTabGroupEnsureCommandCreatesMissingGroupInProfileWindow() async throws {
     var openedProfileName: String?
     var focusedWindowIdentifiers: [Int] = []
+    var preparedWindowIdentifier: Int?
     var listWindowCallCount = 0
     let command = SafariTabGroupEnsureCommand(
         executor: MockAppleScriptExecutor(),
@@ -329,7 +330,11 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
         openWindow: { profileName, _ in openedProfileName = profileName },
+        prepareNewWindowForCreation: { window, _ in
+            preparedWindowIdentifier = window.identifier
+        },
         createTabGroup: { windowIdentifier, name in
+            #expect(preparedWindowIdentifier == windowIdentifier)
             #expect(windowIdentifier == 42)
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
@@ -342,6 +347,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(openedProfileName == "Twisto")
     #expect(focusedWindowIdentifiers == [42])
+    #expect(preparedWindowIdentifier == 42)
     #expect(object["status"] as? String == "created")
     #expect(tabGroup["identifier"] as? Int == 10)
     #expect(tabGroup["profileName"] as? String == "Twisto")
@@ -734,7 +740,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
 @Test func safariTabGroupCreateCommandCreatesAndRenamesGroupForWindowProfile() async throws {
     var focusedWindowIdentifier: Int?
-    var didCreateTabGroupFromCurrentTabs = false
+    var createdInProcess: pid_t?
     var renamedIdentifier: Int?
     var renamedSourceName: String?
     var renamedTargetName: String?
@@ -743,7 +749,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     let command = SafariTabGroupCreateCommand(
         executor: MockAppleScriptExecutor(),
         listWindows: {
-            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+            [SafariWindowRecord(processId: 43782, identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
         },
         listTabGroups: {
             pollCount += 1
@@ -761,8 +767,15 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
             ]
         },
-        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
-        createTabGroupFromCurrentTabs: { _ in didCreateTabGroupFromCurrentTabs = true },
+        focusWindow: { _, _ in Issue.record("legacy focus should not be called") },
+        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
+            focusedWindowIdentifier = windowIdentifier
+            #expect(processIdentifier == 43782)
+        },
+        createTabGroupFromCurrentTabs: { _ in Issue.record("legacy create should not be called") },
+        createTabGroupFromCurrentTabsInProcess: { processIdentifier, _ in
+            createdInProcess = processIdentifier
+        },
         renameTabGroup: { group, newName, _ in
             renamedIdentifier = group.identifier
             renamedSourceName = group.name
@@ -773,7 +786,7 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
 
     #expect(try command.execute(arguments: ["2", "Inbox"]) == "1001|Twisto|Inbox")
     #expect(focusedWindowIdentifier == 10)
-    #expect(didCreateTabGroupFromCurrentTabs)
+    #expect(createdInProcess == 43782)
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")

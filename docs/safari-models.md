@@ -149,7 +149,7 @@ flowchart TD
 - `open-tab-group-window` is another create operation for the browser window model.
 - Every window create command resolves the newly created stable window id and reports it as `window-id|<id>` in text output and `windowId` in JSON output.
 - `open-private-window` validates private state when persisted window metadata is available and closes a newly created normal window before failing.
-- `open-tab-group-window` opens a new profile window, focuses that exact stable id, selects the group, verifies the selected group and exact requested profile on that same window through cross-process readback, and closes only that operation-owned window on failure.
+- `open-tab-group-window` opens a new profile window, focuses that exact stable id in its owning Safari process, selects the group through that process's sidebar, verifies the selected group and exact requested profile on the same window through cross-process readback, and closes only that operation-owned window on failure.
 - `windows` is the read operation for the browser window model.
 - `set-window-tab-group` is the update operation for the browser window model.
 - `close-window` is the delete operation for the browser window model.
@@ -262,6 +262,7 @@ ORDER BY id;
 - `ensure-tab-group <profile> <name>`:
   - reuses exactly one existing saved group when the profile/name lookup is unambiguous
   - opens or focuses a non-private window for the requested profile when the group is missing
+  - replaces an untouched Start Page with `about:blank` in the operation-owned window so Safari enables its persistent with-tabs create action
   - delegates creation to the same create flow as `create-tab-group`
   - closes a newly opened profile window before failing when delegated creation fails
   - fails on ambiguous existing groups rather than creating another duplicate
@@ -327,9 +328,10 @@ ORDER BY id;
   - JSON output returns `context`, `addedURLs`, and `skippedURLs`
   - `--window-id` is preferred for writes because Safari window indexes can change after focus, open-window, and tab-group switching operations
 - `ensure-tab-list-urls --tab-group-profile <profile> --tab-group-name <name> <url>...` reconciles requested URLs against a saved-tab-group-backed tab list:
-  - first delegates to `ensure-tab-group` and preserves the resulting `created` or `reused` status in text and JSON output
-  - focuses or opens a compatible non-private Safari window
-  - selects the saved tab group in that window by its resolved saved group record before opening missing URLs
+  - when the group is missing, replaces the new operation window's Start Page with the first requested URL, opens the remaining missing URLs, and then delegates persistent group creation
+  - preserves the resulting `created` or `reused` status in text and JSON output
+  - for a reused group, opens a separate compatible non-private Safari window and selects the saved group there by its resolved record
+  - constrains focus, File-menu creation, and sidebar selection to the operation window's owning Safari process
   - uses the focused window's stable Safari window id for subsequent tab opens
   - existing stored tab URLs are skipped
   - missing URLs are opened as new tabs in requested order

@@ -107,11 +107,12 @@ private func configureMenu(
     fake: FakeSafariAccessibility,
     application: AXUIElement,
     menuBarItemIndex: Int = 3,
+    elementBase: Int32 = 91_000,
     items: [AXUIElement]
 ) -> AXUIElement {
-    let menuBar = testAXElement(91_000)
-    let menu = testAXElement(91_001)
-    let menuBarItems = (0..<menuBarItemIndex).map { testAXElement(91_010 + Int32($0)) }
+    let menuBar = testAXElement(elementBase)
+    let menu = testAXElement(elementBase + 1)
+    let menuBarItems = (0..<menuBarItemIndex).map { testAXElement(elementBase + 10 + Int32($0)) }
     let targetMenuBarItem = menuBarItems[menuBarItemIndex - 1]
 
     fake.setElements(kAXChildrenAttribute, on: application, to: [menuBar])
@@ -290,7 +291,43 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
             $0.action == kAXPressAction && sameElement($0.element, targetItem)
         }
     )
+    #expect(fake.performedActions.contains(where: { $0.action == kAXCancelAction }))
     #expect(fake.sleptIntervals == [0.05, 0.05])
+}
+
+@Test func safariFileMenuAccessibilityBackendTargetsOwningProcess() async throws {
+    let firstApplication = testAXElement(94_150)
+    let secondApplication = testAXElement(94_151)
+    let firstItem = testAXElement(94_152)
+    let secondItem = testAXElement(94_153)
+    let fake = FakeSafariAccessibility(applicationElements: [firstApplication, secondApplication])
+    configureMenu(
+        fake: fake,
+        application: firstApplication,
+        elementBase: 95_000,
+        items: [firstItem]
+    )
+    configureMenu(
+        fake: fake,
+        application: secondApplication,
+        elementBase: 96_000,
+        items: [secondItem]
+    )
+    for item in [firstItem, secondItem] {
+        fake.set(
+            kAXIdentifierAttribute,
+            on: item,
+            to: SafariFileMenu.createTabGroupFromCurrentTabsMenuItemIdentifier as CFString
+        )
+    }
+
+    try SafariFileMenu.createTabGroupFromCurrentTabs(
+        processIdentifier: 43782,
+        accessibility: fake.backend(processIdentifiers: [4317, 43782])
+    )
+
+    #expect(fake.performedActions.contains(where: { sameElement($0.element, secondItem) }))
+    #expect(!fake.performedActions.contains(where: { sameElement($0.element, firstItem) }))
 }
 
 @Test func safariFileMenuAccessibilityBackendWaitsForEnabledTabGroupAction() async throws {
@@ -442,6 +479,47 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let nameSelection = fake.writtenAttributes.first(where: { $0.name == kAXSelectedRowsAttribute })
     #expect((nameSelection?.value as? [AXUIElement])?.first.map { sameElement($0, firstRow) } == true)
     #expect(fake.activationCount == 2)
+}
+
+@Test func safariSidebarAccessibilityBackendTargetsOwningProcess() async throws {
+    let firstApplication = testAXElement(95_100)
+    let secondApplication = testAXElement(95_101)
+    let firstWindow = testAXElement(95_102)
+    let secondWindow = testAXElement(95_103)
+    let firstOutline = testAXElement(95_104)
+    let secondOutline = testAXElement(95_105)
+    let firstRow = testAXElement(95_106)
+    let secondRow = testAXElement(95_107)
+    let firstCell = testAXElement(95_108)
+    let secondCell = testAXElement(95_109)
+    let firstTitle = testAXElement(95_110)
+    let secondTitle = testAXElement(95_111)
+    let fake = FakeSafariAccessibility(applicationElements: [firstApplication, secondApplication])
+
+    for (application, window, outline, row, cell, title) in [
+        (firstApplication, firstWindow, firstOutline, firstRow, firstCell, firstTitle),
+        (secondApplication, secondWindow, secondOutline, secondRow, secondCell, secondTitle)
+    ] {
+        fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+        fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+        fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
+        fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
+        fake.setElements(kAXRowsAttribute, on: outline, to: [row])
+        fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
+        fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+        fake.set(kAXValueAttribute, on: title, to: "Focus" as CFString)
+        fake.set(kAXIdentifierAttribute, on: cell, to: "SidebarLibraryItemTabGroup-11" as CFString)
+    }
+
+    try SafariSidebar.selectTabGroup(
+        identifier: 11,
+        named: "Focus",
+        processIdentifier: 43782,
+        accessibility: fake.backend(processIdentifiers: [4317, 43782])
+    )
+
+    #expect(fake.writtenAttributes.contains(where: { sameElement($0.element, secondOutline) }))
+    #expect(!fake.writtenAttributes.contains(where: { sameElement($0.element, firstOutline) }))
 }
 
 @Test func safariSidebarAccessibilityBackendSkipsDecoyAndAcceptsFalseAXVisible() async throws {

@@ -30,6 +30,7 @@ public enum SafariSidebar: ModelModel {
         try selectTabGroup(
             matchingIdentifier: nil,
             named: tabGroupName,
+            processIdentifier: nil,
             accessibility: .live
         )
     }
@@ -61,6 +62,20 @@ public enum SafariSidebar: ModelModel {
         try selectTabGroup(
             matchingIdentifier: tabGroupIdentifier,
             named: tabGroupName,
+            processIdentifier: nil,
+            accessibility: .live
+        )
+    }
+
+    public static func selectTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named tabGroupName: String,
+        processIdentifier: pid_t?
+    ) throws {
+        try selectTabGroup(
+            matchingIdentifier: tabGroupIdentifier,
+            named: tabGroupName,
+            processIdentifier: processIdentifier,
             accessibility: .live
         )
     }
@@ -68,11 +83,13 @@ public enum SafariSidebar: ModelModel {
     static func selectTabGroup(
         identifier tabGroupIdentifier: Int?,
         named tabGroupName: String,
+        processIdentifier: pid_t? = nil,
         accessibility: SafariAccessibilityBackend
     ) throws {
         try selectTabGroup(
             matchingIdentifier: tabGroupIdentifier,
             named: tabGroupName,
+            processIdentifier: processIdentifier,
             accessibility: accessibility
         )
     }
@@ -80,11 +97,13 @@ public enum SafariSidebar: ModelModel {
     private static func selectTabGroup(
         matchingIdentifier tabGroupIdentifier: Int?,
         named tabGroupName: String,
+        processIdentifier: pid_t?,
         accessibility: SafariAccessibilityBackend
     ) throws {
         let (_, focusedWindow) = try focusedWindow(
             accessibility: accessibility,
-            error: SafariUserInterfaceError.sidebarUnavailable
+            error: SafariUserInterfaceError.sidebarUnavailable,
+            processIdentifier: processIdentifier
         )
         let outline = try outlinedSidebar(in: focusedWindow, accessibility: accessibility)
         let matches = tabGroupRows(in: outline, accessibility: accessibility)
@@ -539,9 +558,17 @@ public enum SafariSidebar: ModelModel {
 
     private static func focusedWindow(
         accessibility: SafariAccessibilityBackend,
-        error: SafariUserInterfaceError
+        error: SafariUserInterfaceError,
+        processIdentifier: pid_t? = nil
     ) throws -> (application: AXUIElement, window: AXUIElement) {
         for application in accessibility.applications() {
+            if
+                let processIdentifier,
+                application.processIdentifier != processIdentifier
+            {
+                continue
+            }
+
             if let window = accessibility.elementValue(
                 for: kAXFocusedWindowAttribute,
                 on: application.element

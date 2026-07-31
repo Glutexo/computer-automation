@@ -27,7 +27,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
         let script = """
         tell application "Safari" to activate
         delay 0.1
-        \(sidebarBootstrapScript)
+        \(sidebarBootstrapScript())
                 set targetRow to row \(sidebarItemIndex) of outlineItem
                 set targetCell to UI element 1 of targetRow
                 set value of attribute "AXSelectedRows" of outlineItem to {targetRow}
@@ -47,7 +47,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
         \(sidebarIdentifierHandlerScript)
         tell application "Safari" to activate
         delay 0.1
-        \(sidebarBootstrapScript)
+        \(sidebarBootstrapScript())
                 set output to {}
                 repeat with currentRow in rows of outlineItem
                     try
@@ -122,12 +122,32 @@ public enum SafariAppleScriptSidebar: ModelModel {
         named tabGroupName: String,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {
-        try selectTabGroup(matchingIdentifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+        try selectTabGroup(
+            matchingIdentifier: tabGroupIdentifier,
+            named: tabGroupName,
+            processIdentifier: nil,
+            executor: executor
+        )
+    }
+
+    public static func selectTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named tabGroupName: String,
+        processIdentifier: pid_t?,
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws {
+        try selectTabGroup(
+            matchingIdentifier: tabGroupIdentifier,
+            named: tabGroupName,
+            processIdentifier: processIdentifier,
+            executor: executor
+        )
     }
 
     private static func selectTabGroup(
         matchingIdentifier tabGroupIdentifier: Int?,
         named tabGroupName: String,
+        processIdentifier: pid_t? = nil,
         executor: SafariAppleScriptExecuting
     ) throws {
         let identifierMatchScript = tabGroupIdentifier.map { identifier in
@@ -165,11 +185,14 @@ public enum SafariAppleScriptSidebar: ModelModel {
             """
         } ?? ""
 
+        let activationScript = processIdentifier == nil
+            ? "tell application \"Safari\" to activate"
+            : ""
         let script = """
         \(sidebarIdentifierHandlerScript)
-        tell application "Safari" to activate
+        \(activationScript)
         delay 0.1
-        \(sidebarBootstrapScript)
+        \(sidebarBootstrapScript(processIdentifier: processIdentifier))
         \(identifierMatchScript)
                 repeat with currentRow in rows of outlineItem
                     try
@@ -213,7 +236,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
         let script = """
         tell application "Safari" to activate
         delay 0.1
-        \(sidebarBootstrapScript)
+        \(sidebarBootstrapScript())
                 repeat with currentRow in rows of outlineItem
                     try
                         set currentCell to UI element 1 of currentRow
@@ -274,7 +297,14 @@ public enum SafariAppleScriptSidebar: ModelModel {
         _ = try executor.execute(script: script)
     }
 
-    private static let sidebarBootstrapScript = """
+    private static func sidebarBootstrapScript(
+        processIdentifier: pid_t? = nil
+    ) -> String {
+        let processTarget = processIdentifier.map {
+            "tell first application process whose unix id is \($0)"
+        } ?? "tell process \"Safari\""
+
+        return """
     on firstSidebarOutline(rootElement, currentDepth)
         if currentDepth > 18 then return missing value
 
@@ -300,7 +330,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
     end firstSidebarOutline
 
     tell application "System Events"
-        tell process "Safari"
+        \(processTarget)
             if (count of windows) is 0 then
                 error "Safari has no open windows."
             end if
@@ -347,6 +377,7 @@ public enum SafariAppleScriptSidebar: ModelModel {
                 error "Safari sidebar not available."
             end if
     """
+    }
 
     private static let sidebarIdentifierHandlerScript = """
     on sidebarTabGroupIdentifier(currentIdentifier)

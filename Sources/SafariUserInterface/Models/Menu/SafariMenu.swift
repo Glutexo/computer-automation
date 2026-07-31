@@ -3,6 +3,12 @@ import AutomationFoundation
 import SafariAppleScript
 
 public enum SafariMenu: ModelModel {
+    private struct OpenMenu {
+        let menuBarItem: AXUIElement
+        let menu: AXUIElement
+        let items: [AXUIElement]
+    }
+
     public static let descriptor = ModelDescriptor(
         name: "menu",
         abstract: "A Safari application menu.",
@@ -56,12 +62,14 @@ public enum SafariMenu: ModelModel {
         menuBarItemIndex: Int,
         accessibility: SafariAccessibilityBackend
     ) throws -> [SafariMenuItemRecord] {
-        let menuItems = try menuItemElements(
+        let openMenu = try openMenu(
             menuBarItemIndex: menuBarItemIndex,
+            processIdentifier: nil,
             accessibility: accessibility
         )
+        defer { dismiss(openMenu, accessibility: accessibility) }
 
-        return menuItems.enumerated().compactMap { offset, element in
+        return openMenu.items.enumerated().compactMap { offset, element in
             let title = accessibility.stringValue(for: kAXTitleAttribute, on: element)
             let commandCharacter = accessibility.stringValue(for: "AXMenuItemCmdChar", on: element)
 
@@ -80,19 +88,30 @@ public enum SafariMenu: ModelModel {
 
     static func pressFirstMenuItem(
         menuBarItemIndex: Int,
+        processIdentifier: pid_t? = nil,
         accessibility: SafariAccessibilityBackend = .live,
         validate: (AXUIElement) throws -> Void = { _ in },
         matching predicate: (AXUIElement) -> Bool
     ) throws -> Bool {
-        guard let menuItem = try menuItemElements(
+        let openMenu = try openMenu(
             menuBarItemIndex: menuBarItemIndex,
+            processIdentifier: processIdentifier,
             accessibility: accessibility
-        ).first(where: predicate) else {
+        )
+        var didPressMenuItem = false
+        defer {
+            if !didPressMenuItem {
+                dismiss(openMenu, accessibility: accessibility)
+            }
+        }
+
+        guard let menuItem = openMenu.items.first(where: predicate) else {
             return false
         }
 
         try validate(menuItem)
-        return accessibility.perform(kAXPressAction, on: menuItem)
+        didPressMenuItem = accessibility.perform(kAXPressAction, on: menuItem)
+        return didPressMenuItem
     }
 
     static func pressFrontWindowSheetButton(
@@ -166,11 +185,14 @@ public enum SafariMenu: ModelModel {
         return nil
     }
 
-    private static func menuItemElements(
+    private static func openMenu(
         menuBarItemIndex: Int,
+        processIdentifier: pid_t?,
         accessibility: SafariAccessibilityBackend
-    ) throws -> [AXUIElement] {
-        let applications = accessibility.applications()
+    ) throws -> OpenMenu {
+        let applications = accessibility.applications().filter { application in
+            processIdentifier.map { application.processIdentifier == $0 } ?? true
+        }
         guard !applications.isEmpty else {
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
@@ -212,12 +234,25 @@ public enum SafariMenu: ModelModel {
             })
         }
 
-        return unique(
+        let items = unique(
             accessibility.elements(for: kAXChildrenAttribute, on: menu) +
                 accessibility.elements(for: "AXVisibleChildren", on: menu)
         ).filter {
             accessibility.stringValue(for: kAXRoleAttribute, on: $0) == kAXMenuItemRole
         }
+
+        return OpenMenu(menuBarItem: menuBarItem, menu: menu, items: items)
+    }
+
+    private static func dismiss(
+        _ openMenu: OpenMenu,
+        accessibility: SafariAccessibilityBackend
+    ) {
+        if accessibility.perform(kAXCancelAction, on: openMenu.menu) {
+            return
+        }
+
+        _ = accessibility.perform(kAXPressAction, on: openMenu.menuBarItem)
     }
 
     static func waitForMenuElement<Element>(

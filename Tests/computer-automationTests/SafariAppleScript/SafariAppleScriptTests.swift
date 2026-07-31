@@ -582,6 +582,20 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     var compileError: NSDictionary?
     #expect(NSAppleScript(source: script)?.compileAndReturnError(&compileError) == true)
     #expect(compileError == nil)
+
+    let processExecutor = MockAppleScriptExecutor()
+    try SafariAppleScriptSidebar.selectTabGroup(
+        identifier: 57189,
+        named: "名称未設定",
+        processIdentifier: 43782,
+        executor: processExecutor
+    )
+    let processScript = try #require(processExecutor.executedScripts.first)
+    #expect(processScript.contains("tell first application process whose unix id is 43782"))
+    #expect(!processScript.contains("tell process \"Safari\""))
+    compileError = nil
+    #expect(NSAppleScript(source: processScript)?.compileAndReturnError(&compileError) == true)
+    #expect(compileError == nil)
 }
 
 @Test func safariAppleScriptSidebarListsTabGroupsWithoutCyclingOrSelecting() async throws {

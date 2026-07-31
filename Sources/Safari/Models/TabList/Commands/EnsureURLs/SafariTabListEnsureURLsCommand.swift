@@ -41,16 +41,22 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
     )
 
     private let executor: SafariAppleScriptExecuting
-    private let ensureTabGroup: (String, String) throws -> SafariTabGroupEnsureOperationResult
+    private let ensureTabGroup: (
+        String,
+        String,
+        (SafariWindowRecord) throws -> Void
+    ) throws -> SafariTabGroupEnsureOperationResult
     private let listWindowTabsByIndex: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
     private let listWindowTabsByIdentifier: (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord]
     private let listTabGroupTabs: (Int) throws -> [SafariTabGroupTabRecord]
     private let listWindows: () throws -> [SafariWindowRecord]
     private let openNewWindowForProfile: (String) throws -> SafariWindowRecord
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
+    private let focusWindowInProcess: (Int, pid_t, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void
     private let openTabByIndex: (Int, String?, SafariAppleScriptExecuting) throws -> Void
     private let openTabByIdentifier: (Int, String?, SafariAppleScriptExecuting) throws -> Void
+    private let setTabURLByIdentifier: (Int, Int, String, SafariAppleScriptExecuting) throws -> Void
     private let deleteTabGroup: (Int) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
@@ -58,12 +64,16 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         let executor = SafariAppleScriptExecutor()
         let listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.executor = executor
-        self.ensureTabGroup = { profileName, name in
+        self.ensureTabGroup = { profileName, name, prepareNewWindow in
             try SafariTabGroupEnsureCommand(
                 executor: executor,
                 listWindows: listWindows
             )
-            .ensureOperation(profileName: profileName, name: name)
+            .ensureOperation(
+                profileName: profileName,
+                name: name,
+                prepareNewWindow: prepareNewWindow
+            )
         }
         self.listWindowTabsByIndex = { windowIndex, executor in
             try SafariTabList.listWindowTabs(windowIndex: windowIndex, executor: executor)
@@ -83,13 +93,26 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             )
         }
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
-        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
+        self.focusWindowInProcess = { windowIdentifier, processIdentifier, _ in
+            try SafariAppleScriptWindow.focus(
+                windowIdentifier: windowIdentifier,
+                processIdentifier: processIdentifier
+            )
+        }
+        self.selectTabGroup = { group, processIdentifier, executor in
+            try SafariTabGroupSidebarAccess.selectTabGroup(
+                group,
+                processIdentifier: processIdentifier,
+                executor: executor
+            )
+        }
         self.openTabByIndex = { windowIndex, url, executor in
             try SafariAppleScriptTab.open(windowIndex: windowIndex, url: url, executor: executor)
         }
         self.openTabByIdentifier = { windowIdentifier, url, executor in
             try SafariAppleScriptTab.open(windowIdentifier: windowIdentifier, url: url, executor: executor)
         }
+        self.setTabURLByIdentifier = SafariAppleScriptTab.setURL(windowIdentifier:tabIndex:url:executor:)
         self.deleteTabGroup = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
         }
@@ -99,6 +122,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
     init(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
         ensureTabGroup: @escaping (String, String) throws -> SafariTabGroupEnsureOperationResult,
+        ensureTabGroupWithPreparation: ((String, String, (SafariWindowRecord) throws -> Void) throws -> SafariTabGroupEnsureOperationResult)? = nil,
         listWindowTabs: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord],
         listWindowTabsByIdentifier: @escaping (Int, SafariAppleScriptExecuting) throws -> [SafariWindowTabRecord] = { windowIdentifier, executor in
             try SafariTabList.listWindowTabs(windowIdentifier: windowIdentifier, executor: executor)
@@ -109,29 +133,38 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             throw SafariTabGroupCommandError.windowForProfileNotFound($0)
         },
         closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
+        focusWindowInProcess: @escaping (Int, pid_t, SafariAppleScriptExecuting) throws -> Void = { _, _, _ in },
         selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        selectTabGroupInProcess: ((SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void)? = nil,
         openTab: @escaping (Int, String?, SafariAppleScriptExecuting) throws -> Void = { windowIndex, url, executor in
             try SafariAppleScriptTab.open(windowIndex: windowIndex, url: url, executor: executor)
         },
         openTabByIdentifier: @escaping (Int, String?, SafariAppleScriptExecuting) throws -> Void = { windowIdentifier, url, executor in
             try SafariAppleScriptTab.open(windowIdentifier: windowIdentifier, url: url, executor: executor)
         },
+        setTabURLByIdentifier: @escaping (Int, Int, String, SafariAppleScriptExecuting) throws -> Void = { _, _, _, _ in },
         deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
         },
         sleep: @escaping (TimeInterval) -> Void = { _ in }
     ) {
         self.executor = executor
-        self.ensureTabGroup = ensureTabGroup
+        self.ensureTabGroup = ensureTabGroupWithPreparation ?? { profileName, name, _ in
+            try ensureTabGroup(profileName, name)
+        }
         self.listWindowTabsByIndex = listWindowTabs
         self.listWindowTabsByIdentifier = listWindowTabsByIdentifier
         self.listTabGroupTabs = listTabGroupTabs
         self.listWindows = listWindows
         self.openNewWindowForProfile = openNewWindowForProfile
         self.closeWindow = closeWindow
-        self.selectTabGroup = selectTabGroup
+        self.focusWindowInProcess = focusWindowInProcess
+        self.selectTabGroup = selectTabGroupInProcess ?? { group, _, executor in
+            try selectTabGroup(group, executor)
+        }
         self.openTabByIndex = openTab
         self.openTabByIdentifier = openTabByIdentifier
+        self.setTabURLByIdentifier = setTabURLByIdentifier
         self.deleteTabGroup = deleteTabGroup
         self.sleep = sleep
     }
@@ -146,6 +179,7 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
 
     private func ensureURLs(arguments: [String]) throws -> SafariTabListEnsureURLsSummary {
         let request = try SafariTabListEnsureURLsRequest.parse(arguments)
+        try validate(requestedURLs: request.urls)
 
         switch request.context {
         case .window(let address):
@@ -164,13 +198,23 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
                 skippedURLs: result.skippedURLs
             )
         case .tabGroup(let profileName, let name):
-            let ensureResult = try ensureTabGroup(profileName, name)
+            var seededChanges: SafariTabListEnsureURLChanges?
+            let ensureResult = try ensureTabGroup(profileName, name) { window in
+                seededChanges = try seedNewTabGroupWindow(
+                    window,
+                    requestedURLs: request.urls
+                )
+            }
             let context = try SafariSavedTabGroupMutationContext.prepare(
                 ensureResult: ensureResult,
                 openNewWindowForProfile: openNewWindowForProfile
             )
             do {
-                return try ensureTabGroupURLs(context: context, requestedURLs: request.urls)
+                return try ensureTabGroupURLs(
+                    context: context,
+                    requestedURLs: request.urls,
+                    seededChanges: seededChanges
+                )
             } catch {
                 try context.rollback(
                     deleteTabGroup: deleteTabGroup,
@@ -183,12 +227,15 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
 
     private func ensureTabGroupURLs(
         context: SafariSavedTabGroupMutationContext,
-        requestedURLs: [String]
+        requestedURLs: [String],
+        seededChanges: SafariTabListEnsureURLChanges?
     ) throws -> SafariTabListEnsureURLsSummary {
         let tabGroupSummary = context.summary
         let tabGroup = tabGroupSummary.tabGroup
         let window = context.window
-        try selectTabGroup(tabGroup, executor)
+        if tabGroupSummary.status == .reused || seededChanges == nil {
+            try selectTabGroup(tabGroup, window.processId, executor)
+        }
 
         let loadedTabs = try SafariSavedTabGroupWindowReadiness.waitForLoadedTabs(
             tabGroup: tabGroup,
@@ -203,9 +250,13 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             sleep: sleep
         )
         let existingURLs = loadedTabs.map(\.url)
-        let result = try reconcile(requestedURLs: requestedURLs, existingURLs: existingURLs) { url in
+        let reconciliation = try reconcile(requestedURLs: requestedURLs, existingURLs: existingURLs) { url in
             try openTabByIdentifier(window.identifier, url, executor)
         }
+        let result = mergedChanges(
+            seededChanges: seededChanges,
+            reconciliation: reconciliation
+        )
 
         return SafariTabListEnsureURLsSummary(
             context: SafariTabListContext(
@@ -219,6 +270,63 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
             tabGroup: tabGroupSummary,
             addedURLs: result.addedURLs,
             skippedURLs: result.skippedURLs
+        )
+    }
+
+    private func seedNewTabGroupWindow(
+        _ window: SafariWindowRecord,
+        requestedURLs: [String]
+    ) throws -> SafariTabListEnsureURLChanges {
+        if let processIdentifier = window.processId {
+            try focusWindowInProcess(
+                window.identifier,
+                processIdentifier,
+                executor
+            )
+        }
+        let existingTabs = try listWindowTabs(for: .identifier(window.identifier))
+        var replaceableTabIndex = existingTabs.count == 1 && isStartPageURL(existingTabs[0].url)
+            ? existingTabs[0].index
+            : nil
+
+        return try reconcile(
+            requestedURLs: requestedURLs,
+            existingURLs: existingTabs.map(\.url)
+        ) { url in
+            if let tabIndex = replaceableTabIndex {
+                try setTabURLByIdentifier(
+                    window.identifier,
+                    tabIndex,
+                    url,
+                    executor
+                )
+                replaceableTabIndex = nil
+            } else {
+                try openTabByIdentifier(window.identifier, url, executor)
+            }
+        }
+    }
+
+    private func isStartPageURL(_ url: String) -> Bool {
+        url.isEmpty || url == "favorites://"
+    }
+
+    private func mergedChanges(
+        seededChanges: SafariTabListEnsureURLChanges?,
+        reconciliation: SafariTabListEnsureURLChanges
+    ) -> SafariTabListEnsureURLChanges {
+        guard let seededChanges else {
+            return reconciliation
+        }
+
+        var addedURLs = seededChanges.addedURLs
+        for url in reconciliation.addedURLs where !addedURLs.contains(url) {
+            addedURLs.append(url)
+        }
+
+        return SafariTabListEnsureURLChanges(
+            addedURLs: addedURLs,
+            skippedURLs: seededChanges.skippedURLs
         )
     }
 
@@ -265,6 +373,12 @@ public struct SafariTabListEnsureURLsCommand: CommandModel, JSONCommandModel {
         }
 
         return SafariTabListEnsureURLChanges(addedURLs: addedURLs, skippedURLs: skippedURLs)
+    }
+
+    private func validate(requestedURLs: [String]) throws {
+        if requestedURLs.contains(where: \.isEmpty) {
+            throw SafariTabListCommandError.emptyURL
+        }
     }
 
     private func format(_ summary: SafariTabListEnsureURLsSummary) -> String {

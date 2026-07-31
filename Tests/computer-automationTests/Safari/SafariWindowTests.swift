@@ -577,6 +577,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     var focusedWindowIdentifier: Int?
     var selectedTabGroup: SafariTabGroupRecord?
     let operationWindow = SafariWindowRecord(
+        processId: 43782,
         identifier: 42,
         index: 2,
         profileName: "Twisto",
@@ -593,8 +594,16 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
             receivedProfileName = profileName
             return operationWindow
         },
-        focusWindow: { identifier, _ in focusedWindowIdentifier = identifier },
-        selectTabGroup: { tabGroup, _ in selectedTabGroup = tabGroup },
+        focusWindow: { _, _ in Issue.record("legacy focus should not be called") },
+        focusWindowInProcess: { identifier, processIdentifier, _ in
+            focusedWindowIdentifier = identifier
+            #expect(processIdentifier == 43782)
+        },
+        selectTabGroup: { _, _ in Issue.record("legacy selection should not be called") },
+        selectTabGroupInProcess: { tabGroup, processIdentifier, _ in
+            selectedTabGroup = tabGroup
+            #expect(processIdentifier == 43782)
+        },
         listWindows: { _ in [operationWindow] },
         sleep: { _ in }
     )
@@ -853,7 +862,7 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     let command = SafariWindowSetTabGroupCommand(
         executor: MockAppleScriptExecutor(),
         listWindows: {
-            [SafariWindowRecord(identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
+            [SafariWindowRecord(processId: 43782, identifier: 10, index: 2, isPrivate: false, profileName: "Twisto", selectedTabGroupIdentifier: nil, tabGroupName: nil, name: "Work")]
         },
         listTabGroups: {
             [
@@ -861,8 +870,16 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
                 SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Focus")
             ]
         },
-        focusWindow: { windowIdentifier, _ in focusedWindowIdentifier = windowIdentifier },
-        selectTabGroup: { tabGroup, _ in selectedTabGroup = tabGroup }
+        focusWindow: { _, _ in Issue.record("legacy focus should not be called") },
+        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
+            focusedWindowIdentifier = windowIdentifier
+            #expect(processIdentifier == 43782)
+        },
+        selectTabGroup: { _, _ in Issue.record("legacy selection should not be called") },
+        selectTabGroupInProcess: { tabGroup, processIdentifier, _ in
+            selectedTabGroup = tabGroup
+            #expect(processIdentifier == 43782)
+        }
     )
 
     #expect(try command.execute(arguments: ["2", "1000"]) == "Safari window 2 switched to tab group Focus.")

@@ -14,6 +14,14 @@
 - `find-tab` previously performed a full window inventory and then a second full tab inventory, including another WindowServer scan and another set of per-process scripting reads.
 - One snapshot supplies both the window profile map and matching tabs. ScriptingBridge optional-property reads must also propagate Apple-event timeout `-1712` immediately; swallowing it and continuing can multiply a stalled process across every window and tab property.
 
+### Start Page and cross-process focus explain saved-group stalls
+
+- Issues #61 and #62 repeatedly left Safari's File menu open after a new profile window appeared, while manual recovery succeeded only after replacing `favorites://` with real URLs and pressing `NewTabGroupWithTabsMenuItem` in that exact window.
+- Safari keeps the with-tabs action disabled on an untouched Start Page. Waiting longer cannot make that state valid; the operation-owned window must contain a normal tab before the menu is opened.
+- Populating requested URLs before creation both enables the action and persists the intended group in one structural operation. A standalone create-or-reuse request can use `about:blank` because it has no requested URL manifest.
+- Safari profiles can run in separate processes. Bundle-level activation followed by first-application Accessibility lookup can therefore open a menu or sidebar in the wrong process; stable window operations must carry PID through focus and UI lookup.
+- A failed enabled-state check occurs after the File menu has opened, so cleanup must perform the menu's structural cancel action before returning the error.
+
 ## 2026-07-27
 
 ### Accessibility titles are not a complete live-window identity

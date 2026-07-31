@@ -22,7 +22,8 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let listProfiles: () throws -> [SafariProfileRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let createTabGroupFromCurrentTabs: (SafariAppleScriptExecuting) throws -> Void
+    private let focusWindowInProcess: (Int, pid_t, SafariAppleScriptExecuting) throws -> Void
+    private let createTabGroupFromCurrentTabs: (pid_t?, SafariAppleScriptExecuting) throws -> Void
     private let renameTabGroup: (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void
     private let deleteCurrentTabGroup: (SafariAppleScriptExecuting) throws -> Void
     private let sleep: (TimeInterval) -> Void
@@ -34,8 +35,16 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.listTabGroups = { try SafariTabGroup.list() }
         self.listProfiles = { try SafariProfile.listAvailableProfiles() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
-        self.createTabGroupFromCurrentTabs = { _ in
-            try SafariFileMenu.createTabGroupFromCurrentTabs()
+        self.focusWindowInProcess = { windowIdentifier, processIdentifier, _ in
+            try SafariAppleScriptWindow.focus(
+                windowIdentifier: windowIdentifier,
+                processIdentifier: processIdentifier
+            )
+        }
+        self.createTabGroupFromCurrentTabs = { processIdentifier, _ in
+            try SafariFileMenu.createTabGroupFromCurrentTabs(
+                processIdentifier: processIdentifier
+            )
         }
         self.renameTabGroup = { group, newName, _ in
             try SafariSidebar.renameTabGroup(identifier: group.identifier, named: group.name, to: newName)
@@ -50,7 +59,9 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         listProfiles: @escaping () throws -> [SafariProfileRecord] = { [] },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
+        focusWindowInProcess: ((Int, pid_t, SafariAppleScriptExecuting) throws -> Void)? = nil,
         createTabGroupFromCurrentTabs: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.createTabGroupFromCurrentTabs,
+        createTabGroupFromCurrentTabsInProcess: ((pid_t?, SafariAppleScriptExecuting) throws -> Void)? = nil,
         renameTabGroup: @escaping (SafariTabGroupRecord, String, SafariAppleScriptExecuting) throws -> Void = { group, newName, _ in
             try SafariSidebar.renameTabGroup(identifier: group.identifier, named: group.name, to: newName)
         },
@@ -62,7 +73,12 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         self.listTabGroups = listTabGroups
         self.listProfiles = listProfiles
         self.focusWindow = focusWindow
-        self.createTabGroupFromCurrentTabs = createTabGroupFromCurrentTabs
+        self.focusWindowInProcess = focusWindowInProcess ?? { windowIdentifier, _, executor in
+            try focusWindow(windowIdentifier, executor)
+        }
+        self.createTabGroupFromCurrentTabs = createTabGroupFromCurrentTabsInProcess ?? { _, executor in
+            try createTabGroupFromCurrentTabs(executor)
+        }
         self.renameTabGroup = renameTabGroup
         self.deleteCurrentTabGroup = deleteCurrentTabGroup
         self.sleep = sleep
@@ -148,8 +164,12 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
 
         let knownIdentifiers = Set(existingGroups.map(\.identifier))
 
-        try focusWindow(window.identifier, executor)
-        try createTabGroupFromCurrentTabs(executor)
+        if let processIdentifier = window.processId {
+            try focusWindowInProcess(window.identifier, processIdentifier, executor)
+        } else {
+            try focusWindow(window.identifier, executor)
+        }
+        try createTabGroupFromCurrentTabs(window.processId, executor)
 
         let createdGroup: SafariTabGroupRecord
         do {

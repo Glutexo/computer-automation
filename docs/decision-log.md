@@ -13,6 +13,12 @@
 - Changed URL-based tab lookup to derive tab matches and profile filters from one shared cross-process snapshot instead of running complete window and tab discovery independently.
 - Reduced the PID-targeted Apple-event timeout and surface a dedicated actionable error as soon as a Safari process times out, preventing an MCP request from accumulating per-property stalls until the client deadline.
 
+### Populate and process-scope saved-group creation
+
+- Changed missing-group URL reconciliation to populate the new profile window with the requested URLs before invoking Safari's persistent with-tabs create action; standalone ensure uses a normal blank tab instead of an untouched Start Page.
+- Carried the owning Safari process id through stable-id focus, File-menu creation, and identifier-aware sidebar selection, including the System Events fallback.
+- Made shared menu inspection dismiss the opened menu structurally whenever lookup, enabled-state validation, or the requested press fails.
+
 ## 2026-07-27
 
 ### Stable WindowServer inventory across macOS Spaces

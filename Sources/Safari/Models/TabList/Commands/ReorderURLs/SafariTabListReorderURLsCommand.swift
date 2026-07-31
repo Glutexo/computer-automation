@@ -51,7 +51,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let openNewWindowForProfile: (String) throws -> SafariWindowRecord
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void
     private let moveTabByIndex: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
     private let moveTabByIdentifier: (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void
     private let deleteTabGroup: (Int) throws -> Void
@@ -86,7 +86,13 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
             )
         }
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
-        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
+        self.selectTabGroup = { group, processIdentifier, executor in
+            try SafariTabGroupSidebarAccess.selectTabGroup(
+                group,
+                processIdentifier: processIdentifier,
+                executor: executor
+            )
+        }
         self.moveTabByIndex = { windowIndex, sourceIndex, destinationIndex, executor in
             try SafariAppleScriptTab.move(
                 windowIndex: windowIndex,
@@ -123,6 +129,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         },
         closeWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
         selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        selectTabGroupInProcess: ((SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void)? = nil,
         moveTab: @escaping (Int, Int, Int, SafariAppleScriptExecuting) throws -> Void = { windowIndex, sourceIndex, destinationIndex, executor in
             try SafariAppleScriptTab.move(
                 windowIndex: windowIndex,
@@ -152,7 +159,9 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         self.listWindows = listWindows
         self.openNewWindowForProfile = openNewWindowForProfile
         self.closeWindow = closeWindow
-        self.selectTabGroup = selectTabGroup
+        self.selectTabGroup = selectTabGroupInProcess ?? { group, _, executor in
+            try selectTabGroup(group, executor)
+        }
         self.moveTabByIndex = moveTab
         self.moveTabByIdentifier = moveTabByIdentifier
         self.deleteTabGroup = deleteTabGroup
@@ -210,7 +219,7 @@ public struct SafariTabListReorderURLsCommand: CommandModel, JSONCommandModel {
         let tabGroupSummary = context.summary
         let tabGroup = tabGroupSummary.tabGroup
         let window = context.window
-        try selectTabGroup(tabGroup, executor)
+        try selectTabGroup(tabGroup, window.processId, executor)
 
         let windowAddress = SafariWindowAddress.identifier(window.identifier)
         let tabs = try SafariSavedTabGroupWindowReadiness.waitForLoadedTabs(

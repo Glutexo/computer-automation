@@ -276,6 +276,101 @@ func safariTabListTabGroupTabsCommandFormatsRows(tabs: [SafariTabGroupTabRecord]
     #expect(openedTabs.map(\.1) == ["https://openai.com"])
 }
 
+@Test func safariTabListEnsureURLsCommandSeedsNewGroupBeforeCreation() async throws {
+    let operationWindow = SafariWindowRecord(
+        processId: 43782,
+        identifier: 42,
+        index: 3,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    var setURLs: [(Int, Int, String)] = []
+    var openedURLs: [(Int, String?)] = []
+    var focusedProcess: pid_t?
+    var tabReadCount = 0
+
+    let command = SafariTabListEnsureURLsCommand(
+        executor: MockAppleScriptExecutor(),
+        ensureTabGroup: { _, _ in
+            Issue.record("unprepared ensure should not be called")
+            throw SafariTabGroupCommandError.createdTabGroupNotFound(profileName: "Twisto")
+        },
+        ensureTabGroupWithPreparation: { profileName, name, prepareNewWindow in
+            try prepareNewWindow(operationWindow)
+            return SafariTabGroupEnsureOperationResult(
+                summary: SafariTabGroupEnsureSummary(
+                    status: .created,
+                    tabGroup: SafariTabGroupRecord(
+                        identifier: 1000,
+                        profileName: profileName,
+                        name: name
+                    )
+                ),
+                createdWindow: operationWindow
+            )
+        },
+        listWindowTabs: { _, _ in [] },
+        listWindowTabsByIdentifier: { windowIdentifier, _ in
+            #expect(windowIdentifier == 42)
+            tabReadCount += 1
+            if tabReadCount == 1 {
+                return [
+                    SafariWindowTabRecord(
+                        index: 1,
+                        selectedTabGroupTabIndex: nil,
+                        url: "favorites://"
+                    )
+                ]
+            }
+
+            return [
+                SafariWindowTabRecord(index: 1, selectedTabGroupTabIndex: 1, url: "https://example.com"),
+                SafariWindowTabRecord(index: 2, selectedTabGroupTabIndex: 2, url: "https://openai.com")
+            ]
+        },
+        listTabGroupTabs: { identifier in
+            [
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 1, url: "https://example.com"),
+                SafariTabGroupTabRecord(tabGroupIdentifier: identifier, index: 2, url: "https://openai.com")
+            ]
+        },
+        listWindows: { [operationWindow] },
+        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
+            #expect(windowIdentifier == 42)
+            focusedProcess = processIdentifier
+        },
+        selectTabGroup: { _, _ in Issue.record("newly created seeded group should remain selected") },
+        selectTabGroupInProcess: { _, _, _ in
+            Issue.record("newly created seeded group should remain selected")
+        },
+        openTabByIdentifier: { windowIdentifier, url, _ in
+            openedURLs.append((windowIdentifier, url))
+        },
+        setTabURLByIdentifier: { windowIdentifier, tabIndex, url, _ in
+            setURLs.append((windowIdentifier, tabIndex, url))
+        }
+    )
+
+    let output = try command.execute(arguments: [
+        "--tab-group-profile", "Twisto",
+        "--tab-group-name", "Focus",
+        "https://example.com",
+        "https://openai.com"
+    ])
+
+    #expect(output.contains("tab-group|created|1000|Twisto|Focus"))
+    #expect(output.contains("added|https://example.com"))
+    #expect(output.contains("added|https://openai.com"))
+    #expect(focusedProcess == 43782)
+    #expect(setURLs.map(\.0) == [42])
+    #expect(setURLs.map(\.1) == [1])
+    #expect(setURLs.map(\.2) == ["https://example.com"])
+    #expect(openedURLs.map(\.0) == [42])
+    #expect(openedURLs.map(\.1) == ["https://openai.com"])
+}
+
 @Test func safariTabListEnsureURLsCommandDeletesCreatedTabGroupWhenSelectionFails() async throws {
     var deletedTabGroupIdentifiers: [Int] = []
     var closedWindowIdentifiers: [Int] = []

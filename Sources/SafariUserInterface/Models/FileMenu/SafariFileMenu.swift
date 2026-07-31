@@ -106,12 +106,25 @@ public enum SafariFileMenu: ModelModel {
 
     public static func createTabGroupFromCurrentTabs(
     ) throws {
-        try createTabGroupFromCurrentTabs(accessibility: .live)
+        try createTabGroupFromCurrentTabs(processIdentifier: nil, accessibility: .live)
     }
 
-    static func createTabGroupFromCurrentTabs(accessibility: SafariAccessibilityBackend) throws {
+    public static func createTabGroupFromCurrentTabs(
+        processIdentifier: pid_t?
+    ) throws {
+        try createTabGroupFromCurrentTabs(
+            processIdentifier: processIdentifier,
+            accessibility: .live
+        )
+    }
+
+    static func createTabGroupFromCurrentTabs(
+        processIdentifier: pid_t? = nil,
+        accessibility: SafariAccessibilityBackend
+    ) throws {
         try clickFileMenuItem(
             matchingIdentifier: createTabGroupFromCurrentTabsMenuItemIdentifier,
+            processIdentifier: processIdentifier,
             accessibility: accessibility
         )
     }
@@ -233,10 +246,12 @@ public enum SafariFileMenu: ModelModel {
 
     private static func clickFileMenuItem(
         matchingIdentifier identifier: String,
+        processIdentifier: pid_t? = nil,
         accessibility: SafariAccessibilityBackend
     ) throws {
         let didPress = try SafariMenu.pressFirstMenuItem(
             menuBarItemIndex: menuBarItemIndex,
+            processIdentifier: processIdentifier,
             accessibility: accessibility,
             validate: { menuItem in
                 guard accessibility.optionalBooleanValue(

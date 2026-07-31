@@ -1,4 +1,5 @@
 import AutomationFoundation
+import Foundation
 import SafariAppleScript
 
 public struct SafariWindowSetTabGroupCommand: CommandModel {
@@ -16,7 +17,8 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
     private let listWindows: () throws -> [SafariWindowRecord]
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
+    private let focusWindowInProcess: (Int, pid_t, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void
 
     public init() {
         let executor = SafariAppleScriptExecutor()
@@ -24,7 +26,19 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
         self.listWindows = { try SafariWindow.listForAutomation(executor: executor) }
         self.listTabGroups = { try SafariTabGroup.list() }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
-        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
+        self.focusWindowInProcess = { windowIdentifier, processIdentifier, _ in
+            try SafariAppleScriptWindow.focus(
+                windowIdentifier: windowIdentifier,
+                processIdentifier: processIdentifier
+            )
+        }
+        self.selectTabGroup = { group, processIdentifier, executor in
+            try SafariTabGroupSidebarAccess.selectTabGroup(
+                group,
+                processIdentifier: processIdentifier,
+                executor: executor
+            )
+        }
     }
 
     init(
@@ -32,13 +46,20 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
         listWindows: @escaping () throws -> [SafariWindowRecord] = { try SafariWindow.list() },
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
-        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup
+        focusWindowInProcess: ((Int, pid_t, SafariAppleScriptExecuting) throws -> Void)? = nil,
+        selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        selectTabGroupInProcess: ((SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void)? = nil
     ) {
         self.executor = executor
         self.listWindows = listWindows
         self.listTabGroups = listTabGroups
         self.focusWindow = focusWindow
-        self.selectTabGroup = selectTabGroup
+        self.focusWindowInProcess = focusWindowInProcess ?? { windowIdentifier, _, executor in
+            try focusWindow(windowIdentifier, executor)
+        }
+        self.selectTabGroup = selectTabGroupInProcess ?? { group, _, executor in
+            try selectTabGroup(group, executor)
+        }
     }
 
     public func execute(arguments: [String]) throws -> String {
@@ -79,8 +100,12 @@ public struct SafariWindowSetTabGroupCommand: CommandModel {
             )
         }
 
-        try focusWindow(window.identifier, executor)
-        try selectTabGroup(tabGroup, executor)
+        if let processIdentifier = window.processId {
+            try focusWindowInProcess(window.identifier, processIdentifier, executor)
+        } else {
+            try focusWindow(window.identifier, executor)
+        }
+        try selectTabGroup(tabGroup, window.processId, executor)
 
         return "Safari window \(windowIndex) switched to tab group \(tabGroup.name)."
     }

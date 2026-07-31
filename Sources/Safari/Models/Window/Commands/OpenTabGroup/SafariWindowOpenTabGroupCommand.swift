@@ -16,7 +16,8 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
     private let listTabGroups: () throws -> [SafariTabGroupRecord]
     private let openNewWindowForProfile: (String, SafariAppleScriptExecuting) throws -> SafariWindowRecord
     private let focusWindow: (Int, SafariAppleScriptExecuting) throws -> Void
-    private let selectTabGroup: (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void
+    private let focusWindowInProcess: (Int, pid_t, SafariAppleScriptExecuting) throws -> Void
+    private let selectTabGroup: (SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void
     private let listWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord]
     private let closeWindow: (Int, SafariAppleScriptExecuting) throws -> Void
     private let sleep: (TimeInterval) -> Void
@@ -32,7 +33,19 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
             )
         }
         self.focusWindow = SafariAppleScriptWindow.focus(windowIdentifier:executor:)
-        self.selectTabGroup = SafariTabGroupSidebarAccess.selectTabGroup
+        self.focusWindowInProcess = { windowIdentifier, processIdentifier, _ in
+            try SafariAppleScriptWindow.focus(
+                windowIdentifier: windowIdentifier,
+                processIdentifier: processIdentifier
+            )
+        }
+        self.selectTabGroup = { group, processIdentifier, executor in
+            try SafariTabGroupSidebarAccess.selectTabGroup(
+                group,
+                processIdentifier: processIdentifier,
+                executor: executor
+            )
+        }
         self.listWindows = { executor in try SafariWindow.listForAutomation(executor: executor) }
         self.closeWindow = SafariAppleScriptWindow.close(windowIdentifier:executor:)
         self.sleep = Thread.sleep
@@ -43,7 +56,9 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
         listTabGroups: @escaping () throws -> [SafariTabGroupRecord] = { try SafariTabGroup.list() },
         openNewWindowForProfile: @escaping (String, SafariAppleScriptExecuting) throws -> SafariWindowRecord,
         focusWindow: @escaping (Int, SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.focus(windowIdentifier:executor:),
+        focusWindowInProcess: ((Int, pid_t, SafariAppleScriptExecuting) throws -> Void)? = nil,
         selectTabGroup: @escaping (SafariTabGroupRecord, SafariAppleScriptExecuting) throws -> Void = SafariTabGroupSidebarAccess.selectTabGroup,
+        selectTabGroupInProcess: ((SafariTabGroupRecord, pid_t?, SafariAppleScriptExecuting) throws -> Void)? = nil,
         listWindows: @escaping (SafariAppleScriptExecuting) throws -> [SafariWindowRecord] = { executor in
             try SafariWindow.list(executor: executor)
         },
@@ -54,7 +69,12 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
         self.listTabGroups = listTabGroups
         self.openNewWindowForProfile = openNewWindowForProfile
         self.focusWindow = focusWindow
-        self.selectTabGroup = selectTabGroup
+        self.focusWindowInProcess = focusWindowInProcess ?? { windowIdentifier, _, executor in
+            try focusWindow(windowIdentifier, executor)
+        }
+        self.selectTabGroup = selectTabGroupInProcess ?? { group, _, executor in
+            try selectTabGroup(group, executor)
+        }
         self.listWindows = listWindows
         self.closeWindow = closeWindow
         self.sleep = sleep
@@ -85,8 +105,12 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
         let createdWindow = try openNewWindowForProfile(tabGroup.profileName, executor)
 
         do {
-            try focusWindow(createdWindow.identifier, executor)
-            try selectTabGroup(tabGroup, executor)
+            if let processIdentifier = createdWindow.processId {
+                try focusWindowInProcess(createdWindow.identifier, processIdentifier, executor)
+            } else {
+                try focusWindow(createdWindow.identifier, executor)
+            }
+            try selectTabGroup(tabGroup, createdWindow.processId, executor)
 
             for attempt in 0..<SafariWindowCreation.pollAttempts {
                 let windows = try listWindows(executor)

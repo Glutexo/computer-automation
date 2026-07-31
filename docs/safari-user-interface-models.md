@@ -72,7 +72,7 @@ flowchart TD
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` for window creation and `SafariSidebar` for saved tab-group selection through explicit module boundaries.
 - Identifier-targeted window closing focuses the stable Safari id, captures that exact focused AX window, verifies it is no longer visible after the normal close request, and presses its structural close button only as a fallback.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
-- `SafariSidebar.selectTabGroup(identifier:named:)` treats parsed `SidebarLibraryItemTabGroup` identifiers as authoritative: an exact identifier selects the row, any exposed nonmatching identifiers prevent name fallback, and name-only selection remains available only when the sidebar exposes no stable group id or the caller has no persisted id yet.
+- `SafariSidebar.selectTabGroup(identifier:named:processIdentifier:)` scopes focused-window lookup to the operation window's owning Safari process. Parsed `SidebarLibraryItemTabGroup` identifiers remain authoritative: an exact identifier selects the row, any exposed nonmatching identifiers prevent name fallback, and name-only selection remains available only when the sidebar exposes no stable group id or the caller has no persisted id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.
 - `SafariFileMenu.openWindow(profileName:)` is the current create operation in this module.
 - `SafariFileMenu.openPrivateWindow()` is the explicit create operation for Safari's private-window mode.
@@ -102,14 +102,14 @@ flowchart TD
 - `SafariMenu` waits for menu and sheet accessibility elements through bounded polling instead of fixed sleeps.
 - Native menu, File-menu, sidebar, and focused-window operations use an explicit `SafariAccessibilityBackend` dependency that owns application lookup, attribute reads and writes, actions, and polling.
 - Production entry points select the live Accessibility backend explicitly. Executor-taking fallback entry points select the AppleScript transport explicitly; backend choice never depends on a concrete executor type check.
-- Native application lookup examines the available Safari application elements for the relevant menu bar or focused window instead of unconditionally using the first running Safari process.
+- Native application lookup examines the available Safari application elements for the relevant menu bar or focused window and accepts an owning process id for mutations instead of unconditionally using the first running Safari process.
 - Tests inject synthetic AX element graphs through the same backend boundary, so no unit test launches, focuses, reads, or mutates real Safari.
 - `SafariUserInterface` uses `SafariAppleScript` as its explicit fallback script transport and parsing layer.
 - `SafariFileMenu.openWindow(profileName:)` uses AppleScript to activate Safari and create a new document when no profile is requested.
 - When a profile name is provided, it first reads the File menu structure, finds the item whose title ends with the requested profile name, and then clicks that item by index.
 - Profile-specific window opening waits until Safari exposes a visible window before selecting the profile-specific File-menu item.
 - `SafariFileMenu.openPrivateWindow()` identifies the native File-menu entry through its stable identifier or shortcut metadata (`N` with modifier value `1`) instead of localized title text.
-- `SafariFileMenu.createTabGroupFromCurrentTabs()` identifies its menu item by the stable accessibility identifier `NewTabGroupWithTabsMenuItem` instead of a localized title, waits briefly when a newly opened window exposes `AXEnabled=false`, and issues `AXPress` only after the same structural item becomes enabled. A persistently disabled item reports a dedicated error without being pressed.
+- `SafariFileMenu.createTabGroupFromCurrentTabs(processIdentifier:)` opens the File menu only in the requested owning process and identifies its item by the stable accessibility identifier `NewTabGroupWithTabsMenuItem` instead of a localized title. It waits briefly when a newly opened window exposes `AXEnabled=false` and issues `AXPress` only after the same structural item becomes enabled. A persistently disabled item reports a dedicated error without being pressed, and the opened menu is dismissed structurally before the error escapes.
 - `SafariMenuItem` now serves both as the shared representation type and as the model for structured submenu inspection.
 - `SafariSidebar.selectTabGroup(identifier:named:)` first attempts direct Swift accessibility selection using the sidebar row/cell accessibility identifier and falls back to the AppleScript transport when direct access cannot complete.
 - `SafariSidebar.deleteSelectedTabGroup()` opens the selected group's context menu and invokes `DeleteTabGroupMenuItem`.

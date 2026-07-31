@@ -210,7 +210,12 @@ enum SafariTabGroupSidebarAccess {
             closeWindow: SafariAppleScriptWindow.close(windowIdentifier:executor:),
             listSidebarTabGroups: listTabGroups(executor:),
             selectTabGroup: { identifier, name, executor in
-                try selectTabGroup(identifier: identifier, named: name, executor: executor)
+                try selectTabGroup(
+                    identifier: identifier,
+                    named: name,
+                    processIdentifier: nil,
+                    executor: executor
+                )
             },
             deleteSelectedTabGroup: { _ in
                 try SafariSidebar.deleteSelectedTabGroup()
@@ -389,31 +394,63 @@ enum SafariTabGroupSidebarAccess {
         named tabGroupName: String,
         executor: SafariAppleScriptExecuting
     ) throws {
-        try selectTabGroup(identifier: nil, named: tabGroupName, executor: executor)
+        try selectTabGroup(
+            identifier: nil,
+            named: tabGroupName,
+            processIdentifier: nil,
+            executor: executor
+        )
     }
 
     static func selectTabGroup(
         _ group: SafariTabGroupRecord,
         executor: SafariAppleScriptExecuting
     ) throws {
-        try selectTabGroup(identifier: group.identifier, named: group.name, executor: executor)
+        try selectTabGroup(
+            group,
+            processIdentifier: nil,
+            executor: executor
+        )
+    }
+
+    static func selectTabGroup(
+        _ group: SafariTabGroupRecord,
+        processIdentifier: pid_t?,
+        executor: SafariAppleScriptExecuting
+    ) throws {
+        try selectTabGroup(
+            identifier: group.identifier,
+            named: group.name,
+            processIdentifier: processIdentifier,
+            executor: executor
+        )
     }
 
     private static func selectTabGroup(
         identifier tabGroupIdentifier: Int?,
         named tabGroupName: String,
+        processIdentifier: pid_t?,
         executor: SafariAppleScriptExecuting
     ) throws {
         do {
             if let tabGroupIdentifier {
-                try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName)
+                try SafariSidebar.selectTabGroup(
+                    identifier: tabGroupIdentifier,
+                    named: tabGroupName,
+                    processIdentifier: processIdentifier
+                )
             } else {
                 try SafariSidebar.selectTabGroup(named: tabGroupName)
             }
         } catch SafariUserInterfaceError.sidebarTabGroupNotFound {
             do {
                 if let tabGroupIdentifier {
-                    try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+                    try SafariAppleScriptSidebar.selectTabGroup(
+                        identifier: tabGroupIdentifier,
+                        named: tabGroupName,
+                        processIdentifier: processIdentifier,
+                        executor: executor
+                    )
                 } else {
                     try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
                 }
@@ -425,7 +462,12 @@ enum SafariTabGroupSidebarAccess {
         } catch {
             do {
                 if let tabGroupIdentifier {
-                    try SafariSidebar.selectTabGroup(identifier: tabGroupIdentifier, named: tabGroupName, executor: executor)
+                    try SafariAppleScriptSidebar.selectTabGroup(
+                        identifier: tabGroupIdentifier,
+                        named: tabGroupName,
+                        processIdentifier: processIdentifier,
+                        executor: executor
+                    )
                 } else {
                     try SafariSidebar.selectTabGroup(named: tabGroupName, executor: executor)
                 }
