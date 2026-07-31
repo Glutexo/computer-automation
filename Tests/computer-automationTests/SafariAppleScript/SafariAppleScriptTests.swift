@@ -330,6 +330,23 @@ func safariAppleScriptMenuItemParserNormalizesShortcutFields(row: (Int, String, 
         )
     }
 
+    for message in [
+        "Safari got an error: Can’t get tab 2 of window id 42. (-1728)",
+        "NSAppleScriptErrorMessage = \"Invalid index.\"; NSAppleScriptErrorNumber = \"-1719\";"
+    ] {
+        let staleTab = MockAppleScriptExecutor(
+            error: SafariAppleScriptError.executionFailed(message)
+        )
+        #expect(throws: SafariAppleScriptTabJavaScriptError.tabNotFound(windowIdentifier: 42, tabIndex: 2)) {
+            try SafariAppleScriptTab.executeJavaScript(
+                windowIdentifier: 42,
+                tabIndex: 2,
+                javaScript: "document.title",
+                executor: staleTab
+            )
+        }
+    }
+
     let failedJavaScript = MockAppleScriptExecutor(
         error: SafariAppleScriptError.executionFailed("ReferenceError: sensitive page detail")
     )

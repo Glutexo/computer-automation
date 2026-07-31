@@ -433,7 +433,12 @@ public enum SafariAppleScriptTab: ModelModel {
         tell application "Safari"
         \(targetWindowLookup)
             if (count of tabs of targetWindow) < \(tabIndex) then error "COMPUTER_AUTOMATION_TAB_NOT_FOUND"
-            set javaScriptResult to do JavaScript \(appleScriptStringLiteral(serializedJavaScript)) in tab \(tabIndex) of targetWindow
+            try
+                set javaScriptResult to do JavaScript \(appleScriptStringLiteral(serializedJavaScript)) in tab \(tabIndex) of targetWindow
+            on error errorMessage number errorNumber
+                if errorNumber is -1728 or errorNumber is -1719 then error "COMPUTER_AUTOMATION_TAB_NOT_FOUND"
+                error errorMessage number errorNumber
+            end try
             if javaScriptResult is missing value then return ""
             try
                 return javaScriptResult as text
@@ -449,7 +454,13 @@ public enum SafariAppleScriptTab: ModelModel {
             if message.contains("COMPUTER_AUTOMATION_WINDOW_NOT_FOUND") {
                 throw SafariAppleScriptTabJavaScriptError.windowNotFound(windowIdentifier)
             }
-            if message.contains("COMPUTER_AUTOMATION_TAB_NOT_FOUND") {
+            if
+                message.contains("COMPUTER_AUTOMATION_TAB_NOT_FOUND") ||
+                staleTabAddressErrorNumbers.contains(where: { errorNumber in
+                    message.contains("NSAppleScriptErrorNumber = \"\(errorNumber)\"") ||
+                        message.contains("(\(errorNumber))")
+                })
+            {
                 throw SafariAppleScriptTabJavaScriptError.tabNotFound(
                     windowIdentifier: windowIdentifier,
                     tabIndex: tabIndex
@@ -467,6 +478,8 @@ public enum SafariAppleScriptTab: ModelModel {
             )
         }
     }
+
+    private static let staleTabAddressErrorNumbers = [-1728, -1719]
 
     private static func serializedJavaScriptResultSource(for javaScript: String) -> String {
         [
