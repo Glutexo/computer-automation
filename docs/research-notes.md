@@ -8,6 +8,12 @@
 - A retained WindowServer record alone is insufficient during that transition; a zero scripting tab count is the decisive signal that the object must leave automation inventory.
 - Capturing only the owning process's focused Accessibility window still permits a focus-lag race. PID-targeted scripting focus narrows the capture to the requested process and stable id, while fresh target readback must cancel the close-button fallback once the target is gone.
 
+### Profile filters should not repeat Safari discovery
+
+- Issue #65 timed out only on a profile-scoped broad-prefix MCP lookup while separate CLI `tabs` and `windows` inventory calls remained usable.
+- `find-tab` previously performed a full window inventory and then a second full tab inventory, including another WindowServer scan and another set of per-process scripting reads.
+- One snapshot supplies both the window profile map and matching tabs. ScriptingBridge optional-property reads must also propagate Apple-event timeout `-1712` immediately; swallowing it and continuing can multiply a stalled process across every window and tab property.
+
 ## 2026-07-27
 
 ### Accessibility titles are not a complete live-window identity

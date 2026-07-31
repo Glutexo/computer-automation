@@ -454,9 +454,30 @@ func safariAppleScriptTabListsItems(rows: [(Int, Int, Int, String)]) async throw
         switch error {
         case .scriptCompilationFailed:
             break
+        case .requestTimedOut:
+            Issue.record("Compilation failure must not be reported as a timeout.")
         case .executionFailed(let message):
             #expect(!message.isEmpty)
         }
+    }
+}
+
+@Test func safariAppleScriptProcessErrorsClassifyTimeouts() async throws {
+    let timeout = NSError(domain: NSOSStatusErrorDomain, code: -1712)
+    #expect(
+        SafariAppleScriptProcessBackend.executionError(
+            for: timeout,
+            processIdentifier: 4317
+        ) == .requestTimedOut(processIdentifier: 4317)
+    )
+
+    let unrelated = NSError(domain: NSOSStatusErrorDomain, code: -1728)
+    guard case .executionFailed = SafariAppleScriptProcessBackend.executionError(
+        for: unrelated,
+        processIdentifier: 4317
+    ) else {
+        Issue.record("Only Apple-event timeouts should use the timeout error.")
+        return
     }
 }
 

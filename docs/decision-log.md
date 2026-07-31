@@ -8,6 +8,11 @@
 - Added scripting tab counts to the WindowServer reconciliation and excluded zero-tab scripting ghosts even when Safari temporarily retains their stable window ids.
 - Gated the Accessibility close-button fallback on fresh cross-process target readback so disappearance of the requested window cannot close the next focused user window.
 
+### Single-snapshot tab lookup with bounded process reads
+
+- Changed URL-based tab lookup to derive tab matches and profile filters from one shared cross-process snapshot instead of running complete window and tab discovery independently.
+- Reduced the PID-targeted Apple-event timeout and surface a dedicated actionable error as soon as a Safari process times out, preventing an MCP request from accumulating per-property stalls until the client deadline.
+
 ## 2026-07-27
 
 ### Stable WindowServer inventory across macOS Spaces

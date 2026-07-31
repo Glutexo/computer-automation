@@ -258,6 +258,7 @@ import SQLite3
 }
 
 @Test func safariTabFindMatchesURLsAndFiltersWindows() async throws {
+    var snapshotCount = 0
     let matches = try SafariTab.find(
         url: "https://example.com",
         matchMode: .prefix,
@@ -266,19 +267,20 @@ import SQLite3
         profileName: "Twisto",
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
-        listTabs: { _ in
-            [
-                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Home"),
-                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 2, url: "https://example.com/path", title: "Path"),
-                SafariTabRecord(windowIdentifier: 43, windowIndex: 2, index: 1, url: "https://example.com", title: "Other window"),
-                SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 3, url: "https://openai.com", title: "Other URL")
-            ]
-        },
-        listWindows: { _ in
-            [
-                SafariWindowRecord(identifier: 43, index: 1, profileName: "Glutexo", name: "Glutexo"),
-                SafariWindowRecord(identifier: 42, index: 2, profileName: "Twisto", name: "Twisto")
-            ]
+        listSnapshot: { _ in
+            snapshotCount += 1
+            return SafariTabAutomationSnapshot(
+                windows: [
+                    SafariWindowRecord(identifier: 43, index: 1, profileName: "Glutexo", name: "Glutexo"),
+                    SafariWindowRecord(identifier: 42, index: 2, profileName: "Twisto", name: "Twisto")
+                ],
+                tabs: [
+                    SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 1, url: "https://example.com", title: "Home"),
+                    SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 2, url: "https://example.com/path", title: "Path"),
+                    SafariTabRecord(windowIdentifier: 43, windowIndex: 2, index: 1, url: "https://example.com", title: "Other window"),
+                    SafariTabRecord(windowIdentifier: 42, windowIndex: 1, index: 3, url: "https://openai.com", title: "Other URL")
+                ]
+            )
         }
     )
 
@@ -289,6 +291,7 @@ import SQLite3
             SafariTabMatchRecord(windowIdentifier: 42, windowIndex: 1, tabIndex: 2, url: "https://example.com/path", title: "Path")
         ]
     )
+    #expect(snapshotCount == 1)
 }
 
 @Test func safariTabListAcrossProcessesAssignsGlobalWindowIndexesAndFiltersStaleWindows() async throws {
@@ -331,6 +334,46 @@ import SQLite3
             SafariTabRecord(processId: 9000, windowIdentifier: 42, windowIndex: 2, index: 1, url: "https://swift.org", title: "Swift")
         ]
     )
+}
+
+@Test func safariTabAutomationSnapshotDiscoversWindowsOnlyOnce() async throws {
+    var discoveryCount = 0
+    let discoveredWindow = SafariProcessWindowRecord(
+        processIdentifier: 4317,
+        window: SafariAppleScriptWindowRecord(
+            identifier: 42,
+            name: "Twisto — Example",
+            currentTabName: "Example",
+            tabCount: 1
+        )
+    )
+
+    let snapshot = try SafariTab.snapshotAcrossRunningProcesses(
+        databasePath: "/missing/SafariTabs.db",
+        isRunning: { true },
+        discoverWindows: {
+            discoveryCount += 1
+            return [discoveredWindow]
+        },
+        listTabs: { processIdentifier, windowIdentifiers in
+            #expect(processIdentifier == 4317)
+            #expect(windowIdentifiers == [42])
+            return [
+                SafariAppleScriptTabRecord(
+                    windowIdentifier: 42,
+                    windowIndex: 1,
+                    index: 1,
+                    url: "https://example.com",
+                    title: "Example"
+                )
+            ]
+        }
+    )
+
+    #expect(discoveryCount == 1)
+    #expect(snapshot.windows.map(\.identifier) == [42])
+    #expect(snapshot.tabs.map(\.windowIdentifier) == [42])
+    #expect(snapshot.tabs.map(\.url) == ["https://example.com"])
 }
 
 @Test func safariTabAutomationListingPrefersCrossProcessInventory() async throws {

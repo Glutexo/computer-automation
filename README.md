@@ -66,6 +66,8 @@ Add `"--allow-mutations"` to `args` only when the client should be able to launc
 
 The MCP transport owns standard input, so the `safari_execute_tab_javascript` tool accepts inline JavaScript only; the CLI-only `--stdin` and `--file` source forms are not MCP arguments. The MCP client or the process that launches the server may need the same Automation, Accessibility, and Full Disk Access permissions described for the CLI.
 
+Profile-scoped `find-tab` and `resolve-tab` calls collect one consistent cross-process window-and-tab snapshot instead of repeating Safari discovery for each filter. PID-targeted scripting requests use bounded Apple-event timeouts and return an actionable timeout error if one Safari process stops responding.
+
 ## Run
 
 ```bash

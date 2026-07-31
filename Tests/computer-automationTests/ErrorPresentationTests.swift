@@ -178,6 +178,7 @@ func safariUserInterfaceErrorsHaveHumanReadableDescriptions(error: SafariUserInt
 
 @Test(arguments: [
     SafariAppleScriptError.scriptCompilationFailed,
+    .requestTimedOut(processIdentifier: 4317),
     .executionFailed("sensitive transport detail")
 ])
 func safariAppleScriptErrorsHaveHumanReadableDescriptions(error: SafariAppleScriptError) {

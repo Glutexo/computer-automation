@@ -26,12 +26,15 @@ public struct SafariAppleScriptExecutor: SafariAppleScriptExecuting {
 
 public enum SafariAppleScriptError: Error, Equatable, LocalizedError {
     case scriptCompilationFailed
+    case requestTimedOut(processIdentifier: pid_t)
     case executionFailed(String)
 
     public var errorDescription: String? {
         switch self {
         case .scriptCompilationFailed:
             "Could not prepare the Safari automation request."
+        case .requestTimedOut(let processIdentifier):
+            "Safari process \(processIdentifier) did not respond in time. Close any stuck Safari dialog and retry."
         case .executionFailed:
             "Safari automation failed. Ensure the calling app has Automation permission for Safari and System Events, then retry."
         }

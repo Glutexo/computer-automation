@@ -81,6 +81,11 @@ public struct SafariTabMatchRecord: Equatable, Sendable, Encodable {
     }
 }
 
+struct SafariTabAutomationSnapshot: Equatable, Sendable {
+    let windows: [SafariWindowRecord]
+    let tabs: [SafariTabRecord]
+}
+
 enum SafariTabURLMatchMode: String, Equatable {
     case exact
     case prefix
@@ -134,6 +139,67 @@ public enum SafariTab: ModelModel {
         }
 
         let windows = try discoverWindows()
+        return try tabRecords(from: windows, listTabs: listTabs)
+    }
+
+    static func snapshotAcrossRunningProcesses(
+        databasePath: String = SafariProfile.databasePath(),
+        isRunning: () -> Bool = SafariApplication.isRunning,
+        discoverWindows: () throws -> [SafariProcessWindowRecord] = { try SafariProcessWindowDiscovery.list() },
+        listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord] = { processIdentifier, windowIdentifiers in
+            try SafariAppleScriptTab.list(
+                processIdentifier: processIdentifier,
+                windowIdentifiers: windowIdentifiers
+            )
+        }
+    ) throws -> SafariTabAutomationSnapshot {
+        guard isRunning() else {
+            return SafariTabAutomationSnapshot(windows: [], tabs: [])
+        }
+
+        let discoveredWindows = try discoverWindows()
+        let windows = try SafariWindow.records(
+            from: discoveredWindows.map(\.window),
+            processIdentifiers: discoveredWindows.map(\.processIdentifier),
+            databasePath: databasePath
+        )
+        let tabs = try tabRecords(from: discoveredWindows, listTabs: listTabs)
+        return SafariTabAutomationSnapshot(windows: windows, tabs: tabs)
+    }
+
+    static func snapshotForAutomation(
+        executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
+    ) throws -> SafariTabAutomationSnapshot {
+        try snapshotForAutomation(
+            executor: executor,
+            listAcrossRunningProcesses: { try snapshotAcrossRunningProcesses() },
+            listLegacyWindows: { try SafariWindow.list(executor: $0) },
+            listLegacyTabs: { try list(executor: $0) }
+        )
+    }
+
+    static func snapshotForAutomation(
+        executor: SafariAppleScriptExecuting,
+        listAcrossRunningProcesses: () throws -> SafariTabAutomationSnapshot,
+        listLegacyWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord],
+        listLegacyTabs: (SafariAppleScriptExecuting) throws -> [SafariTabRecord]
+    ) throws -> SafariTabAutomationSnapshot {
+        do {
+            return try listAcrossRunningProcesses()
+        } catch SafariUserInterfaceError.windowListUnavailable {
+            let windows = try listLegacyWindows(executor)
+            let tabs = try listLegacyTabs(executor)
+            return SafariTabAutomationSnapshot(
+                windows: windows,
+                tabs: tabs
+            )
+        }
+    }
+
+    private static func tabRecords(
+        from windows: [SafariProcessWindowRecord],
+        listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord]
+    ) throws -> [SafariTabRecord] {
         let globalWindowIndexes = Dictionary(
             uniqueKeysWithValues: windows.enumerated().map {
                 (SafariProcessWindowKey(processIdentifier: $0.element.processIdentifier, windowIdentifier: $0.element.window.identifier), $0.offset + 1)
@@ -212,19 +278,17 @@ public enum SafariTab: ModelModel {
         profileName: String? = nil,
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor(),
         isRunning: () -> Bool = { SafariApplication.isRunning() },
-        listTabs: (SafariAppleScriptExecuting) throws -> [SafariTabRecord] = { executor in
-            try SafariTab.listForAutomation(executor: executor)
-        },
-        listWindows: (SafariAppleScriptExecuting) throws -> [SafariWindowRecord] = { executor in
-            try SafariWindow.listForAutomation(executor: executor)
+        listSnapshot: (SafariAppleScriptExecuting) throws -> SafariTabAutomationSnapshot = { executor in
+            try SafariTab.snapshotForAutomation(executor: executor)
         }
     ) throws -> [SafariTabMatchRecord] {
         guard isRunning() else {
             return []
         }
 
-        let windowsByIdentifier = Dictionary(uniqueKeysWithValues: try listWindows(executor).map { ($0.identifier, $0) })
-        return try listTabs(executor).compactMap { tab in
+        let snapshot = try listSnapshot(executor)
+        let windowsByIdentifier = Dictionary(uniqueKeysWithValues: snapshot.windows.map { ($0.identifier, $0) })
+        return snapshot.tabs.compactMap { tab in
             guard
                 tab.matches(url: url, mode: matchMode),
                 windowIdentifier.map({ $0 == tab.windowIdentifier }) ?? true,

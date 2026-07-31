@@ -31,10 +31,23 @@ struct SafariAppleScriptProcessBackend {
             }
         )
     }
+
+    static func executionError(
+        for error: Error,
+        processIdentifier: pid_t
+    ) -> SafariAppleScriptError {
+        let error = error as NSError
+        let appleScriptErrorNumber = (error.userInfo["NSAppleScriptErrorNumber"] as? NSNumber)?.intValue
+        if error.code == -1712 || appleScriptErrorNumber == -1712 {
+            return .requestTimedOut(processIdentifier: processIdentifier)
+        }
+
+        return .executionFailed(error.localizedDescription)
+    }
 }
 
 private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegate {
-    private static let timeoutTicks = 10 * 60
+    private static let timeoutTicks = 5 * 60
 
     private enum Code {
         static let windows: DescType = 0x6377_696E // cwin
@@ -47,6 +60,7 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
     }
 
     private let application: SBApplication
+    private let processIdentifier: pid_t
     private var lastError: Error?
 
     init(processIdentifier: pid_t) throws {
@@ -55,6 +69,7 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
         }
 
         self.application = application
+        self.processIdentifier = processIdentifier
         super.init()
         application.timeout = Self.timeoutTicks
         application.delegate = self
@@ -90,8 +105,8 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
                         windowIdentifier: windowIdentifier,
                         windowIndex: windowOffset + 1,
                         index: tabOffset + 1,
-                        url: optionalStringProperty(Code.url, on: tab),
-                        title: optionalStringProperty(Code.name, on: tab)
+                        url: try optionalStringProperty(Code.url, on: tab),
+                        title: try optionalStringProperty(Code.name, on: tab)
                     )
                 )
             }
@@ -125,20 +140,22 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
     private func windowRecord(_ window: SBObject) throws -> SafariAppleScriptWindowRecord {
         SafariAppleScriptWindowRecord(
             identifier: try requiredIntegerProperty(Code.identifier, on: window),
-            name: optionalStringProperty(Code.name, on: window),
-            currentTabName: optionalCurrentTabName(on: window),
+            name: try optionalStringProperty(Code.name, on: window),
+            currentTabName: try optionalCurrentTabName(on: window),
             tabCount: try elements(code: Code.tabs, on: window).count
         )
     }
 
-    private func optionalCurrentTabName(on window: SBObject) -> String? {
+    private func optionalCurrentTabName(on window: SBObject) throws -> String? {
         lastError = nil
-        guard let currentTab = window.property(withCode: Code.currentTab).get() as? SBObject else {
+        let value = window.property(withCode: Code.currentTab).get()
+        try throwLastTimeoutIfNeeded()
+        guard let currentTab = value as? SBObject else {
             lastError = nil
             return nil
         }
         lastError = nil
-        let name = optionalStringProperty(Code.name, on: currentTab)
+        let name = try optionalStringProperty(Code.name, on: currentTab)
         return name.isEmpty ? nil : name
     }
 
@@ -167,11 +184,27 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
         return number.intValue
     }
 
-    private func optionalStringProperty(_ code: AEKeyword, on object: SBObject) -> String {
+    private func optionalStringProperty(_ code: AEKeyword, on object: SBObject) throws -> String {
         lastError = nil
         let value = object.property(withCode: code).get()
+        try throwLastTimeoutIfNeeded()
         lastError = nil
         return value as? String ?? ""
+    }
+
+    private func throwLastTimeoutIfNeeded() throws {
+        guard let lastError else {
+            return
+        }
+        self.lastError = nil
+
+        let error = SafariAppleScriptProcessBackend.executionError(
+            for: lastError,
+            processIdentifier: processIdentifier
+        )
+        if case .requestTimedOut = error {
+            throw error
+        }
     }
 
     private func throwLastErrorIfNeeded() throws {
@@ -179,6 +212,9 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
             return
         }
         self.lastError = nil
-        throw SafariAppleScriptError.executionFailed(lastError.localizedDescription)
+        throw SafariAppleScriptProcessBackend.executionError(
+            for: lastError,
+            processIdentifier: processIdentifier
+        )
     }
 }

@@ -93,7 +93,7 @@ public enum SafariWindow: ModelModel {
         }
     }
 
-    private static func records(
+    static func records(
         from rawWindows: [SafariAppleScriptWindowRecord],
         processIdentifiers: [pid_t] = [],
         databasePath: String
