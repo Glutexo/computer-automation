@@ -7,6 +7,12 @@
 - Issue #69 showed that polling `AXEnabled` on one already-open `NewTabGroupWithTabsMenuItem` can retain a stale disabled state after URL preparation.
 - Creation retries now dismiss and reopen the owning process's File menu before every enablement read, allowing Safari to rebuild command state while preserving structural identifier targeting and cleanup.
 
+### Public Accessibility cannot prove a Safari stable window id
+
+- Issue #71 reproduced a focus-lag race where stable-id close captured an unrelated front Accessibility window, closed it, and then failed to resolve the intended target.
+- The public Accessibility window surface does not expose Safari's stable scripting window id, so an AX close-button fallback cannot prove that its captured window is the requested object.
+- ScriptingBridge supports both PID-addressed applications and ID-based element specifiers. Combining those two addresses allows an exact close without focus; if that close fails, no weaker fallback is safe.
+
 ### Carry the resolved operation window into saved-group creation
 
 - Issue #70 was not a positional parsing failure: the stable identifier was re-resolved through a fresh cross-process window snapshot immediately before creation, and a transiently missing record surfaced through the legacy invalid-index error.

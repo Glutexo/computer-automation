@@ -79,6 +79,25 @@ public enum SafariAppleScriptWindow: ModelModel {
         try backend.focusWindow(processIdentifier, windowIdentifier)
     }
 
+    public static func close(
+        windowIdentifier: Int,
+        processIdentifier: pid_t
+    ) throws {
+        try close(
+            windowIdentifier: windowIdentifier,
+            processIdentifier: processIdentifier,
+            backend: .live
+        )
+    }
+
+    static func close(
+        windowIdentifier: Int,
+        processIdentifier: pid_t,
+        backend: SafariAppleScriptProcessBackend
+    ) throws {
+        try backend.closeWindow(processIdentifier, windowIdentifier)
+    }
+
     public static func openNewDocument(
         executor: SafariAppleScriptExecuting = SafariAppleScriptExecutor()
     ) throws {

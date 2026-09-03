@@ -1102,9 +1102,7 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
 
 @Test func safariWindowCloseCommandTargetsWindowIdentifier() async throws {
     var closedWindowIdentifier: Int?
-    var focusedWindowIdentifier: Int?
-    var capturedProcessIdentifier: pid_t?
-    var didVerifyClose = false
+    var closedProcessIdentifier: pid_t?
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
@@ -1112,21 +1110,12 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
             Issue.record("closeFrontWindow should not be called")
             return "unexpected"
         },
-        focusWindow: { _, _ in
-            Issue.record("legacy focusWindow should not be called")
+        closeWindowByIdentifier: { _, _ in
+            Issue.record("legacy close should not be called")
         },
-        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
-            focusedWindowIdentifier = windowIdentifier
-            capturedProcessIdentifier = processIdentifier
-        },
-        closeWindowByIdentifier: { windowIdentifier, _ in
+        closeWindowInProcess: { windowIdentifier, processIdentifier in
             closedWindowIdentifier = windowIdentifier
-        },
-        closeFocusedWindowWithTargetReadback: { processIdentifier, targetIsPresent, performClose in
-            #expect(processIdentifier == 4317)
-            try performClose()
-            #expect(!targetIsPresent())
-            didVerifyClose = true
+            closedProcessIdentifier = processIdentifier
         },
         listWindows: { _ in
             closedWindowIdentifier == nil
@@ -1137,9 +1126,7 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
 
     #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
     #expect(closedWindowIdentifier == 42)
-    #expect(focusedWindowIdentifier == 42)
-    #expect(capturedProcessIdentifier == 4317)
-    #expect(didVerifyClose)
+    #expect(closedProcessIdentifier == 4317)
 }
 
 @Test func safariWindowCloseCommandAcceptsAlreadyRemovedWindow() async throws {
@@ -1147,26 +1134,21 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
         closeFrontWindow: { _ in "unused" },
-        focusWindow: { _, _ in Issue.record("focusWindow should not be called") },
         closeWindowByIdentifier: { _, _ in Issue.record("closeWindowByIdentifier should not be called") },
-        closeFocusedWindow: { _, _ in Issue.record("closeFocusedWindow should not be called") },
+        closeWindowInProcess: { _, _ in Issue.record("closeWindowInProcess should not be called") },
         listWindows: { _ in [] }
     )
 
     #expect(try command.execute(arguments: ["--window-id", "42"]) == "Safari window 42 closed.")
 }
 
-@Test func safariWindowCloseCommandRejectsVisibleWindowAfterFallback() async throws {
+@Test func safariWindowCloseCommandRejectsVisibleWindowAfterExactClose() async throws {
     let command = SafariWindowCloseCommand(
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
         closeFrontWindow: { _ in "unused" },
-        focusWindow: { _, _ in },
-        closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { _, performClose in
-            try performClose()
-            throw SafariUserInterfaceError.windowCloseNotVerified
-        },
+        closeWindowByIdentifier: { _, _ in Issue.record("legacy close should not be called") },
+        closeWindowInProcess: { _, _ in },
         listWindows: { _ in
             [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
         }
@@ -1184,9 +1166,8 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
         closeFrontWindow: { _ in "unused" },
-        focusWindow: { _, _ in },
-        closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { _, performClose in try performClose() },
+        closeWindowByIdentifier: { _, _ in Issue.record("legacy close should not be called") },
+        closeWindowInProcess: { _, _ in },
         listWindows: { _ in
             readAttempts += 1
             return readAttempts < 4
@@ -1207,9 +1188,8 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         executor: MockAppleScriptExecutor(),
         isRunning: { true },
         closeFrontWindow: { _ in "unused" },
-        focusWindow: { _, _ in },
-        closeWindowByIdentifier: { _, _ in },
-        closeFocusedWindow: { _, performClose in try performClose() },
+        closeWindowByIdentifier: { _, _ in Issue.record("legacy close should not be called") },
+        closeWindowInProcess: { _, _ in },
         listWindows: { _ in
             readAttempts += 1
             return [SafariWindowRecord(processId: 4317, identifier: 42, index: 1, profileName: "Twisto", name: "Twisto")]
@@ -1221,6 +1201,35 @@ func safariWindowCloseCommandRespectsRunningState(input: (Bool, String, String))
         try command.execute(arguments: ["--window-id", "42"])
     }
     #expect(readAttempts == 41)
+}
+
+@Test func safariWindowCloseCommandDoesNotFallbackWhenExactProcessCloseFails() async throws {
+    let expectedError = SafariAppleScriptError.executionFailed("exact close failed")
+    var didCallLegacyClose = false
+    let baselineWindows = [
+        SafariWindowRecord(processId: 15378, identifier: 300, index: 1, profileName: "Glutexo", name: "YouTube"),
+        SafariWindowRecord(processId: 15378, identifier: 306, index: 2, profileName: "Twisto", name: "Sloneek")
+    ]
+    let command = SafariWindowCloseCommand(
+        executor: MockAppleScriptExecutor(),
+        isRunning: { true },
+        closeFrontWindow: { _ in
+            Issue.record("closeFrontWindow should not be called")
+            return "unexpected"
+        },
+        closeWindowByIdentifier: { _, _ in didCallLegacyClose = true },
+        closeWindowInProcess: { windowIdentifier, processIdentifier in
+            #expect(windowIdentifier == 306)
+            #expect(processIdentifier == 15378)
+            throw expectedError
+        },
+        listWindows: { _ in baselineWindows }
+    )
+
+    #expect(throws: expectedError) {
+        try command.execute(arguments: ["--window-id", "306"])
+    }
+    #expect(!didCallLegacyClose)
 }
 
 @Test func safariWindowCloseCommandRejectsInvalidWindowIdentifierArguments() async throws {

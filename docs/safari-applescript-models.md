@@ -20,7 +20,7 @@
 | Model | Internal API | Purpose |
 | --- | --- | --- |
 | `SafariAppleScriptApplication` | `activate()` | Bring Safari to the foreground before UI-oriented script operations. |
-| `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()`, `close(windowIdentifier:)` | Read and mutate Safari window state through AppleScript. |
+| `SafariAppleScriptWindow` | `list()`, `openNewDocument()`, `closeFrontWindow()`, `close(windowIdentifier:)`, `close(windowIdentifier:processIdentifier:)` | Read and mutate Safari window state through AppleScript, including process-scoped stable-id close. |
 | `SafariAppleScriptTab` | `list()`, `list(windowIdentifier:)`, `open()`, `open(windowIdentifier:)`, `setURL()`, `setURL(windowIdentifier:)`, `move()`, `move(windowIdentifier:)`, `close()`, `close(windowIdentifier:)`, `executeJavaScript()` | Read and mutate Safari tab state through AppleScript, including concrete-tab JavaScript evaluation. |
 | `SafariAppleScriptSidebar` | `selectItem()`, `selectTabGroup()`, `selectTabGroup(identifier:named:)`, `renameTabGroup()` | Select sidebar rows structurally and support the internal post-create tab-group naming flow. |
 | `SafariAppleScriptApplicationMenuBar` | `listItems()` | Read top-level Safari menu bar items. |
@@ -43,7 +43,7 @@ flowchart TD
     ListWindows["list()"]
     OpenDocument["openNewDocument()"]
     CloseWindow["closeFrontWindow()"]
-    CloseWindowByID["close(windowIdentifier:)"]
+    CloseWindowByID["close(windowIdentifier:processIdentifier:)"]
     ListTabs["list()"]
     OpenTab["open()"]
     SetTabURL["setURL()"]
@@ -91,6 +91,7 @@ flowchart TD
 - `Safari` and `SafariUserInterface` depend on it through explicit model APIs.
 - AppleScript execution itself is isolated in `SafariAppleScriptExecutor`.
 - This module owns script parsing artifacts such as AppleScript-derived menu-item, window, and tab records.
+- PID-targeted stable-id window close resolves an ID-based ScriptingBridge object in the requested Safari process and sends the close event to that object without activating or focusing a window.
 - `SafariAppleScriptTab` provides window-index and window-id variants for listing, opening, moving, setting URLs, and closing tabs. Every window-id variant uses the same iterative resolver over `every window` and compares `id of currentWindow` before touching tabs.
 - `SafariAppleScriptTab.executeJavaScript()` uses that iterative stable-id resolver and then runs `do JavaScript` in the requested tab index of the resolved window.
 - `SafariAppleScriptTab.open(windowIdentifier:)` polls until a newly created stable window id is addressable through AppleScript before it performs the one-shot tab creation.

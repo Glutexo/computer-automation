@@ -5,15 +5,18 @@ struct SafariAppleScriptProcessBackend {
     let listWindows: (pid_t) throws -> [SafariAppleScriptWindowRecord]
     let listTabs: (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord]
     let focusWindow: (pid_t, Int) throws -> Void
+    let closeWindow: (pid_t, Int) throws -> Void
 
     init(
         listWindows: @escaping (pid_t) throws -> [SafariAppleScriptWindowRecord],
         listTabs: @escaping (pid_t, Set<Int>) throws -> [SafariAppleScriptTabRecord],
-        focusWindow: @escaping (pid_t, Int) throws -> Void = { _, _ in }
+        focusWindow: @escaping (pid_t, Int) throws -> Void = { _, _ in },
+        closeWindow: @escaping (pid_t, Int) throws -> Void = { _, _ in }
     ) {
         self.listWindows = listWindows
         self.listTabs = listTabs
         self.focusWindow = focusWindow
+        self.closeWindow = closeWindow
     }
 
     static var live: SafariAppleScriptProcessBackend {
@@ -28,6 +31,10 @@ struct SafariAppleScriptProcessBackend {
             focusWindow: { processIdentifier, windowIdentifier in
                 try SafariScriptingBridgeSession(processIdentifier: processIdentifier)
                     .focusWindow(windowIdentifier)
+            },
+            closeWindow: { processIdentifier, windowIdentifier in
+                try SafariScriptingBridgeSession(processIdentifier: processIdentifier)
+                    .closeWindow(windowIdentifier)
             }
         )
     }
@@ -116,25 +123,55 @@ private final class SafariScriptingBridgeSession: NSObject, SBApplicationDelegat
     }
 
     func focusWindow(_ windowIdentifier: Int) throws {
-        let windows = try elements(code: Code.windows, on: application)
-        var targetWindow: SBObject?
-
-        for window in windows where try requiredIntegerProperty(Code.identifier, on: window) == windowIdentifier {
-            targetWindow = window
-            break
-        }
-
-        guard let targetWindow else {
-            throw SafariAppleScriptError.executionFailed(
-                "Safari window \(windowIdentifier) is unavailable in the requested process."
-            )
-        }
+        let targetWindow = try window(identifier: windowIdentifier)
 
         lastError = nil
         application.activate()
         try throwLastErrorIfNeeded()
         targetWindow.property(withCode: Code.index).setTo(1)
         try throwLastErrorIfNeeded()
+    }
+
+    func closeWindow(_ windowIdentifier: Int) throws {
+        let targetWindow = try window(identifier: windowIdentifier)
+        let selector = NSSelectorFromString("closeSaving:savingIn:")
+        guard targetWindow.responds(to: selector) else {
+            throw SafariAppleScriptError.executionFailed(
+                "Safari cannot close the requested scripting window."
+            )
+        }
+
+        typealias CloseWindowMethod = @convention(c) (
+            AnyObject,
+            Selector,
+            OSType,
+            NSURL?
+        ) -> Void
+
+        lastError = nil
+        // This is the selector emitted by Safari's sdp-generated ScriptingBridge glue.
+        let implementation = targetWindow.method(for: selector)
+        let closeWindow = unsafeBitCast(implementation, to: CloseWindowMethod.self)
+        closeWindow(targetWindow, selector, OSType(kAENo), nil)
+        try throwLastErrorIfNeeded()
+    }
+
+    private func window(identifier: Int) throws -> SBObject {
+        lastError = nil
+        let windows = application.elementArray(withCode: Code.windows)
+        guard let targetWindow = windows.object(withID: NSNumber(value: identifier)) as? SBObject else {
+            throw SafariAppleScriptError.executionFailed(
+                "Safari window \(identifier) is unavailable in the requested process."
+            )
+        }
+        let resolvedIdentifier = try requiredIntegerProperty(Code.identifier, on: targetWindow)
+        guard resolvedIdentifier == identifier else {
+            throw SafariAppleScriptError.executionFailed(
+                "Safari window \(identifier) is unavailable in the requested process."
+            )
+        }
+
+        return targetWindow
     }
 
     private func windowRecord(_ window: SBObject) throws -> SafariAppleScriptWindowRecord {

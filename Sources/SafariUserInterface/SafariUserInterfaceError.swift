@@ -31,7 +31,7 @@ public enum SafariUserInterfaceError: Error, Equatable, LocalizedError {
         case .windowCloseButtonUnavailable:
             "Safari kept the targeted window visible and its Accessibility close button was unavailable. Close that exact window manually."
         case .windowCloseNotVerified:
-            "Safari kept the targeted window visible after both the normal close action and Accessibility close-button fallback. Close that exact window manually."
+            "Safari kept the targeted window visible after the exact close action. Close that exact window manually."
         case .sidebarUnavailable:
             "Safari's visible sidebar could not be opened or inspected. Grant Accessibility permission to the calling app, then retry."
         case .sidebarTabGroupNotFound(let tabGroupName):

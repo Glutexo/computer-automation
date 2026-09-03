@@ -6,7 +6,7 @@
 - Direct AppleScript access is delegated to the separate `SafariAppleScript` module.
 - It currently exposes six models: `SafariApplicationMenuBar`, `SafariAccessibilityWindow`, `SafariSidebar`, `SafariMenu`, `SafariFileMenu`, and `SafariMenuItem`.
 - `SafariApplicationMenuBar` represents Safari's top-level application menu bar.
-- `SafariAccessibilityWindow` captures the focused Safari window for visibility readback and exact close-button fallback.
+- `SafariAccessibilityWindow` retains the internal focused-window inspection and close-button primitives used by direct UI-model callers; stable-id `close-window` no longer delegates to it.
 - `SafariSidebar` represents the opened front-window Safari sidebar as a reusable structural targeting surface.
 - `SafariMenu` represents an arbitrary top-level Safari application menu addressed by structure.
 - `SafariFileMenu` represents a thin specialization of `SafariMenu` for Safari's `File` menu.
@@ -70,7 +70,7 @@ flowchart TD
 - `SafariUserInterface` is a separate module so GUI scripting does not mix with Safari domain models.
 - `SafariUserInterface` depends on `SafariAppleScript` instead of owning AppleScript execution directly.
 - `SafariWindow` in the `Safari` module currently depends on `SafariFileMenu` for window creation and `SafariSidebar` for saved tab-group selection through explicit module boundaries.
-- Identifier-targeted window closing focuses the stable Safari id, captures that exact focused AX window, verifies it is no longer visible after the normal close request, and presses its structural close button only as a fallback.
+- Identifier-targeted window closing bypasses the focused-window Accessibility surface and sends an ID-addressed close event directly to the target's owning Safari process.
 - `SafariTabGroup` in the `Safari` module currently depends on `SafariSidebar` for structural targeting, `SafariFileMenu` for the create trigger, and the sidebar context menu for delete.
 - `SafariSidebar.selectTabGroup(identifier:named:processIdentifier:)` scopes focused-window lookup to the operation window's owning Safari process. Parsed `SidebarLibraryItemTabGroup` identifiers remain authoritative: an exact identifier selects the row, any exposed nonmatching identifiers prevent name fallback, and name-only selection remains available only when the sidebar exposes no stable group id or the caller has no persisted id yet.
 - `SafariMenu` is the primary general-purpose menu model for future UI automation work.

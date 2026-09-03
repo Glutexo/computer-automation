@@ -8,6 +8,12 @@
 - Each bounded retry dismisses and reopens the owning process's File menu, re-resolves `NewTabGroupWithTabsMenuItem` structurally, and presses it only after `AXEnabled` is no longer false.
 - Top-level and module-level `--help` now render directly from shared descriptors so CLI diagnostics point to working discovery commands.
 
+### Process-scoped stable-id Safari window closure
+
+- Stable-id `close-window` no longer focuses the target or captures whichever Accessibility window becomes focused, eliminating the focus-lag path that could close an unrelated user window.
+- The close event is sent to an ID-based ScriptingBridge window object in the exact owning Safari process; failures propagate without any front-window, bundle-level, or Accessibility fallback.
+- Reconciled cross-process readback remains the success condition and still filters already removed zero-tab scripting ghosts.
+
 ## 2026-07-31
 
 ### Process-specific and ghost-safe Safari window closure

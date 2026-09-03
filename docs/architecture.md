@@ -160,7 +160,6 @@ flowchart TD
     SafariTab --> TabClose
     WindowOpen --> SafariFileMenu
     WindowOpenPrivate --> SafariFileMenu
-    WindowClose --> SafariAccessibilityWindow
     Windows --> SafariWindowServerWindow
     Tabs --> SafariWindowServerWindow
     WindowOpenTabGroup --> SafariFileMenu
@@ -195,6 +194,7 @@ flowchart TD
   - sidebar context-menu action `DeleteTabGroupMenuItem` for delete
   - the sidebar inline text field for post-create naming
 - Menu and sidebar mutations that follow cross-process window discovery carry the operation window's owning process id into Accessibility and AppleScript fallback lookup; they never select the first arbitrary Safari process.
+- Stable-id window deletion sends an ID-addressed close event directly to the owning Safari process and never delegates to a focused Accessibility window or front-window fallback.
 - Missing saved-group URL reconciliation populates the operation-owned window before invoking `NewTabGroupWithTabsMenuItem`, avoiding Safari's disabled action on an untouched Start Page while preserving the requested URL set in the newly created group.
 - When database-backed group inventory is unavailable, `sidebar-tab-groups` opens a new operation-owned profile window, inventories exact sidebar rows without selecting them, and closes that window. The profile/name delete address uses the same isolated sidebar surface, requires one stable row identifier, and fails closed rather than cycling through unrelated groups.
 - Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.

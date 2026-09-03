@@ -85,6 +85,7 @@ import SQLite3
     var tabProcessIdentifier: pid_t?
     var requestedWindowIdentifiers: Set<Int>?
     var focusedAddress: (pid_t, Int)?
+    var closedAddress: (pid_t, Int)?
     let backend = SafariAppleScriptProcessBackend(
         listWindows: { processIdentifier in
             windowProcessIdentifier = processIdentifier
@@ -104,6 +105,9 @@ import SQLite3
         },
         focusWindow: { processIdentifier, windowIdentifier in
             focusedAddress = (processIdentifier, windowIdentifier)
+        },
+        closeWindow: { processIdentifier, windowIdentifier in
+            closedAddress = (processIdentifier, windowIdentifier)
         }
     )
 
@@ -127,6 +131,13 @@ import SQLite3
     )
     #expect(focusedAddress?.0 == 4317)
     #expect(focusedAddress?.1 == 42)
+    try SafariAppleScriptWindow.close(
+        windowIdentifier: 42,
+        processIdentifier: 4317,
+        backend: backend
+    )
+    #expect(closedAddress?.0 == 4317)
+    #expect(closedAddress?.1 == 42)
     #expect(tabProcessIdentifier == 4317)
     #expect(requestedWindowIdentifiers == [42])
 }
