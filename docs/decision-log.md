@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-09-03
+
+### Refresh transient Safari File-menu command state
+
+- A disabled saved-tab-group creation item is no longer polled in one already-open File menu, because Safari can retain that menu instance's stale command state after tab preparation.
+- Each bounded retry dismisses and reopens the owning process's File menu, re-resolves `NewTabGroupWithTabsMenuItem` structurally, and presses it only after `AXEnabled` is no longer false.
+- Top-level and module-level `--help` now render directly from shared descriptors so CLI diagnostics point to working discovery commands.
+
 ## 2026-07-31
 
 ### Process-specific and ghost-safe Safari window closure

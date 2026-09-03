@@ -146,7 +146,7 @@ windowId|windowIndex|tabIndex|url|title
 
 `safari resolve-tab <url>` uses the same filters as `find-tab`, but it must resolve exactly one tab. It prints the same single row shape as `find-tab`, fails when no tab matches, and fails when the query is ambiguous.
 
-`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`. Safari can expose the required File-menu action as briefly disabled while a new window is becoming ready, so the command waits for that exact structural item to become enabled before pressing it. A persistently disabled action fails with an actionable error instead of being mistaken for a successful request followed by a missing database mutation.
+`safari ensure-tab-group <profile> <name>` creates or reuses a saved Safari tab group. When creating a missing profile-specific group, it opens a brand-new window for the requested profile and mutates only that new window. Text mode reports whether the group was `created` or `reused` and prints the resolved group row. JSON mode returns a stable summary with `status` and `tabGroup`. Safari can expose the required File-menu action as briefly disabled while a new window is becoming ready, so the command dismisses and reopens the owning process's File menu until that exact structural item becomes enabled. A persistently disabled action fails with an actionable error instead of being mistaken for a successful request followed by a missing database mutation.
 
 Missing-group creation replaces the operation window's Start Page with a normal blank tab before invoking Safari's with-tabs action, so the action is enabled and the resulting group persists after the operation window closes. `ensure-tab-list-urls` uses the requested URLs themselves instead: it replaces the Start Page with the first missing URL, opens the remaining URLs, and only then creates the saved group. File menus opened during inspection are structurally dismissed on every failure path.
 
@@ -209,6 +209,14 @@ Some Safari read commands use Safari's local `SafariTabs.db` for profile, saved 
 When the database is unavailable, `safari windows` still returns the window fields that Safari exposes through AppleScript: window index, private state as `false`, empty profile and tab-group fields, and window name. Commands that require saved Safari database records fail quickly with an actionable database access error instead of waiting indefinitely.
 
 ## Completion
+
+Use `--help` at the top level, after a module, or after a command to discover the available modules, commands, and command-specific usage:
+
+```bash
+swift run computer-automation --help
+swift run computer-automation safari --help
+swift run computer-automation safari ensure-tab-list-urls --help
+```
 
 ```bash
 swift run computer-automation --complete

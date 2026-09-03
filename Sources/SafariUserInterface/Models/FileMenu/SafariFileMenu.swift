@@ -249,33 +249,35 @@ public enum SafariFileMenu: ModelModel {
         processIdentifier: pid_t? = nil,
         accessibility: SafariAccessibilityBackend
     ) throws {
-        let didPress = try SafariMenu.pressFirstMenuItem(
-            menuBarItemIndex: menuBarItemIndex,
-            processIdentifier: processIdentifier,
-            accessibility: accessibility,
-            validate: { menuItem in
-                guard accessibility.optionalBooleanValue(
-                    for: kAXEnabledAttribute,
-                    on: menuItem
-                ) == false else {
-                    return
+        var observedDisabledItem = false
+        let didPress = try accessibility.polling.firstResult { () throws -> Bool? in
+            do {
+                let didPress = try SafariMenu.pressFirstMenuItem(
+                    menuBarItemIndex: menuBarItemIndex,
+                    processIdentifier: processIdentifier,
+                    accessibility: accessibility,
+                    validate: { menuItem in
+                        guard accessibility.optionalBooleanValue(
+                            for: kAXEnabledAttribute,
+                            on: menuItem
+                        ) != false else {
+                            throw SafariFileMenuRetry.menuItemDisabled
+                        }
+                    }
+                ) {
+                    accessibility.stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
                 }
-
-                let becameEnabled = accessibility.polling.firstResult {
-                    accessibility.optionalBooleanValue(
-                        for: kAXEnabledAttribute,
-                        on: menuItem
-                    ) == false ? nil : true
-                }
-                if becameEnabled == nil {
-                    throw SafariUserInterfaceError.menuItemDisabled(identifier)
-                }
+                return didPress ? true : nil
+            } catch SafariFileMenuRetry.menuItemDisabled {
+                observedDisabledItem = true
+                return nil
             }
-        ) {
-            accessibility.stringValue(for: kAXIdentifierAttribute, on: $0) == identifier
         }
 
-        guard didPress else {
+        guard didPress != nil else {
+            if observedDisabledItem {
+                throw SafariUserInterfaceError.menuItemDisabled(identifier)
+            }
             throw SafariUserInterfaceError.menuUnavailable(menuBarItemIndex: menuBarItemIndex)
         }
     }
@@ -313,4 +315,8 @@ public enum SafariFileMenu: ModelModel {
         }
     }
 
+}
+
+private enum SafariFileMenuRetry: Error {
+    case menuItemDisabled
 }

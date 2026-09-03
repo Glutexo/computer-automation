@@ -22,6 +22,10 @@ public enum ComputerAutomationCLI {
             throw CLIError.missingModule
         }
 
+        if effectiveArguments == ["--help"] {
+            return topLevelHelp()
+        }
+
         if firstArgument == "--complete" {
             let suggestions = CompletionEngine.suggestions(for: Array(effectiveArguments.dropFirst()), modules: modules)
             return suggestions.map(\.value).joined(separator: "\n")
@@ -64,6 +68,10 @@ public enum ComputerAutomationCLI {
             throw CLIError.unknownModule(moduleName)
         }
 
+        if Array(effectiveArguments.dropFirst()) == ["--help"] {
+            return moduleHelp(module)
+        }
+
         guard effectiveArguments.count >= 2 else {
             throw CLIError.missingCommand(moduleName: module.name)
         }
@@ -91,6 +99,32 @@ public enum ComputerAutomationCLI {
         default:
             throw CLIError.unknownModule(moduleName)
         }
+    }
+
+    private static func topLevelHelp() -> String {
+        let moduleRows = modules.map { "  \($0.name)\t\($0.abstract)" }
+        return ([
+            "Usage: \(executableName) <module> <command> [arguments]",
+            "",
+            "Modules:"
+        ] + moduleRows + [
+            "",
+            "Run \(executableName) <module> --help to list that module's commands."
+        ]).joined(separator: "\n")
+    }
+
+    private static func moduleHelp(_ module: ModuleDescriptor) -> String {
+        let commandRows = module.commands.map { "  \($0.name)\t\($0.abstract)" }
+        return ([
+            "Usage: \(executableName) \(module.name) <command> [arguments]",
+            "",
+            module.abstract,
+            "",
+            "Commands:"
+        ] + commandRows + [
+            "",
+            "Run \(executableName) \(module.name) <command> --help for command usage."
+        ]).joined(separator: "\n")
     }
 }
 

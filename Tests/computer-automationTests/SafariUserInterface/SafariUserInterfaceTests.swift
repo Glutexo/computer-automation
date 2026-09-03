@@ -352,7 +352,9 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     try SafariFileMenu.createTabGroupFromCurrentTabs(accessibility: fake.backend())
 
     #expect(enabledReadCount == 3)
-    #expect(fake.sleptIntervals == [0.05])
+    #expect(fake.activationCount == 3)
+    #expect(fake.performedActions.filter { $0.action == kAXCancelAction }.count == 2)
+    #expect(fake.sleptIntervals == [0.05, 0.05])
     #expect(
         fake.performedActions.contains {
             $0.action == kAXPressAction && sameElement($0.element, targetItem)

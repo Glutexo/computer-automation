@@ -2,6 +2,11 @@
 
 ## 2026-09-03
 
+### Safari recalculates File-menu enablement when the menu opens
+
+- Issue #69 showed that polling `AXEnabled` on one already-open `NewTabGroupWithTabsMenuItem` can retain a stale disabled state after URL preparation.
+- Creation retries now dismiss and reopen the owning process's File menu before every enablement read, allowing Safari to rebuild command state while preserving structural identifier targeting and cleanup.
+
 ### Carry the resolved operation window into saved-group creation
 
 - Issue #70 was not a positional parsing failure: the stable identifier was re-resolved through a fresh cross-process window snapshot immediately before creation, and a transiently missing record surfaced through the legacy invalid-index error.

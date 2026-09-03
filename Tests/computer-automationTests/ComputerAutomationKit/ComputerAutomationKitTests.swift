@@ -250,6 +250,22 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     #expect(output.contains("close-tab"))
 }
 
+@Test func cliRendersTopLevelHelp() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["--help"])
+
+    #expect(output.contains("Usage: computer-automation <module> <command> [arguments]"))
+    #expect(output.contains("safari\tAutomation commands for Safari."))
+    #expect(output.contains("safari-ui\tSafari user interface automation models."))
+}
+
+@Test func cliRendersModuleHelp() async throws {
+    let output = try ComputerAutomationCLI.run(arguments: ["safari", "--help"])
+
+    #expect(output.contains("Usage: computer-automation safari <command> [arguments]"))
+    #expect(output.contains("ensure-tab-list-urls\tEnsure requested URLs exist in a Safari tab list."))
+    #expect(output.contains("open-tab-group-window\tOpen a new Safari window for a saved tab group."))
+}
+
 @Test func cliRendersZshCompletionScript() async throws {
     let output = try ComputerAutomationCLI.run(arguments: ["--completion-script", "zsh"])
     #expect(output.contains("#compdef computer-automation"))
