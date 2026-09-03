@@ -1,5 +1,12 @@
 # Research Notes
 
+## 2026-09-03
+
+### Saved tab-group selection has one readiness horizon
+
+- Issue #67 showed that Accessibility selection can return before Safari publishes the selected saved-group identifier in window readback.
+- `open-tab-group-window` now uses the same 80-attempt, 0.25-second settling policy as saved-group tab-list operations instead of the shorter generic window-creation poll.
+
 ## 2026-07-31
 
 ### Zero-tab Safari scripting objects are not closable windows

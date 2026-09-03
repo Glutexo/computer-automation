@@ -112,7 +112,7 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
             }
             try selectTabGroup(tabGroup, createdWindow.processId, executor)
 
-            for attempt in 0..<SafariWindowCreation.pollAttempts {
+            for attempt in 0..<SafariSavedTabGroupWindowReadiness.pollAttempts {
                 let windows = try listWindows(executor)
                 if
                     let operationWindow = windows.first(where: { $0.identifier == createdWindow.identifier }),
@@ -136,8 +136,8 @@ public struct SafariWindowOpenTabGroupCommand: CommandModel, JSONCommandModel {
                     )
                 }
 
-                if attempt < SafariWindowCreation.pollAttempts - 1 {
-                    sleep(SafariWindowCreation.pollInterval)
+                if attempt < SafariSavedTabGroupWindowReadiness.pollAttempts - 1 {
+                    sleep(SafariSavedTabGroupWindowReadiness.pollInterval)
                 }
             }
         } catch {

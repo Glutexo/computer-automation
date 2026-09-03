@@ -641,6 +641,42 @@ func safariWindowParseWindowListPreservesOrderingAndKnownProfileMapping(
     #expect(object["profileName"] as? String == "Twisto")
 }
 
+@Test func safariWindowOpenTabGroupCommandWaitsForDelayedSavedGroupSelection() async throws {
+    let pendingWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    let selectedWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1000,
+        tabGroupName: "Focus",
+        name: "Focus"
+    )
+    var readCount = 0
+    var sleptIntervals: [TimeInterval] = []
+    let command = SafariWindowOpenTabGroupCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+        },
+        openNewWindowForProfile: { _, _ in pendingWindow },
+        selectTabGroup: { _, _ in },
+        listWindows: { _ in
+            readCount += 1
+            return [readCount < 12 ? pendingWindow : selectedWindow]
+        },
+        sleep: { sleptIntervals.append($0) }
+    )
+
+    #expect(try command.execute(arguments: ["1000"]) == "Safari window opened for tab group Focus.\nwindow-id|42")
+    #expect(readCount == 12)
+    #expect(sleptIntervals == Array(repeating: 0.25, count: 11))
+}
+
 @Test func safariWindowOpenTabGroupCommandRollsBackOnlyOperationWindowOnSelectionFailure() async throws {
     var closedWindowIdentifiers: [Int] = []
     let operationWindow = SafariWindowRecord(
