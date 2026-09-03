@@ -2,6 +2,11 @@
 
 ## 2026-09-03
 
+### Carry the resolved operation window into saved-group creation
+
+- Issue #70 was not a positional parsing failure: the stable identifier was re-resolved through a fresh cross-process window snapshot immediately before creation, and a transiently missing record surfaced through the legacy invalid-index error.
+- The ensure flow now passes its already resolved `SafariWindowRecord` directly into tab-group creation, preserving the stable id, current index, profile, and owning process as one verified snapshot.
+
 ### Saved tab-group selection has one readiness horizon
 
 - Issue #67 showed that Accessibility selection can return before Safari publishes the selected saved-group identifier in window readback.

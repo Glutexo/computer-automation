@@ -115,17 +115,7 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
             throw SafariTabGroupCommandError.invalidWindowIndex(String(windowIndex))
         }
 
-        return try createTabGroup(in: window, name: name)
-    }
-
-    func createTabGroup(windowIdentifier: Int, name rawName: String) throws -> SafariTabGroupRecord {
-        let name = try validatedTabGroupName(rawName)
-        let windows = try listWindows()
-        guard let window = windows.first(where: { $0.identifier == windowIdentifier }) else {
-            throw SafariTabGroupCommandError.invalidWindowIndex(String(windowIdentifier))
-        }
-
-        return try createTabGroup(in: window, name: name)
+        return try createTabGroup(inValidatedWindow: window, name: name)
     }
 
     private func validatedTabGroupName(_ rawName: String) throws -> String {
@@ -136,7 +126,15 @@ public struct SafariTabGroupCreateCommand: CommandModel, JSONCommandModel {
         return name
     }
 
-    private func createTabGroup(in window: SafariWindowRecord, name: String) throws -> SafariTabGroupRecord {
+    func createTabGroup(in window: SafariWindowRecord, name rawName: String) throws -> SafariTabGroupRecord {
+        let name = try validatedTabGroupName(rawName)
+        return try createTabGroup(inValidatedWindow: window, name: name)
+    }
+
+    private func createTabGroup(
+        inValidatedWindow window: SafariWindowRecord,
+        name: String
+    ) throws -> SafariTabGroupRecord {
         guard !window.isPrivate else {
             throw SafariTabGroupCommandError.privateWindowTabGroupMutationUnsupported(window.index)
         }

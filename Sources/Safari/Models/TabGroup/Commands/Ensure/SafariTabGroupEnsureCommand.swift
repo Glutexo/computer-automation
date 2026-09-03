@@ -21,7 +21,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
     private let openNewDocument: (SafariAppleScriptExecuting) throws -> Void
     private let openProfileWindowShortcut: (String, [String], SafariAppleScriptExecuting) throws -> Void
     private let prepareNewWindowForCreation: (SafariWindowRecord, SafariAppleScriptExecuting) throws -> Void
-    private let createTabGroup: (Int, String) throws -> SafariTabGroupRecord
+    private let createTabGroup: (SafariWindowRecord, String) throws -> SafariTabGroupRecord
     private let deleteTabGroup: (Int) throws -> Void
     private let sleep: (TimeInterval) -> Void
 
@@ -58,8 +58,8 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
                 executor: executor
             )
         }
-        self.createTabGroup = { windowIdentifier, name in
-            try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
+        self.createTabGroup = { window, name in
+            try SafariTabGroupCreateCommand().createTabGroup(in: window, name: name)
         }
         self.deleteTabGroup = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
@@ -80,8 +80,8 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         openNewDocument: @escaping (SafariAppleScriptExecuting) throws -> Void = SafariAppleScriptWindow.openNewDocument,
         openProfileWindowShortcut: @escaping (String, [String], SafariAppleScriptExecuting) throws -> Void = SafariFileMenu.openProfileWindowShortcut,
         prepareNewWindowForCreation: @escaping (SafariWindowRecord, SafariAppleScriptExecuting) throws -> Void = { _, _ in },
-        createTabGroup: @escaping (Int, String) throws -> SafariTabGroupRecord = { windowIdentifier, name in
-            try SafariTabGroupCreateCommand().createTabGroup(windowIdentifier: windowIdentifier, name: name)
+        createTabGroup: @escaping (SafariWindowRecord, String) throws -> SafariTabGroupRecord = { window, name in
+            try SafariTabGroupCreateCommand().createTabGroup(in: window, name: name)
         },
         deleteTabGroup: @escaping (Int) throws -> Void = { identifier in
             _ = try SafariTabGroupDeleteCommand().deleteTabGroup(identifier: identifier)
@@ -183,7 +183,7 @@ public struct SafariTabGroupEnsureCommand: CommandModel, JSONCommandModel {
         let createdGroup: SafariTabGroupRecord
         do {
             try prepareNewWindow(window)
-            createdGroup = try createTabGroup(window.identifier, name)
+            createdGroup = try createTabGroup(window, name)
         } catch {
             try closeWindow(window.identifier, executor)
             throw error

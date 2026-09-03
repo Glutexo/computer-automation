@@ -333,9 +333,9 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         prepareNewWindowForCreation: { window, _ in
             preparedWindowIdentifier = window.identifier
         },
-        createTabGroup: { windowIdentifier, name in
-            #expect(preparedWindowIdentifier == windowIdentifier)
-            #expect(windowIdentifier == 42)
+        createTabGroup: { window, name in
+            #expect(preparedWindowIdentifier == window.identifier)
+            #expect(window.identifier == 42)
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
         }
@@ -390,8 +390,8 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         },
         focusWindow: { windowIdentifier, _ in focusedWindowIdentifiers.append(windowIdentifier) },
         openWindow: { profileName, _ in openedProfileName = profileName },
-        createTabGroup: { windowIdentifier, name in
-            createdWindowIdentifier = windowIdentifier
+        createTabGroup: { window, name in
+            createdWindowIdentifier = window.identifier
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
         }
@@ -443,8 +443,8 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         openWindow: { profileName, _ in openedProfileName = profileName },
         closeWindow: { _, _ in },
         openNewDocument: { _ in didOpenNewDocument = true },
-        createTabGroup: { windowIdentifier, name in
-            createdWindowIdentifier = windowIdentifier
+        createTabGroup: { window, name in
+            createdWindowIdentifier = window.identifier
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 10, profileName: "Twisto", name: "Focus")
         },
@@ -572,8 +572,8 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         focusWindow: { _, _ in },
         openWindow: { _, _ in },
         closeWindow: { identifier, _ in closedWindowIdentifiers.append(identifier) },
-        createTabGroup: { windowIdentifier, name in
-            #expect(windowIdentifier == 42)
+        createTabGroup: { window, name in
+            #expect(window.identifier == 42)
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 99, profileName: "Twisto", name: "Focus")
         },
@@ -624,8 +624,8 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
         openProfileWindowShortcut: { profileName, profileNames, _ in
             shortcutRequests.append("\(profileName)|\(profileNames.joined(separator: ","))")
         },
-        createTabGroup: { windowIdentifier, name in
-            #expect(windowIdentifier == 42)
+        createTabGroup: { window, name in
+            #expect(window.identifier == 42)
             #expect(name == "Focus")
             return SafariTabGroupRecord(identifier: 99, profileName: "", name: "Focus")
         }
@@ -790,6 +790,45 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(renamedIdentifier == 1001)
     #expect(renamedSourceName == "Senza nome")
     #expect(renamedTargetName == "Inbox")
+}
+
+@Test func safariTabGroupCreateCommandUsesResolvedWindowWithoutRelistingIt() async throws {
+    let operationWindow = SafariWindowRecord(
+        processId: 43782,
+        identifier: 58462,
+        index: 3,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    var didCreate = false
+    let command = SafariTabGroupCreateCommand(
+        executor: MockAppleScriptExecutor(),
+        listWindows: {
+            Issue.record("a resolved operation window should not be listed again")
+            return []
+        },
+        listTabGroups: {
+            didCreate
+                ? [SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus")]
+                : []
+        },
+        focusWindow: { _, _ in Issue.record("legacy focus should not be called") },
+        focusWindowInProcess: { windowIdentifier, processIdentifier, _ in
+            #expect(windowIdentifier == 58462)
+            #expect(processIdentifier == 43782)
+        },
+        createTabGroupFromCurrentTabs: { _ in Issue.record("legacy create should not be called") },
+        createTabGroupFromCurrentTabsInProcess: { processIdentifier, _ in
+            #expect(processIdentifier == 43782)
+            didCreate = true
+        },
+        renameTabGroup: { _, _, _ in Issue.record("rename should not be needed") },
+        sleep: { _ in }
+    )
+
+    let group = try command.createTabGroup(in: operationWindow, name: "Focus")
+
+    #expect(group == SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Focus"))
 }
 
 @Test func safariTabGroupCreateCommandRejectsDisabledFileMenuActionWithoutPolling() async throws {
