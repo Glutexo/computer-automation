@@ -173,11 +173,35 @@ public enum SafariSidebar: ModelModel {
         in outline: AXUIElement,
         accessibility: SafariAccessibilityBackend
     ) throws {
-        guard
-            accessibility.setAttribute(kAXSelectedRowsAttribute, to: [row] as CFArray, on: outline),
-            accessibility.setAttribute(kAXSelectedCellsAttribute, to: [cell] as CFArray, on: outline),
-            accessibility.setAttribute(kAXFocusedAttribute, to: kCFBooleanTrue, on: outline)
-        else {
+        guard accessibility.polling.firstResult({ () -> Bool? in
+            guard
+                accessibility.setAttribute(kAXSelectedRowsAttribute, to: [row] as CFArray, on: outline),
+                accessibility.setAttribute(kAXSelectedCellsAttribute, to: [cell] as CFArray, on: outline),
+                accessibility.setAttribute(kAXFocusedAttribute, to: kCFBooleanTrue, on: outline)
+            else {
+                return nil
+            }
+
+            let selectedRowsContainTarget = accessibility
+                .elements(for: kAXSelectedRowsAttribute, on: outline)
+                .contains { CFEqual($0, row) }
+            let selectedCellsContainTarget = accessibility
+                .elements(for: kAXSelectedCellsAttribute, on: outline)
+                .contains { CFEqual($0, cell) }
+
+            guard selectedRowsContainTarget, selectedCellsContainTarget else {
+                return nil
+            }
+
+            if let rowIsSelected = accessibility.optionalBooleanValue(
+                for: kAXSelectedAttribute,
+                on: row
+            ) {
+                return rowIsSelected ? true : nil
+            }
+
+            return true
+        }) != nil else {
             throw SafariUserInterfaceError.sidebarUnavailable
         }
     }
@@ -456,14 +480,22 @@ public enum SafariSidebar: ModelModel {
                 throw error
             }
 
-            guard let renameMenuItem = firstDescendant(
-                in: contextMenu,
-                matchingRole: kAXMenuItemRole,
-                matchingIdentifier: renameTabGroupMenuItemIdentifier,
-                accessibility: accessibility
-            ) else {
+            let renameMenuItem: AXUIElement
+            do {
+                renameMenuItem = try waitForSidebarElement(
+                    error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+                    polling: accessibility.polling
+                ) {
+                    firstDescendant(
+                        in: contextMenu,
+                        matchingRole: kAXMenuItemRole,
+                        matchingIdentifier: renameTabGroupMenuItemIdentifier,
+                        accessibility: accessibility
+                    )
+                }
+            } catch {
                 dismiss(contextMenu: contextMenu, accessibility: accessibility)
-                throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+                throw error
             }
 
             guard accessibility.perform(kAXPressAction, on: renameMenuItem) else {
@@ -685,14 +717,22 @@ public enum SafariSidebar: ModelModel {
             throw error
         }
 
-        guard let deleteMenuItem = firstDescendant(
-            in: contextMenu,
-            matchingRole: kAXMenuItemRole,
-            matchingIdentifier: deleteTabGroupMenuItemIdentifier,
-            accessibility: accessibility
-        ) else {
+        let deleteMenuItem: AXUIElement
+        do {
+            deleteMenuItem = try waitForSidebarElement(
+                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+                polling: accessibility.polling
+            ) {
+                firstDescendant(
+                    in: contextMenu,
+                    matchingRole: kAXMenuItemRole,
+                    matchingIdentifier: deleteTabGroupMenuItemIdentifier,
+                    accessibility: accessibility
+                )
+            }
+        } catch {
             dismiss(contextMenu: contextMenu, accessibility: accessibility)
-            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            throw error
         }
 
         guard accessibility.perform(kAXPressAction, on: deleteMenuItem) else {

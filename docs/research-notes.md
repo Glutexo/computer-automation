@@ -7,6 +7,7 @@
 - Live native Accessibility inspection showed that `AXShowMenu` on a saved group's title element can report success without publishing a context menu; this was the failed path behind issue #68.
 - After setting the exact row and cell selection plus outline focus, `AXShowMenu` on the `AXOutline` identified as `Sidebar` exposes an `AXMenu` identified as `SafariContextMenu`.
 - That exact menu contains structural `RenameTabGroupMenuItem` and `DeleteTabGroupMenuItem` children. This enables locale-independent rename and aligns delete with the same verified trigger without pointer coordinates.
+- In a brand-new Start Page window, Safari can accept the first row/cell writes yet keep a different row and cell selected indefinitely. Repeating all three writes and requiring exact `AXSelectedRows`, `AXSelectedCells`, and row `AXSelected` readback selects the target; opening the menu before that point exposes a tab menu that shares the `SafariContextMenu` identifier but has no rename item.
 - Current Safari can encode only flags, not the numeric saved identifier, in a tab-group cell's `AXIdentifier`. A unique display name is safe inside an operation-owned profile window; duplicate names require candidate selection plus independent selected-group-id readback before mutation.
 - Rename persistence must be checked in `SafariTabs.db` by finding the requested new name on the original identifier. A new identifier with the requested name cannot satisfy the command.
 

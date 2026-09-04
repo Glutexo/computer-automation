@@ -524,6 +524,51 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(!fake.writtenAttributes.contains(where: { sameElement($0.element, firstOutline) }))
 }
 
+@Test func safariSidebarAccessibilityBackendRetriesIgnoredRowSelection() async throws {
+    let application = testAXElement(95_200)
+    let window = testAXElement(95_201)
+    let outline = testAXElement(95_202)
+    let row = testAXElement(95_203)
+    let cell = testAXElement(95_204)
+    let title = testAXElement(95_205)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+    fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
+    fake.setElements(kAXRowsAttribute, on: outline, to: [row])
+    fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
+    fake.set(kAXSelectedAttribute, on: row, to: kCFBooleanFalse)
+    fake.set(kAXIdentifierAttribute, on: cell, to: "SidebarLibraryItemTabGroup-42" as CFString)
+    fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+    fake.set(kAXValueAttribute, on: title, to: "Focus" as CFString)
+    var selectedRowsWriteCount = 0
+    fake.writeHandler = { attribute, _, element in
+        guard
+            attribute == kAXSelectedRowsAttribute,
+            sameElement(element, outline)
+        else {
+            return true
+        }
+
+        selectedRowsWriteCount += 1
+        if selectedRowsWriteCount == 2 {
+            fake.set(kAXSelectedAttribute, on: row, to: kCFBooleanTrue)
+        }
+        return true
+    }
+
+    try SafariSidebar.selectTabGroup(
+        identifier: 42,
+        named: "Focus",
+        accessibility: fake.backend()
+    )
+
+    #expect(selectedRowsWriteCount == 2)
+    #expect(fake.sleptIntervals == [0.05])
+}
+
 @Test func safariSidebarAccessibilityBackendSkipsDecoyAndAcceptsFalseAXVisible() async throws {
     let application = testAXElement(95_100)
     let window = testAXElement(95_101)
@@ -603,6 +648,18 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(kAXIdentifierAttribute, on: renameMenuItem, to: "RenameTabGroupMenuItem" as CFString)
     fake.set(kAXRoleAttribute, on: renameField, to: kAXTextFieldRole as CFString)
     fake.set(kAXIdentifierAttribute, on: renameField, to: "LibraryItemCellTextField" as CFString)
+    var contextMenuChildrenReadCount = 0
+    fake.readHandler = { attribute, element in
+        guard
+            attribute == kAXChildrenAttribute,
+            sameElement(element, contextMenu)
+        else {
+            return nil
+        }
+
+        contextMenuChildrenReadCount += 1
+        return contextMenuChildrenReadCount < 3 ? [] as CFArray : nil
+    }
     fake.actionHandler = { action, element in
         if action == kAXPressAction && sameElement(element, renameMenuItem) {
             fake.set(kAXTitleUIElementAttribute, on: cell, to: renameField)
@@ -621,6 +678,8 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     #expect(fake.performedActions.contains(where: { $0.action == kAXShowMenuAction && sameElement($0.element, outline) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXPressAction && sameElement($0.element, renameMenuItem) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXConfirmAction && sameElement($0.element, renameField) }))
+    #expect(contextMenuChildrenReadCount == 3)
+    #expect(fake.sleptIntervals == [0.05, 0.05])
 }
 
 @Test func safariSidebarAccessibilityBackendVerifiesAmbiguousNameBeforeRenaming() async throws {
