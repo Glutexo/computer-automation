@@ -12,6 +12,7 @@ public struct SafariAppleScriptSidebarTabGroupRecord: Equatable, Sendable {
 }
 
 public enum SafariAppleScriptSidebar: ModelModel {
+    private static let contextMenuIdentifier = "SafariContextMenu"
     private static let renameSelectedTabGroupMenuItemIdentifier = "RenameTabGroupMenuItem"
 
     public static let descriptor = ModelDescriptor(
@@ -261,10 +262,22 @@ public enum SafariAppleScriptSidebar: ModelModel {
                                 delay 0.1
                                 set renameField to titleElement
                                 if value of attribute "AXRole" of renameField is not "AXTextField" then
-                                    perform action "AXShowMenu" of renameField
+                                    perform action "AXShowMenu" of outlineItem
                                     delay 0.1
-                                    set renameMenuItem to missing value
+                                    set contextMenu to missing value
                                     repeat with currentElement in entire contents
+                                        try
+                                            if value of attribute "AXRole" of currentElement is "AXMenu" and value of attribute "AXIdentifier" of currentElement is "\(contextMenuIdentifier)" then
+                                                set contextMenu to currentElement
+                                                exit repeat
+                                            end if
+                                        end try
+                                    end repeat
+                                    if contextMenu is missing value then
+                                        error "Safari tab group context menu not found."
+                                    end if
+                                    set renameMenuItem to missing value
+                                    repeat with currentElement in entire contents of contextMenu
                                         try
                                             if value of attribute "AXRole" of currentElement is "AXMenuItem" and value of attribute "AXIdentifier" of currentElement is "\(renameSelectedTabGroupMenuItemIdentifier)" then
                                                 set renameMenuItem to currentElement

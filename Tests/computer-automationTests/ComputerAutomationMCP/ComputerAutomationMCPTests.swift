@@ -29,6 +29,7 @@ import Testing
     #expect(names.count == expectedCount)
     #expect(Set(names).count == names.count)
     #expect(names.contains("safari_launch"))
+    #expect(names.contains("safari_rename_tab_group"))
     #expect(names.contains("safari_delete_tab_group"))
     #expect(names.contains("safari_execute_tab_javascript"))
 }

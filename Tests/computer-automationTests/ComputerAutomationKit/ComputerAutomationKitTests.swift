@@ -33,6 +33,12 @@ import SQLite3
     #expect(createTabGroup[0].name == "window-index")
     #expect(createTabGroup[1].name == "name")
 
+    let renameTabGroup = SafariTabGroupRenameCommand.descriptor.arguments
+    #expect(renameTabGroup.count == 2)
+    #expect(renameTabGroup[0].name == "tab-group-identifier")
+    #expect(renameTabGroup[0].valueType == .integer)
+    #expect(renameTabGroup[1].name == "name")
+
     let ensureTabGroup = SafariTabGroupEnsureCommand.descriptor.arguments
     #expect(ensureTabGroup == SafariTabGroupFindCommand.descriptor.arguments)
 
@@ -315,6 +321,10 @@ func cliRejectsUnsupportedShell(flag: String) async throws {
     (
         ["safari", "delete-tab-group", "--help"],
         "Usage: computer-automation safari delete-tab-group (<tab-group-identifier> | --profile <profile> --name <name>)"
+    ),
+    (
+        ["safari", "rename-tab-group", "--help"],
+        "Usage: computer-automation safari rename-tab-group <tab-group-identifier> <name>"
     )
 ])
 func cliRendersSafariCommandUsageWithValuesAndAlternatives(

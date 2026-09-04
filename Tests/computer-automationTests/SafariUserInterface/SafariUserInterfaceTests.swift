@@ -579,12 +579,13 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let row = testAXElement(96_003)
     let cell = testAXElement(96_004)
     let title = testAXElement(96_005)
-    let renameMenuItem = testAXElement(96_006)
-    let renameField = testAXElement(96_007)
+    let contextMenu = testAXElement(96_006)
+    let renameMenuItem = testAXElement(96_007)
+    let renameField = testAXElement(96_008)
     let fake = FakeSafariAccessibility(applicationElements: [application])
 
     fake.set(kAXFocusedWindowAttribute, on: application, to: window)
-    fake.setElements(kAXChildrenAttribute, on: application, to: [window, renameMenuItem])
+    fake.setElements(kAXChildrenAttribute, on: application, to: [window, contextMenu])
     fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
     fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
     fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
@@ -595,6 +596,9 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
     fake.set(kAXRoleAttribute, on: title, to: kAXStaticTextRole as CFString)
     fake.set(kAXValueAttribute, on: title, to: "Old" as CFString)
+    fake.set(kAXRoleAttribute, on: contextMenu, to: kAXMenuRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: contextMenu, to: "SafariContextMenu" as CFString)
+    fake.setElements(kAXChildrenAttribute, on: contextMenu, to: [renameMenuItem])
     fake.set(kAXRoleAttribute, on: renameMenuItem, to: kAXMenuItemRole as CFString)
     fake.set(kAXIdentifierAttribute, on: renameMenuItem, to: "RenameTabGroupMenuItem" as CFString)
     fake.set(kAXRoleAttribute, on: renameField, to: kAXTextFieldRole as CFString)
@@ -614,9 +618,150 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     )
 
     #expect((fake.value(kAXValueAttribute, on: renameField) as? String) == "New")
-    #expect(fake.performedActions.contains(where: { $0.action == kAXShowMenuAction && sameElement($0.element, title) }))
+    #expect(fake.performedActions.contains(where: { $0.action == kAXShowMenuAction && sameElement($0.element, outline) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXPressAction && sameElement($0.element, renameMenuItem) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXConfirmAction && sameElement($0.element, renameField) }))
+}
+
+@Test func safariSidebarAccessibilityBackendVerifiesAmbiguousNameBeforeRenaming() async throws {
+    let application = testAXElement(96_100)
+    let window = testAXElement(96_101)
+    let outline = testAXElement(96_102)
+    let firstRow = testAXElement(96_103)
+    let firstCell = testAXElement(96_104)
+    let firstTitle = testAXElement(96_105)
+    let secondRow = testAXElement(96_106)
+    let secondCell = testAXElement(96_107)
+    let secondTitle = testAXElement(96_108)
+    let contextMenu = testAXElement(96_109)
+    let renameMenuItem = testAXElement(96_110)
+    let renameField = testAXElement(96_111)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.setElements(kAXChildrenAttribute, on: application, to: [window, contextMenu])
+    fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+    fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
+    fake.setElements(kAXRowsAttribute, on: outline, to: [firstRow, secondRow])
+    for (row, cell, title) in [
+        (firstRow, firstCell, firstTitle),
+        (secondRow, secondCell, secondTitle)
+    ] {
+        fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
+        fake.set(
+            kAXIdentifierAttribute,
+            on: cell,
+            to: "SidebarLibraryItemTabGroup?isSyncable=true" as CFString
+        )
+        fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+        fake.set(kAXRoleAttribute, on: title, to: kAXStaticTextRole as CFString)
+        fake.set(kAXValueAttribute, on: title, to: "Duplicate" as CFString)
+    }
+    fake.set(kAXRoleAttribute, on: contextMenu, to: kAXMenuRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: contextMenu, to: "SafariContextMenu" as CFString)
+    fake.setElements(kAXChildrenAttribute, on: contextMenu, to: [renameMenuItem])
+    fake.set(kAXRoleAttribute, on: renameMenuItem, to: kAXMenuItemRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: renameMenuItem, to: "RenameTabGroupMenuItem" as CFString)
+    fake.set(kAXRoleAttribute, on: renameField, to: kAXTextFieldRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: renameField, to: "LibraryItemCellTextField" as CFString)
+    fake.actionHandler = { action, element in
+        if action == kAXPressAction && sameElement(element, renameMenuItem) {
+            fake.set(kAXTitleUIElementAttribute, on: secondCell, to: renameField)
+        }
+        return true
+    }
+    var verificationCount = 0
+
+    try SafariSidebar.renameTabGroup(
+        identifier: 42,
+        named: "Duplicate",
+        to: "Renamed",
+        processIdentifier: 43782,
+        verifyAmbiguousSelection: true,
+        selectionIsVerified: {
+            verificationCount += 1
+            return verificationCount == 2
+        },
+        accessibility: fake.backend(processIdentifiers: [43782])
+    )
+
+    let selectedRows = fake.writtenAttributes.filter { $0.name == kAXSelectedRowsAttribute }
+    #expect(selectedRows.count == 2)
+    #expect((selectedRows[0].value as? [AXUIElement])?.first.map { sameElement($0, firstRow) } == true)
+    #expect((selectedRows[1].value as? [AXUIElement])?.first.map { sameElement($0, secondRow) } == true)
+    #expect((fake.value(kAXValueAttribute, on: renameField) as? String) == "Renamed")
+}
+
+@Test func safariSidebarAccessibilityBackendDismissesExactContextMenuOnRenameFailure() async throws {
+    let application = testAXElement(96_200)
+    let window = testAXElement(96_201)
+    let outline = testAXElement(96_202)
+    let row = testAXElement(96_203)
+    let cell = testAXElement(96_204)
+    let title = testAXElement(96_205)
+    let contextMenu = testAXElement(96_206)
+    let decoyRenameItem = testAXElement(96_207)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.setElements(kAXChildrenAttribute, on: application, to: [window, contextMenu, decoyRenameItem])
+    fake.setElements(kAXChildrenAttribute, on: window, to: [outline])
+    fake.set(kAXRoleAttribute, on: outline, to: kAXOutlineRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: outline, to: "Sidebar" as CFString)
+    fake.setElements(kAXRowsAttribute, on: outline, to: [row])
+    fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
+    fake.set(kAXIdentifierAttribute, on: cell, to: "SidebarLibraryItemTabGroup-42" as CFString)
+    fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+    fake.set(kAXRoleAttribute, on: title, to: kAXStaticTextRole as CFString)
+    fake.set(kAXValueAttribute, on: title, to: "Old" as CFString)
+    fake.set(kAXRoleAttribute, on: contextMenu, to: kAXMenuRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: contextMenu, to: "SafariContextMenu" as CFString)
+    fake.set(kAXRoleAttribute, on: decoyRenameItem, to: kAXMenuItemRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: decoyRenameItem, to: "RenameTabGroupMenuItem" as CFString)
+
+    #expect(throws: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable) {
+        try SafariSidebar.renameTabGroup(
+            identifier: 42,
+            named: "Old",
+            to: "New",
+            accessibility: fake.backend()
+        )
+    }
+    #expect(!fake.performedActions.contains(where: {
+        $0.action == kAXPressAction && sameElement($0.element, decoyRenameItem)
+    }))
+    #expect(fake.performedActions.contains(where: {
+        $0.action == kAXCancelAction && sameElement($0.element, contextMenu)
+    }))
+}
+
+@Test func safariSidebarAccessibilityBackendCancelsInlineEditOnRenameFailure() async throws {
+    let application = testAXElement(96_300)
+    let window = testAXElement(96_301)
+    let renameField = testAXElement(96_302)
+    let fake = FakeSafariAccessibility(applicationElements: [application])
+
+    fake.set(kAXFocusedWindowAttribute, on: application, to: window)
+    fake.set(kAXFocusedUIElementAttribute, on: application, to: renameField)
+    fake.set(kAXRoleAttribute, on: renameField, to: kAXTextFieldRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: renameField, to: "LibraryItemCellTextField" as CFString)
+    fake.set(kAXValueAttribute, on: renameField, to: "Old" as CFString)
+    fake.writeHandler = { name, _, element in
+        !(name == kAXValueAttribute && sameElement(element, renameField))
+    }
+
+    #expect(throws: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable) {
+        try SafariSidebar.renameTabGroup(
+            identifier: 42,
+            named: "Old",
+            to: "New",
+            accessibility: fake.backend()
+        )
+    }
+    #expect(fake.performedActions.contains(where: {
+        $0.action == kAXCancelAction && sameElement($0.element, renameField)
+    }))
 }
 
 @Test func safariSidebarAccessibilityBackendDeletesSelectedGroupAndConfirmsSheet() async throws {
@@ -626,14 +771,15 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     let row = testAXElement(97_003)
     let cell = testAXElement(97_004)
     let title = testAXElement(97_005)
-    let deleteMenuItem = testAXElement(97_006)
-    let sheet = testAXElement(97_007)
-    let confirmationButton = testAXElement(97_008)
-    let decoyOutline = testAXElement(97_009)
+    let contextMenu = testAXElement(97_006)
+    let deleteMenuItem = testAXElement(97_007)
+    let sheet = testAXElement(97_008)
+    let confirmationButton = testAXElement(97_009)
+    let decoyOutline = testAXElement(97_010)
     let fake = FakeSafariAccessibility(applicationElements: [application])
 
     fake.set(kAXFocusedWindowAttribute, on: application, to: window)
-    fake.setElements(kAXChildrenAttribute, on: application, to: [window, deleteMenuItem])
+    fake.setElements(kAXChildrenAttribute, on: application, to: [window, contextMenu])
     fake.setElements(kAXChildrenAttribute, on: window, to: [decoyOutline, outline])
     fake.set(kAXRoleAttribute, on: decoyOutline, to: kAXOutlineRole as CFString)
     fake.set(kAXIdentifierAttribute, on: decoyOutline, to: "OtherOutline" as CFString)
@@ -645,6 +791,9 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
     fake.set(kAXSelectedAttribute, on: row, to: kCFBooleanTrue)
     fake.setElements(kAXChildrenAttribute, on: row, to: [cell])
     fake.set(kAXTitleUIElementAttribute, on: cell, to: title)
+    fake.set(kAXRoleAttribute, on: contextMenu, to: kAXMenuRole as CFString)
+    fake.set(kAXIdentifierAttribute, on: contextMenu, to: "SafariContextMenu" as CFString)
+    fake.setElements(kAXChildrenAttribute, on: contextMenu, to: [deleteMenuItem])
     fake.set(kAXRoleAttribute, on: deleteMenuItem, to: kAXMenuItemRole as CFString)
     fake.set(kAXIdentifierAttribute, on: deleteMenuItem, to: "DeleteTabGroupMenuItem" as CFString)
     fake.setElements("AXSheets", on: window, to: [sheet])
@@ -655,7 +804,7 @@ func safariMenuItemBridgePreservesAppleScriptRecordFields(record: SafariAppleScr
 
     try SafariSidebar.deleteSelectedTabGroup(accessibility: fake.backend())
 
-    #expect(fake.performedActions.contains(where: { $0.action == kAXShowMenuAction && sameElement($0.element, title) }))
+    #expect(fake.performedActions.contains(where: { $0.action == kAXShowMenuAction && sameElement($0.element, outline) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXPressAction && sameElement($0.element, deleteMenuItem) }))
     #expect(fake.performedActions.contains(where: { $0.action == kAXPressAction && sameElement($0.element, confirmationButton) }))
 }

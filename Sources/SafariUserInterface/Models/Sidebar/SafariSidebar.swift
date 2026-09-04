@@ -14,6 +14,7 @@ public struct SafariSidebarTabGroupRecord: Equatable, Sendable {
 
 public enum SafariSidebar: ModelModel {
     private static let tabGroupCellIdentifierPrefix = "SidebarLibraryItemTabGroup"
+    private static let contextMenuIdentifier = "SafariContextMenu"
     private static let renameTabGroupMenuItemIdentifier = "RenameTabGroupMenuItem"
     private static let deleteTabGroupMenuItemIdentifier = "DeleteTabGroupMenuItem"
     private static let sidebarTextFieldIdentifier = "LibraryItemCellTextField"
@@ -280,6 +281,8 @@ public enum SafariSidebar: ModelModel {
             matchingIdentifier: nil,
             named: currentName,
             to: newName,
+            verifyAmbiguousSelection: false,
+            selectionIsVerified: { false },
             accessibility: .live
         )
     }
@@ -293,6 +296,27 @@ public enum SafariSidebar: ModelModel {
             matchingIdentifier: tabGroupIdentifier,
             named: currentName,
             to: newName,
+            processIdentifier: nil,
+            verifyAmbiguousSelection: false,
+            selectionIsVerified: { false },
+            accessibility: .live
+        )
+    }
+
+    public static func renameTabGroup(
+        identifier tabGroupIdentifier: Int,
+        named currentName: String,
+        to newName: String,
+        processIdentifier: pid_t?,
+        selectionIsVerified: () throws -> Bool
+    ) throws {
+        try renameTabGroup(
+            matchingIdentifier: tabGroupIdentifier,
+            named: currentName,
+            to: newName,
+            processIdentifier: processIdentifier,
+            verifyAmbiguousSelection: true,
+            selectionIsVerified: selectionIsVerified,
             accessibility: .live
         )
     }
@@ -301,12 +325,18 @@ public enum SafariSidebar: ModelModel {
         identifier tabGroupIdentifier: Int?,
         named currentName: String,
         to newName: String,
+        processIdentifier: pid_t? = nil,
+        verifyAmbiguousSelection: Bool = false,
+        selectionIsVerified: () throws -> Bool = { false },
         accessibility: SafariAccessibilityBackend
     ) throws {
         try renameTabGroup(
             matchingIdentifier: tabGroupIdentifier,
             named: currentName,
             to: newName,
+            processIdentifier: processIdentifier,
+            verifyAmbiguousSelection: verifyAmbiguousSelection,
+            selectionIsVerified: selectionIsVerified,
             accessibility: accessibility
         )
     }
@@ -315,11 +345,15 @@ public enum SafariSidebar: ModelModel {
         matchingIdentifier tabGroupIdentifier: Int?,
         named currentName: String,
         to newName: String,
+        processIdentifier: pid_t? = nil,
+        verifyAmbiguousSelection: Bool,
+        selectionIsVerified: () throws -> Bool,
         accessibility: SafariAccessibilityBackend
     ) throws {
         let (applicationElement, focusedWindow) = try focusedWindow(
             accessibility: accessibility,
-            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+            processIdentifier: processIdentifier
         )
 
         if let focusedRenameField = focusedSidebarRenameField(
@@ -327,7 +361,7 @@ public enum SafariSidebar: ModelModel {
             matching: currentName,
             accessibility: accessibility
         ) {
-            try confirmRenameField(
+            try confirmRenameFieldAndCleanUpOnFailure(
                 focusedRenameField,
                 to: newName,
                 accessibility: accessibility
@@ -338,70 +372,127 @@ public enum SafariSidebar: ModelModel {
         let outline = try outlinedSidebar(in: focusedWindow, accessibility: accessibility)
         let matches = tabGroupRows(in: outline, accessibility: accessibility)
 
-        let targetMatch = StableIdentifierMatching.resolve(
-            requestedIdentifier: tabGroupIdentifier,
-            from: matches,
-            identifier: { sidebarTabGroupIdentifier($0.identifier) },
-            fallback: { $0.title == currentName }
-        )
+        let identifiedMatches = matches.compactMap { match in
+            sidebarTabGroupIdentifier(match.identifier).map { (match: match, identifier: $0) }
+        }
+        let candidates: [(row: AXUIElement, cell: AXUIElement, title: String, identifier: String)]
+        if let tabGroupIdentifier {
+            if let exactMatch = identifiedMatches.first(where: { $0.identifier == tabGroupIdentifier }) {
+                candidates = [exactMatch.match]
+            } else if !identifiedMatches.isEmpty {
+                candidates = []
+            } else {
+                candidates = matches.filter { $0.title == currentName }
+            }
+        } else {
+            candidates = matches.filter { $0.title == currentName }
+        }
 
-        guard let targetMatch else {
+        guard !candidates.isEmpty else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        let targetRow = targetMatch.row
+        let targetMatch: (row: AXUIElement, cell: AXUIElement, title: String, identifier: String)
+        if candidates.count == 1, let onlyCandidate = candidates.first {
+            try select(
+                row: onlyCandidate.row,
+                cell: onlyCandidate.cell,
+                in: outline,
+                accessibility: accessibility
+            )
+            targetMatch = onlyCandidate
+        } else {
+            guard verifyAmbiguousSelection else {
+                throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            }
+
+            var verifiedMatch: (row: AXUIElement, cell: AXUIElement, title: String, identifier: String)?
+            for candidate in candidates {
+                try select(
+                    row: candidate.row,
+                    cell: candidate.cell,
+                    in: outline,
+                    accessibility: accessibility
+                )
+                if try selectionIsVerified() {
+                    verifiedMatch = candidate
+                    break
+                }
+            }
+
+            guard let verifiedMatch else {
+                throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+            }
+            targetMatch = verifiedMatch
+        }
+
         let targetCell = targetMatch.cell
-
-        guard
-            accessibility.setAttribute(kAXSelectedRowsAttribute, to: [targetRow] as CFArray, on: outline),
-            accessibility.setAttribute(kAXSelectedCellsAttribute, to: [targetCell] as CFArray, on: outline),
-            accessibility.setAttribute(kAXFocusedAttribute, to: kCFBooleanTrue, on: outline)
-        else {
-            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
-        }
-
         guard let titleElement = accessibility.elementValue(for: kAXTitleUIElementAttribute, on: targetCell) else {
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
         let renameField: AXUIElement
         if accessibility.stringValue(for: kAXRoleAttribute, on: titleElement) != kAXTextFieldRole {
-            guard accessibility.perform(kAXShowMenuAction, on: titleElement) else {
+            guard accessibility.perform(kAXShowMenuAction, on: outline) else {
+                dismissContextMenu(in: applicationElement, accessibility: accessibility)
                 throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
             }
 
-            let renameMenuItem = try waitForSidebarElement(
-                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
-                polling: accessibility.polling
-            ) {
-                firstDescendant(
-                    in: applicationElement,
-                    matchingRole: kAXMenuItemRole,
-                    matchingIdentifier: renameTabGroupMenuItemIdentifier,
-                    accessibility: accessibility
-                )
+            let contextMenu: AXUIElement
+            do {
+                contextMenu = try waitForSidebarElement(
+                    error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+                    polling: accessibility.polling
+                ) {
+                    firstDescendant(
+                        in: applicationElement,
+                        matchingRole: kAXMenuRole,
+                        matchingIdentifier: contextMenuIdentifier,
+                        accessibility: accessibility
+                    )
+                }
+            } catch {
+                dismissContextMenu(in: applicationElement, accessibility: accessibility)
+                throw error
+            }
+
+            guard let renameMenuItem = firstDescendant(
+                in: contextMenu,
+                matchingRole: kAXMenuItemRole,
+                matchingIdentifier: renameTabGroupMenuItemIdentifier,
+                accessibility: accessibility
+            ) else {
+                dismiss(contextMenu: contextMenu, accessibility: accessibility)
+                throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
             }
 
             guard accessibility.perform(kAXPressAction, on: renameMenuItem) else {
+                dismiss(contextMenu: contextMenu, accessibility: accessibility)
                 throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
             }
 
-            renameField = try waitForSidebarElement(
-                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
-                polling: accessibility.polling
-            ) {
-                guard let refreshedTitleElement = accessibility.elementValue(
-                    for: kAXTitleUIElementAttribute,
-                    on: targetCell
-                ) else {
-                    return nil
-                }
+            do {
+                renameField = try waitForSidebarElement(
+                    error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+                    polling: accessibility.polling
+                ) {
+                    guard let refreshedTitleElement = accessibility.elementValue(
+                        for: kAXTitleUIElementAttribute,
+                        on: targetCell
+                    ) else {
+                        return nil
+                    }
 
-                return sidebarRenameField(
-                    in: applicationElement,
-                    titleElement: refreshedTitleElement,
-                    accessibility: accessibility
-                )
+                    return sidebarRenameField(
+                        in: applicationElement,
+                        titleElement: refreshedTitleElement,
+                        accessibility: accessibility
+                    )
+                }
+            } catch {
+                dismiss(contextMenu: contextMenu, accessibility: accessibility)
+                cancelFocusedRenameField(in: applicationElement, accessibility: accessibility)
+                throw error
             }
         } else {
             renameField = sidebarRenameField(
@@ -411,7 +502,62 @@ public enum SafariSidebar: ModelModel {
             ) ?? titleElement
         }
 
-        try confirmRenameField(renameField, to: newName, accessibility: accessibility)
+        try confirmRenameFieldAndCleanUpOnFailure(
+            renameField,
+            to: newName,
+            accessibility: accessibility
+        )
+    }
+
+    private static func dismissContextMenu(
+        in applicationElement: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) {
+        guard let contextMenu = firstDescendant(
+            in: applicationElement,
+            matchingRole: kAXMenuRole,
+            matchingIdentifier: contextMenuIdentifier,
+            accessibility: accessibility
+        ) else {
+            return
+        }
+
+        dismiss(contextMenu: contextMenu, accessibility: accessibility)
+    }
+
+    private static func dismiss(
+        contextMenu: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) {
+        _ = accessibility.perform(kAXCancelAction, on: contextMenu)
+    }
+
+    private static func cancelFocusedRenameField(
+        in applicationElement: AXUIElement,
+        accessibility: SafariAccessibilityBackend
+    ) {
+        guard
+            let focusedElement = accessibility.elementValue(for: kAXFocusedUIElementAttribute, on: applicationElement),
+            accessibility.stringValue(for: kAXRoleAttribute, on: focusedElement) == kAXTextFieldRole,
+            accessibility.stringValue(for: kAXIdentifierAttribute, on: focusedElement) == sidebarTextFieldIdentifier
+        else {
+            return
+        }
+
+        _ = accessibility.perform(kAXCancelAction, on: focusedElement)
+    }
+
+    private static func confirmRenameFieldAndCleanUpOnFailure(
+        _ renameField: AXUIElement,
+        to newName: String,
+        accessibility: SafariAccessibilityBackend
+    ) throws {
+        do {
+            try confirmRenameField(renameField, to: newName, accessibility: accessibility)
+        } catch {
+            _ = accessibility.perform(kAXCancelAction, on: renameField)
+            throw error
+        }
     }
 
     private static func sidebarRenameField(
@@ -513,28 +659,44 @@ public enum SafariSidebar: ModelModel {
         }
 
         let rows = accessibility.elements(for: kAXRowsAttribute, on: outline)
-        guard
-            let selectedRow = rows.first(where: { accessibility.booleanValue(for: kAXSelectedAttribute, on: $0) }),
-            let cell = accessibility.elements(for: kAXChildrenAttribute, on: selectedRow).first,
-            let titleElement = accessibility.elementValue(for: kAXTitleUIElementAttribute, on: cell),
-            accessibility.perform(kAXShowMenuAction, on: titleElement)
-        else {
+        guard rows.contains(where: { accessibility.booleanValue(for: kAXSelectedAttribute, on: $0) }) else {
+            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
+        }
+        guard accessibility.perform(kAXShowMenuAction, on: outline) else {
+            dismissContextMenu(in: applicationElement, accessibility: accessibility)
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
-        let deleteMenuItem = try waitForSidebarElement(
-            error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
-            polling: accessibility.polling
-        ) {
-            firstDescendant(
-                in: applicationElement,
-                matchingRole: kAXMenuItemRole,
-                matchingIdentifier: deleteTabGroupMenuItemIdentifier,
-                accessibility: accessibility
-            )
+        let contextMenu: AXUIElement
+        do {
+            contextMenu = try waitForSidebarElement(
+                error: SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable,
+                polling: accessibility.polling
+            ) {
+                firstDescendant(
+                    in: applicationElement,
+                    matchingRole: kAXMenuRole,
+                    matchingIdentifier: contextMenuIdentifier,
+                    accessibility: accessibility
+                )
+            }
+        } catch {
+            dismissContextMenu(in: applicationElement, accessibility: accessibility)
+            throw error
+        }
+
+        guard let deleteMenuItem = firstDescendant(
+            in: contextMenu,
+            matchingRole: kAXMenuItemRole,
+            matchingIdentifier: deleteTabGroupMenuItemIdentifier,
+            accessibility: accessibility
+        ) else {
+            dismiss(contextMenu: contextMenu, accessibility: accessibility)
+            throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 
         guard accessibility.perform(kAXPressAction, on: deleteMenuItem) else {
+            dismiss(contextMenu: contextMenu, accessibility: accessibility)
             throw SafariUserInterfaceError.sidebarSelectedItemRenameUnavailable
         }
 

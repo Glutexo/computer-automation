@@ -62,6 +62,7 @@ flowchart TD
     TabGroupSidebarList["sidebar-tab-groups command"]
     TabGroupFind["find-tab-group command"]
     TabGroupResolve["resolve-tab-group command"]
+    TabGroupRename["rename-tab-group command"]
     TabGroupDelete["delete-tab-group command"]
     EnsureTabListURLs["ensure-tab-list-urls command"]
     ReorderTabListURLs["reorder-tab-list-urls command"]
@@ -143,6 +144,7 @@ flowchart TD
     SafariTabGroup --> TabGroupSidebarList
     SafariTabGroup --> TabGroupFind
     SafariTabGroup --> TabGroupResolve
+    SafariTabGroup --> TabGroupRename
     SafariTabGroup --> TabGroupDelete
     SafariTabGroup --> DBTabGroup
     SafariWindow --> SafariTabList
@@ -167,6 +169,7 @@ flowchart TD
     WindowSetTabGroup --> SafariSidebar
     TabGroupCreate --> SafariFileMenu
     TabGroupCreate --> SafariSidebar
+    TabGroupRename --> SafariSidebar
     TabGroupDelete --> SafariSidebar
     TabGroupSidebarList --> SafariSidebar
     SafariSidebar --> ScriptSidebar
@@ -191,14 +194,15 @@ flowchart TD
 - Current supported Safari tab-group operations therefore use:
   - sidebar selection as the targeting surface for existing saved groups
   - File-menu action `NewTabGroupWithTabsMenuItem` as the create trigger
+  - sidebar-outline context-menu action `RenameTabGroupMenuItem` plus the inline text field for rename
   - sidebar context-menu action `DeleteTabGroupMenuItem` for delete
   - the sidebar inline text field for post-create naming
 - Menu and sidebar mutations that follow cross-process window discovery carry the operation window's owning process id into Accessibility and AppleScript fallback lookup; they never select the first arbitrary Safari process.
 - Stable-id window deletion sends an ID-addressed close event directly to the owning Safari process and never delegates to a focused Accessibility window or front-window fallback.
 - Missing saved-group URL reconciliation populates the operation-owned window before invoking `NewTabGroupWithTabsMenuItem`, avoiding Safari's disabled action on an untouched Start Page while preserving the requested URL set in the newly created group.
 - When database-backed group inventory is unavailable, `sidebar-tab-groups` opens a new operation-owned profile window, inventories exact sidebar rows without selecting them, and closes that window. The profile/name delete address uses the same isolated sidebar surface, requires one stable row identifier, and fails closed rather than cycling through unrelated groups.
-- Safari visibly exposes tab-group rename in the sidebar UI, but if the trigger is not available through a stable accessibility surface, the command must stay unexposed rather than relying on an unverified path.
-- Replacing a tab group by creating a new group and deleting the old group is a possible future workaround, not a rename implementation, because it changes identity and can lose Safari-owned metadata.
+- Standalone rename uses the sidebar outline's verified structural `AXShowMenu` action and accepts only `RenameTabGroupMenuItem` beneath the exact `SafariContextMenu`; title-element menu actions and application-wide menu-item matches are not accepted.
+- Rename never replaces the group. Database readback must observe the requested name on the original identifier before success.
 - Accessibility-only automation is required for UI scripting; synthetic coordinate clicking is not an acceptable fallback.
 - Native Safari UI automation receives application lookup, Accessibility attribute reads and writes, actions, and polling through the shared injectable `SafariAccessibilityBackend`; production and AppleScript-fallback transport selection must be explicit rather than inferred from an executor's runtime type.
 - Cross-process window and tab reads reconcile PID-targeted scripting records with opaque layer-zero WindowServer records by stable window id. This inventory covers windows on other macOS Spaces, rejects hidden or stale scripting objects before reading their tabs, and does not depend on titles or Accessibility's current-Space window subset.

@@ -99,6 +99,7 @@ func safariWindowErrorsHaveHumanReadableDescriptions(error: SafariWindowCommandE
     .privateWindowTabGroupMutationUnsupported(1),
     .createdTabGroupNotFound(profileName: "Twisto"),
     .createdTabGroupProfileMismatch(requestedProfileName: "A", createdProfileName: "B"),
+    .tabGroupRenameNotVerified(identifier: 1000, expectedName: "Renamed"),
     .tabGroupDeletionNotVerified(1000),
     .windowForProfileNotFound("Twisto"),
     .sidebarUnavailable,

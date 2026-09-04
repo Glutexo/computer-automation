@@ -24,6 +24,225 @@ func safariTabGroupListCommandFormatsRows(groups: [SafariTabGroupRecord]) async 
     #expect(output == expected)
 }
 
+@Test func safariTabGroupRenameCommandPreservesIdentifierAndClosesOperationWindow() async throws {
+    let original = SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+    let renamed = SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "TSD-9948")
+    let operationWindow = SafariWindowRecord(
+        processId: 43782,
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1001,
+        name: "Twisto"
+    )
+    var didRename = false
+    var renameReadCount = 0
+    var focusedWindow: SafariWindowRecord?
+    var closedIdentifiers: [Int] = []
+    var sleptIntervals: [TimeInterval] = []
+
+    let command = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            guard didRename else { return [original] }
+            renameReadCount += 1
+            return renameReadCount < 2 ? [original] : [renamed]
+        },
+        listWindows: { [operationWindow] },
+        openWindow: { profileName, _, listWindows in
+            #expect(profileName == "Twisto")
+            let windows = try listWindows()
+            #expect(windows == [operationWindow])
+            return operationWindow
+        },
+        focusWindow: { window, _ in focusedWindow = window },
+        renameSidebarTabGroup: { group, newName, processIdentifier, selectionIsVerified in
+            #expect(group == original)
+            #expect(newName == "TSD-9948")
+            #expect(processIdentifier == 43782)
+            let isSelected = try selectionIsVerified()
+            #expect(isSelected)
+            didRename = true
+        },
+        closeWindow: { closedIdentifiers.append($0) },
+        sleep: { sleptIntervals.append($0) }
+    )
+
+    #expect(try command.execute(arguments: ["1001", "TSD-9948"]) == "1001|Twisto|TSD-9948")
+    #expect(focusedWindow == operationWindow)
+    #expect(closedIdentifiers == [42])
+    #expect(sleptIntervals == [0.25])
+}
+
+@Test func safariTabGroupRenameCommandReturnsJSON() async throws {
+    let original = SafariTabGroupRecord(identifier: 48416, profileName: "Twisto", name: "Old")
+    let renamed = SafariTabGroupRecord(identifier: 48416, profileName: "Twisto", name: "New")
+    let operationWindow = SafariWindowRecord(
+        identifier: 84,
+        index: 1,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    var didRename = false
+
+    let command = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { didRename ? [renamed] : [original] },
+        listWindows: { [operationWindow] },
+        openWindow: { _, _, _ in operationWindow },
+        renameSidebarTabGroup: { group, newName, _, _ in
+            #expect(group.identifier == 48416)
+            #expect(newName == "New")
+            didRename = true
+        },
+        closeWindow: { #expect($0 == 84) }
+    )
+
+    let object = try jsonObject(command.executeJSON(arguments: ["48416", "New"]))
+    let group = try #require(object["tabGroup"] as? [String: Any])
+    #expect(group["identifier"] as? Int == 48416)
+    #expect(group["profileName"] as? String == "Twisto")
+    #expect(group["name"] as? String == "New")
+}
+
+@Test func safariTabGroupRenameCommandTargetsIdentifierWhenNamesAreDuplicated() async throws {
+    let groups = [
+        SafariTabGroupRecord(identifier: 1000, profileName: "Twisto", name: "Inbox"),
+        SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+    ]
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        selectedTabGroupIdentifier: 1001,
+        name: "Twisto"
+    )
+    var renamedIdentifier: Int?
+
+    let command = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: {
+            if renamedIdentifier == 1001 {
+                return [
+                    groups[0],
+                    SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Renamed")
+                ]
+            }
+            return groups
+        },
+        listWindows: { [operationWindow] },
+        openWindow: { _, _, _ in operationWindow },
+        renameSidebarTabGroup: { group, _, _, selectionIsVerified in
+            #expect(group.identifier == 1001)
+            let isSelected = try selectionIsVerified()
+            #expect(isSelected)
+            renamedIdentifier = group.identifier
+        },
+        closeWindow: { _ in }
+    )
+
+    #expect(try command.execute(arguments: ["1001", "Renamed"]) == "1001|Twisto|Renamed")
+    #expect(renamedIdentifier == 1001)
+}
+
+@Test func safariTabGroupRenameCommandClosesOperationWindowWhenRenameFailsOrTimesOut() async throws {
+    let original = SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+    let operationWindow = SafariWindowRecord(
+        identifier: 42,
+        index: 1,
+        profileName: "Twisto",
+        name: "Twisto"
+    )
+    var closedIdentifiers: [Int] = []
+    let failingCommand = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [original] },
+        listWindows: { [operationWindow] },
+        openWindow: { _, _, _ in operationWindow },
+        renameSidebarTabGroup: { _, _, _, _ in
+            throw SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable
+        },
+        closeWindow: { closedIdentifiers.append($0) }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.sidebarSelectedItemRenameUnavailable) {
+        try failingCommand.execute(arguments: ["1001", "New"])
+    }
+    #expect(closedIdentifiers == [42])
+
+    let timeoutCommand = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [original] },
+        listWindows: { [operationWindow] },
+        openWindow: { _, _, _ in operationWindow },
+        renameSidebarTabGroup: { _, _, _, _ in },
+        closeWindow: { closedIdentifiers.append($0) },
+        sleep: { _ in }
+    )
+
+    #expect(
+        throws: SafariTabGroupCommandError.tabGroupRenameNotVerified(
+            identifier: 1001,
+            expectedName: "New"
+        )
+    ) {
+        try timeoutCommand.execute(arguments: ["1001", "New"])
+    }
+    #expect(closedIdentifiers == [42, 42])
+}
+
+@Test func safariTabGroupRenameCommandRejectsInvalidArgumentsWithoutOpeningWindow() async throws {
+    var didOpenWindow = false
+    let command = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [] },
+        listWindows: { [] },
+        openWindow: { _, _, _ in
+            didOpenWindow = true
+            return SafariWindowRecord(identifier: 42, index: 1, profileName: "", name: "")
+        },
+        renameSidebarTabGroup: { _, _, _, _ in Issue.record("rename should not be called") },
+        closeWindow: { _ in Issue.record("close should not be called") }
+    )
+
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupIdentifier) {
+        try command.execute(arguments: [])
+    }
+    #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("x")) {
+        try command.execute(arguments: ["x", "New"])
+    }
+    #expect(throws: SafariTabGroupCommandError.invalidTabGroupIdentifier("0")) {
+        try command.execute(arguments: ["0", "New"])
+    }
+    #expect(throws: SafariTabGroupCommandError.missingTabGroupName) {
+        try command.execute(arguments: ["1001"])
+    }
+    #expect(throws: SafariTabGroupCommandError.emptyTabGroupName) {
+        try command.execute(arguments: ["1001", "   "])
+    }
+    #expect(throws: SafariTabGroupCommandError.unexpectedArgument("extra")) {
+        try command.execute(arguments: ["1001", "New", "extra"])
+    }
+    #expect(!didOpenWindow)
+}
+
+@Test func safariTabGroupRenameCommandSkipsMutationWhenNameIsAlreadyExact() async throws {
+    let group = SafariTabGroupRecord(identifier: 1001, profileName: "Twisto", name: "Inbox")
+    let command = SafariTabGroupRenameCommand(
+        executor: MockAppleScriptExecutor(),
+        listTabGroups: { [group] },
+        listWindows: { Issue.record("listWindows should not be called"); return [] },
+        openWindow: { _, _, _ in
+            Issue.record("openWindow should not be called")
+            return SafariWindowRecord(identifier: 42, index: 1, profileName: "", name: "")
+        },
+        renameSidebarTabGroup: { _, _, _, _ in Issue.record("rename should not be called") },
+        closeWindow: { _ in Issue.record("close should not be called") }
+    )
+
+    #expect(try command.execute(arguments: ["1001", " Inbox "]) == "1001|Twisto|Inbox")
+}
+
 @Test func safariTabGroupSidebarListCommandFormatsAndFiltersExactRows() async throws {
     let groups = [
         SafariTabGroupSidebarRecord(identifier: 10, profileName: "Twisto", name: "Focus"),

@@ -62,6 +62,7 @@ public enum SafariTabGroup: ModelModel {
             SafariTabGroupSidebarListCommand.descriptor,
             SafariTabGroupFindCommand.descriptor,
             SafariTabGroupResolveCommand.descriptor,
+            SafariTabGroupRenameCommand.descriptor,
             SafariTabGroupDeleteCommand.descriptor
         ]
     )
@@ -204,6 +205,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
     case privateWindowTabGroupMutationUnsupported(Int)
     case createdTabGroupNotFound(profileName: String)
     case createdTabGroupProfileMismatch(requestedProfileName: String, createdProfileName: String)
+    case tabGroupRenameNotVerified(identifier: Int, expectedName: String)
     case tabGroupDeletionNotVerified(Int)
     case windowForProfileNotFound(String)
     case sidebarUnavailable
@@ -252,6 +254,8 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
             "Safari did not persist the newly created tab group in profile \(profileName)."
         case .createdTabGroupProfileMismatch(let requestedProfileName, let createdProfileName):
             "Safari created the tab group in profile \(createdProfileName), not requested profile \(requestedProfileName)."
+        case .tabGroupRenameNotVerified(let identifier, let expectedName):
+            "Safari did not confirm that saved tab group \(identifier) was renamed to \(expectedName)."
         case .tabGroupDeletionNotVerified(let identifier):
             "Safari did not confirm deletion of saved tab group \(identifier)."
         case .windowForProfileNotFound(let profileName):
@@ -263,7 +267,7 @@ enum SafariTabGroupCommandError: Error, Equatable, LocalizedError {
         case .sidebarTabGroupIdentifierUnavailable(let profileName, let tabGroupName):
             "Safari's sidebar row for saved tab group \(tabGroupName) in profile \(profileName) does not expose a stable identifier. No deletion was attempted."
         case .sidebarSelectedItemRenameUnavailable:
-            "Safari did not expose the inline name field for the newly created tab group."
+            "Safari did not expose or confirm the structural rename controls for the selected saved tab group."
         case .unexpectedArgument(let argument):
             "Unexpected argument \(argument). Run the command with --help for usage."
         }

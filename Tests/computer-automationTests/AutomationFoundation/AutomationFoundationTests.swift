@@ -74,6 +74,7 @@ import SQLite3
             CompletionSuggestion(value: "sidebar-tab-groups", abstract: "List saved Safari tab groups from a temporary profile window's sidebar."),
             CompletionSuggestion(value: "find-tab-group", abstract: "Find saved Safari tab groups by profile and name."),
             CompletionSuggestion(value: "resolve-tab-group", abstract: "Resolve exactly one saved Safari tab group by profile and name."),
+            CompletionSuggestion(value: "rename-tab-group", abstract: "Rename a saved Safari tab group without changing its identifier."),
             CompletionSuggestion(value: "delete-tab-group", abstract: "Delete a saved Safari tab group."),
             CompletionSuggestion(value: "ensure-tab-list-urls", abstract: "Ensure requested URLs exist in a Safari tab list."),
             CompletionSuggestion(value: "reorder-tab-list-urls", abstract: "Reorder Safari tab lists to match requested URL order."),

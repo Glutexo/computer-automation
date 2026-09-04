@@ -6,17 +6,17 @@ Minimal Swift application for computer automation experiments.
 
 - The repository is organized by top-level modules.
 - The application modules are `Safari`, `SafariDatabase`, `SafariUserInterface`, and `SafariAppleScript`; `ComputerAutomationKit` and `ComputerAutomationMCP` provide the CLI and MCP adapters.
-- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/delete flows, ordered tab-list reads, URL reconciliation, and URL-order reordering for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
+- The current runnable slice covers Safari application lifecycle commands, profile listing and lookup, browser window operations, saved tab-group create/reuse/read/rename/delete flows, ordered tab-list reads, URL reconciliation, and URL-order reordering for windows and saved groups, window-level tab-group switching, and tab lookup by URL.
 - The CLI also exposes Safari UI inspection commands for the application menu bar and File menu.
 - A local stdio MCP server exposes the same command inventory as typed tools, with mutation tools disabled by default.
-- Saved tab-group create/delete is driven by accessibility:
+- Saved tab-group create/rename/delete is driven by accessibility:
   - the target group is resolved through the opened Safari sidebar; a matching saved group identifier is authoritative, a different exposed identifier is a definitive mismatch, and display-name fallback is allowed only when the sidebar exposes no stable group identifiers
   - create captures the operation window's current tabs through Safari's File-menu action identified by `NewTabGroupWithTabsMenuItem`; this path remains persisted after the operation window closes
   - create relies on Safari's post-create inline edit field for naming the newly created group
   - create rolls back newly created groups when profile validation or rename/readback verification fails
+  - rename opens a brand-new profile window, selects the exact saved identifier, invokes `RenameTabGroupMenuItem` only inside `SafariContextMenu`, confirms the inline edit field, and verifies that the same identifier has the requested name
   - delete uses the selected group's context menu item `DeleteTabGroupMenuItem`
-  - standalone rename is currently not exposed because the visible Safari sidebar rename affordance is not available through a stable accessibility trigger
-  - replacing a group by creating a new one and deleting the old one is documented as a possible future workaround, but it is not implemented because it would change the stable group identifier and may lose Safari metadata
+  - rename and delete open the context menu through the sidebar outline's structural `AXShowMenu` action; no pointer coordinates are used
   - when database-backed inventory is unavailable, an explicit sidebar fallback lists or exactly deletes groups in a brand-new operation-owned profile window without cycling through unrelated groups
 - Module and command models expose metadata for CLI tab completion.
 
@@ -62,7 +62,7 @@ A generic local MCP client configuration for the release binary has this shape:
 }
 ```
 
-Add `"--allow-mutations"` to `args` only when the client should be able to launch or quit Safari, open, update, or close windows and tabs, create or delete saved tab groups, or execute JavaScript. MCP tool calls are serialized so concurrent requests cannot race each other while operating Safari.
+Add `"--allow-mutations"` to `args` only when the client should be able to launch or quit Safari, open, update, or close windows and tabs, create, rename, or delete saved tab groups, or execute JavaScript. MCP tool calls are serialized so concurrent requests cannot race each other while operating Safari.
 
 The MCP transport owns standard input, so the `safari_execute_tab_javascript` tool accepts inline JavaScript only; the CLI-only `--stdin` and `--file` source forms are not MCP arguments. The MCP client or the process that launches the server may need the same Automation, Accessibility, and Full Disk Access permissions described for the CLI.
 
@@ -92,6 +92,8 @@ swift run computer-automation safari sidebar-tab-groups Twisto
 swift run computer-automation safari sidebar-tab-groups Twisto Inbox
 swift run computer-automation safari find-tab-group Twisto Focus
 swift run computer-automation safari resolve-tab-group Twisto Focus
+swift run computer-automation safari rename-tab-group 1000 'Renamed group'
+swift run computer-automation --json safari rename-tab-group 1000 'Renamed group'
 swift run computer-automation safari tab-group-tabs 1000
 swift run computer-automation safari delete-tab-group 1000
 swift run computer-automation safari delete-tab-group --profile Twisto --name Inbox
@@ -157,6 +159,8 @@ Saved tab-group outputs report the Safari profile display name. Safari may store
 `safari delete-tab-group --profile <profile> --name <name>` performs the matching sidebar-only delete flow. It requires exactly one exact-name row and a stable sidebar identifier, selects only that row, confirms Safari's destructive sheet, verifies through sidebar readback that the identifier disappeared, and closes its operation-owned window. Missing, ambiguous, unidentified, or unavailable rows fail closed. The original identifier form remains available for database-backed deletion.
 
 `safari delete-tab-group <identifier>` deletes a saved Safari tab group and verifies through readback that the group disappeared before returning success.
+
+`safari rename-tab-group <identifier> <name>` renames the exact saved Safari tab group without replacing it. The command opens a brand-new operation-owned window for the group's profile, carries that window's process id into sidebar Accessibility lookup, and invokes only the `RenameTabGroupMenuItem` inside Safari's structural context menu. If same-name sidebar rows do not expose identifiers, each candidate selection must independently read back the requested identifier before rename. Success requires database readback of the requested name on the unchanged identifier. The operation window, context menu, and inline edit state are cleaned up on success and failure. Text output uses the normal `identifier|profile|name` row; JSON returns the record under `tabGroup`.
 
 `safari ensure-tab-list-urls` adds missing URLs to a window-backed or saved-tab-group-backed tab list and skips URLs already present in that list. Use `--window-id <id>` for stable live-window writes, `--window-index <index>` only when you have just re-read the current window order, or `--tab-group-profile <profile> --tab-group-name <name>` for a saved tab group. For a missing saved group, the command loads the requested URLs into its new profile window before creating the persistent group. For a reused group, it opens another brand-new profile window and selects the group through the Safari sidebar by saved group id. Menu and sidebar operations are constrained to that window's owning Safari process, and text and JSON output report the operation window id. The command never repurposes a pre-existing Safari window. If selection or mutation fails, it deletes a group created by the operation and closes only the operation-owned window before failing.
 

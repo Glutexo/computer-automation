@@ -1,5 +1,15 @@
 # Decision Log
 
+## 2026-09-04
+
+### Stable-identifier saved tab-group rename
+
+- Added `safari rename-tab-group <identifier> <name>` as a true update that preserves the saved group's identifier instead of replacing the group.
+- Every rename runs in a brand-new operation-owned profile window, carries its owning process id into Accessibility lookup, and independently verifies the new name on the unchanged identifier before closing that window.
+- The verified trigger is `AXShowMenu` on the exact sidebar outline, followed only by `RenameTabGroupMenuItem` beneath `SafariContextMenu`; the previously attempted title-element action and application-wide menu search remain rejected.
+- When Safari withholds row identifiers and duplicate display names exist, candidate selection must read back the requested saved identifier before any rename action. Unverifiable selection fails closed.
+- Context-menu and inline-edit failure paths issue structural cancel actions. Command metadata publishes text/JSON, completion, help, and mutation-enabled MCP support from the same descriptor.
+
 ## 2026-09-03
 
 ### Refresh transient Safari File-menu command state

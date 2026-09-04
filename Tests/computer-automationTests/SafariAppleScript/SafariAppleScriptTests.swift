@@ -639,3 +639,24 @@ func safariAppleScriptMenuItemListsChildItems(rows: [(Int, String, String, Strin
     #expect(NSAppleScript(source: script)?.compileAndReturnError(&compileError) == true)
     #expect(compileError == nil)
 }
+
+@Test func safariAppleScriptSidebarRenameUsesStructuralContextMenu() async throws {
+    let executor = MockAppleScriptExecutor()
+
+    try SafariAppleScriptSidebar.renameTabGroup(
+        named: "Old",
+        to: "New",
+        executor: executor
+    )
+
+    let script = try #require(executor.executedScripts.first)
+    #expect(script.contains("perform action \"AXShowMenu\" of outlineItem"))
+    #expect(script.contains("value of attribute \"AXIdentifier\" of currentElement is \"SafariContextMenu\""))
+    #expect(script.contains("repeat with currentElement in entire contents of contextMenu"))
+    #expect(script.contains("value of attribute \"AXIdentifier\" of currentElement is \"RenameTabGroupMenuItem\""))
+    #expect(!script.contains("perform action \"AXShowMenu\" of renameField"))
+
+    var compileError: NSDictionary?
+    #expect(NSAppleScript(source: script)?.compileAndReturnError(&compileError) == true)
+    #expect(compileError == nil)
+}
